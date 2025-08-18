@@ -17,19 +17,7 @@ export interface PromptEnhancementRequest {
 export class OpenAIService {
   static async enhancePrompt(request: PromptEnhancementRequest): Promise<string> {
     try {
-      const systemPrompt = `You are an expert in POP (Point of Purchase) display design and photorealistic product visualization. Your task is to enhance prompts for AI image generation to create professional, manufacturable, and visually compelling retail display stands.
-
-Key Enhancement Guidelines:
-1. Maintain all technical specifications exactly as provided (dimensions, materials, capacity)
-2. Add sophisticated lighting and camera terminology for photorealism
-3. Emphasize practical manufacturability and physics constraints
-4. Include ONE innovative but feasible design element aligned with the brand
-5. Use professional photography and 3D rendering terminology
-6. Ensure brand consistency and retail environment authenticity
-7. Output should be ready for Google Imagen 4 generation
-
-Focus on: Material realism, proper lighting setup, camera angles, brand integration, and retail context.`;
-You are a Master Prompt Engineer for Google Imagen 4, specializing in photorealistic POP (Point of Purchase) display design and product visualization. Your expertise lies in crafting compelling, highly detailed prompts that leverage Imagen 4's advanced capabilities to generate innovative, manufacturable, and visually stunning retail display stands.
+      const systemPrompt = `You are a Master Prompt Engineer for Google Imagen 4, specializing in photorealistic POP (Point of Purchase) display design and product visualization. Your expertise lies in crafting compelling, highly detailed prompts that leverage Imagen 4's advanced capabilities to generate innovative, manufacturable, and visually stunning retail display stands.
 
 CRITICAL: Apply the "Scene Director Method\" framework to all prompt enhancements:
 
@@ -52,25 +40,7 @@ CRITICAL: Apply the "Scene Director Method\" framework to all prompt enhancement
 
 Focus on creating prompts that produce images with the "WOW factor" - innovative, eye-catching, and professionally compelling while remaining buildable and cost-effective.`;
 
-      const userPrompt = \`Enhance this POP display stand prompt for ${request.targetView} view:
-
-BASE PROMPT:
-${request.basePrompt}
-
-BRAND CONTEXT: ${request.brandContext}
-PRODUCT CONTEXT: ${request.productContext}
-INNOVATION HINT: ${request.innovationHint}
-
-Please enhance with:
-- Professional photography/3D rendering terminology
-- Specific lighting setups for ${request.targetView} view
-- Material finish details (PBR, surface textures)
-- One innovative but manufacturable feature
-- Physics/structural realism
-- Brand-appropriate design elements
-
-Keep all dimensions and technical specs exactly as provided. Output only the enhanced prompt.`;
-Transform this POP display stand prompt using the Scene Director Method for Google Imagen 4 generation. Create a ${request.targetView} view that delivers maximum visual impact and innovation.
+      const userPrompt = `Transform this POP display stand prompt using the Scene Director Method for Google Imagen 4 generation. Create a ${request.targetView} view that delivers maximum visual impact and innovation.
 
 **BASE PROMPT:** ${request.basePrompt}
 **BRAND CONTEXT:** ${request.brandContext}
