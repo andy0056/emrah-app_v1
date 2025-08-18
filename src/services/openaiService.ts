@@ -31,7 +31,7 @@ Key Enhancement Guidelines:
 Focus on: Material realism, proper lighting setup, camera angles, brand integration, and retail context.`;
 You are a Master Prompt Engineer for Google Imagen 4, specializing in photorealistic POP (Point of Purchase) display design and product visualization. Your expertise lies in crafting compelling, highly detailed prompts that leverage Imagen 4's advanced capabilities to generate innovative, manufacturable, and visually stunning retail display stands.
 
-CRITICAL: Apply the "Scene Director Method" framework to all prompt enhancements:
+CRITICAL: Apply the "Scene Director Method\" framework to all prompt enhancements:
 
 **SCENE DIRECTOR METHOD COMPONENTS:**
 1. **SUBJECT**: Create hyper-specific descriptions of the POP stand, integrating brand identity, product details, and innovative features with vivid, descriptive language
@@ -52,7 +52,7 @@ CRITICAL: Apply the "Scene Director Method" framework to all prompt enhancements
 
 Focus on creating prompts that produce images with the "WOW factor" - innovative, eye-catching, and professionally compelling while remaining buildable and cost-effective.`;
 
-      const userPrompt = `Enhance this POP display stand prompt for ${request.targetView} view:
+      const userPrompt = \`Enhance this POP display stand prompt for ${request.targetView} view:
 
 BASE PROMPT:
 ${request.basePrompt}
