@@ -224,10 +224,18 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       console.log('Starting Google sign-in process...');
       setError(null);
       
+      // Ensure correct redirect URL
+      const currentOrigin = window.location.origin;
+      const redirectUrl = currentOrigin.includes('localhost:3000') 
+        ? currentOrigin.replace('localhost:3000', 'localhost:5173')
+        : currentOrigin;
+      
+      console.log('Using redirect URL:', redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'
@@ -239,7 +247,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
         console.error('Google OAuth error:', error);
         setError(`Google sign-in failed: ${error.message}`);
       } else {
-        console.log('Google OAuth popup should open...');
+        console.log('Google OAuth initiated with redirect:', redirectUrl);
       }
     } catch (err) {
       console.error('Sign-in error:', err);

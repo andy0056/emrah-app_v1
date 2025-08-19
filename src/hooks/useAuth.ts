@@ -60,12 +60,20 @@ export const useAuth = (): UseAuthReturn => {
   const signInWithGoogle = async () => {
     try {
       console.log('Initiating Google OAuth...');
-      console.log('Redirect URL:', window.location.origin);
+      
+      // Get the current URL and ensure we use the correct port
+      const currentOrigin = window.location.origin;
+      const redirectUrl = currentOrigin.includes('localhost:3000') 
+        ? currentOrigin.replace('localhost:3000', 'localhost:5173')
+        : currentOrigin;
+      
+      console.log('Current origin:', currentOrigin);
+      console.log('Redirect URL:', redirectUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'
@@ -78,7 +86,7 @@ export const useAuth = (): UseAuthReturn => {
         throw error;
       }
       
-      console.log('Google OAuth initiated successfully');
+      console.log('Google OAuth initiated successfully with redirect:', redirectUrl);
       return { error };
     } catch (error) {
       console.error('Google Sign-in Error:', error);
