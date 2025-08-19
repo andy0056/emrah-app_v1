@@ -58,13 +58,37 @@ export const useAuth = (): UseAuthReturn => {
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
+    try {
+      console.log('Initiating Google OAuth...');
+      console.log('Redirect URL:', window.location.origin);
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+      
+      if (error) {
+        console.error('Google OAuth Error:', error);
+        throw error;
       }
-    });
-    return { error };
+      
+      console.log('Google OAuth initiated successfully');
+      return { error };
+    } catch (error) {
+      console.error('Google Sign-in Error:', error);
+      return { 
+        error: {
+          message: error instanceof Error ? error.message : 'Google sign-in failed',
+          details: error
+        }
+      };
+    }
   };
 
   const signOut = async () => {

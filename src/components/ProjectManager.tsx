@@ -220,16 +220,30 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   };
 
   const signIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
-    });
+    try {
+      console.log('Starting Google sign-in process...');
+      setError(null);
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
 
-    if (error) {
-      console.error('Error signing in:', error);
-      setError('Failed to sign in. Please try again.');
+      if (error) {
+        console.error('Google OAuth error:', error);
+        setError(`Google sign-in failed: ${error.message}`);
+      } else {
+        console.log('Google OAuth popup should open...');
+      }
+    } catch (err) {
+      console.error('Sign-in error:', err);
+      setError('Failed to initiate Google sign-in. Please check your configuration.');
     }
   };
 
