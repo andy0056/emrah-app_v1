@@ -1,0 +1,310 @@
+import { supabase, Project, ProjectInsert, ProjectUpdate, ProjectVersion, GeneratedImage, GeneratedImageInsert } from './supabaseClient';
+
+export interface FormData {
+  submissionId: string;
+  respondentId: string;
+  submittedAt: string;
+  brand: string;
+  brandLogo: File | null;
+  product: string;
+  productImage: File | null;
+  productWidth: number;
+  productDepth: number;
+  productHeight: number;
+  frontFaceCount: number;
+  backToBackCount: number;
+  keyVisual: File | null;
+  exampleStands: File[];
+  standType: string;
+  materials: string[];
+  standBaseColor: string;
+  standWidth: number;
+  standDepth: number;
+  standHeight: number;
+  shelfWidth: number;
+  shelfDepth: number;
+  shelfCount: number;
+  description: string;
+}
+
+export interface SavedProject extends Project {
+  images?: GeneratedImage[];
+  versions?: ProjectVersion[];
+}
+
+export class ProjectService {
+  // Save a new project
+  static async saveProject(
+    formData: FormData,
+    basePrompts: any,
+    enhancedPrompts: any = null,
+    name?: string,
+    description?: string
+  ): Promise<SavedProject> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const projectData: ProjectInsert = {
+      user_id: user.id,
+      name: name || `${formData.brand} - ${formData.product}`,
+      description: description || formData.description,
+      form_data: formData,
+      base_prompts: basePrompts,
+      enhanced_prompts: enhancedPrompts,
+      brand: formData.brand,
+      product: formData.product,
+      stand_type: formData.standType,
+      status: 'draft'
+    };
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert(projectData)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to save project: ${error.message}`);
+    return data;
+  }
+
+  // Update existing project
+  static async updateProject(
+    projectId: string,
+    formData: FormData,
+    basePrompts: any,
+    enhancedPrompts: any = null
+  ): Promise<SavedProject> {
+    const updateData: ProjectUpdate = {
+      form_data: formData,
+      base_prompts: basePrompts,
+      enhanced_prompts: enhancedPrompts,
+      brand: formData.brand,
+      product: formData.product,
+      stand_type: formData.standType
+    };
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updateData)
+      .eq('id', projectId)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to update project: ${error.message}`);
+    return data;
+  }
+
+  // Create a new version of a project
+  static async saveProjectVersion(
+    projectId: string,
+    formData: FormData,
+    basePrompts: any,
+    enhancedPrompts: any = null,
+    versionName?: string,
+    changeNotes?: string
+  ): Promise<ProjectVersion> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const versionData = {
+      project_id: projectId,
+      form_data: formData,
+      base_prompts: basePrompts,
+      enhanced_prompts: enhancedPrompts,
+      version_name: versionName,
+      change_notes: changeNotes,
+      created_by: user.id
+    };
+
+    const { data, error } = await supabase
+      .from('project_versions')
+      .insert(versionData)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to save project version: ${error.message}`);
+    return data;
+  }
+
+  // Load a project by ID
+  static async loadProject(projectId: string): Promise<SavedProject> {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        generated_images(*),
+        project_versions(*)
+      `)
+      .eq('id', projectId)
+      .single();
+
+    if (error) throw new Error(`Failed to load project: ${error.message}`);
+    return data;
+  }
+
+  // Get user's projects
+  static async getUserProjects(limit = 50, offset = 0): Promise<SavedProject[]> {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        generated_images(count),
+        project_versions(count)
+      `)
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw new Error(`Failed to load projects: ${error.message}`);
+    return data || [];
+  }
+
+  // Delete a project
+  static async deleteProject(projectId: string): Promise<void> {
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (error) throw new Error(`Failed to delete project: ${error.message}`);
+  }
+
+  // Save generated image to project
+  static async saveGeneratedImage(
+    projectId: string,
+    imageType: 'front_view' | 'store_view' | 'three_quarter_view' | 'edited',
+    imageUrl: string,
+    promptUsed: string,
+    aspectRatio: string,
+    versionId?: string
+  ): Promise<GeneratedImage> {
+    const imageData: GeneratedImageInsert = {
+      project_id: projectId,
+      version_id: versionId || null,
+      image_type: imageType,
+      image_url: imageUrl,
+      prompt_used: promptUsed,
+      model_used: 'imagen4',
+      aspect_ratio: aspectRatio,
+      status: 'generated'
+    };
+
+    const { data, error } = await supabase
+      .from('generated_images')
+      .insert(imageData)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to save generated image: ${error.message}`);
+    return data;
+  }
+
+  // Upload file to Supabase Storage
+  static async uploadFile(file: File, bucket: string, path: string): Promise<string> {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw new Error(`Failed to upload file: ${error.message}`);
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  }
+
+  // Export project data as JSON
+  static async exportProject(projectId: string): Promise<any> {
+    const project = await this.loadProject(projectId);
+    
+    const exportData = {
+      project: {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        brand: project.brand,
+        product: project.product,
+        created_at: project.created_at,
+        updated_at: project.updated_at
+      },
+      formData: project.form_data,
+      prompts: {
+        base: project.base_prompts,
+        enhanced: project.enhanced_prompts
+      },
+      images: project.images?.map(img => ({
+        type: img.image_type,
+        url: img.image_url,
+        prompt: img.prompt_used,
+        aspect_ratio: img.aspect_ratio,
+        created_at: img.created_at
+      })),
+      versions: project.versions?.map(v => ({
+        version_number: v.version_number,
+        version_name: v.version_name,
+        change_notes: v.change_notes,
+        created_at: v.created_at
+      })),
+      exportedAt: new Date().toISOString(),
+      exportVersion: '1.0'
+    };
+
+    // Track export in database
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('project_exports').insert({
+        project_id: projectId,
+        user_id: user.id,
+        export_type: 'json',
+        includes_images: true,
+        includes_prompts: true,
+        includes_form_data: true
+      });
+    }
+
+    return exportData;
+  }
+
+  // Search projects
+  static async searchProjects(query: string): Promise<SavedProject[]> {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .or(`name.ilike.%${query}%,brand.ilike.%${query}%,product.ilike.%${query}%,description.ilike.%${query}%`)
+      .order('updated_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw new Error(`Failed to search projects: ${error.message}`);
+    return data || [];
+  }
+
+  // Duplicate a project
+  static async duplicateProject(projectId: string, newName?: string): Promise<SavedProject> {
+    const originalProject = await this.loadProject(projectId);
+    
+    const duplicateData: ProjectInsert = {
+      user_id: originalProject.user_id,
+      name: newName || `${originalProject.name} (Copy)`,
+      description: originalProject.description,
+      form_data: originalProject.form_data,
+      base_prompts: originalProject.base_prompts,
+      enhanced_prompts: originalProject.enhanced_prompts,
+      brand: originalProject.brand,
+      product: originalProject.product,
+      stand_type: originalProject.stand_type,
+      status: 'draft'
+    };
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert(duplicateData)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to duplicate project: ${error.message}`);
+    return data;
+  }
+}

@@ -3,6 +3,8 @@ import { Upload, Calendar, Palette, Package, Ruler, FileText, Send } from 'lucid
 import { PromptGenerator } from '../utils/promptGenerator';
 import PromptPreview from './PromptPreview';
 import ImageGeneration from './ImageGeneration';
+import ProjectManager from './ProjectManager';
+import { SavedProject } from '../services/projectService';
 
 interface FormData {
   submissionId: string;
@@ -92,6 +94,8 @@ const StandRequestForm: React.FC = () => {
     threeQuarterView: string;
   } | null>(null);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
 
   useEffect(() => {
     // Generate submission ID and set current timestamp
@@ -137,6 +141,34 @@ const StandRequestForm: React.FC = () => {
 
     setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials);
   }, [formData]);
+
+  const handleLoadProject = (project: SavedProject) => {
+    setIsLoadingProject(true);
+    
+    try {
+      // Load form data
+      const loadedFormData = project.form_data;
+      setFormData(loadedFormData);
+      
+      // Load prompts
+      if (project.base_prompts) {
+        setPrompts(project.base_prompts);
+      }
+      
+      if (project.enhanced_prompts) {
+        setEnhancedPrompts(project.enhanced_prompts);
+      }
+      
+      // Set current project ID
+      setCurrentProjectId(project.id);
+      
+    } catch (error) {
+      console.error('Error loading project:', error);
+      alert('Failed to load project data');
+    } finally {
+      setIsLoadingProject(false);
+    }
+  };
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -736,6 +768,15 @@ const StandRequestForm: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Project Management */}
+      <ProjectManager
+        formData={formData}
+        prompts={prompts}
+        enhancedPrompts={enhancedPrompts}
+        onLoadProject={handleLoadProject}
+        currentProjectId={currentProjectId || undefined}
+      />
 
       {/* Dynamic Prompt Preview */}
       <PromptPreview 
