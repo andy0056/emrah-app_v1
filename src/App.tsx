@@ -1,7 +1,28 @@
 import React from 'react';
+import { useEffect } from 'react';
 import StandRequestForm from './components/StandRequestForm';
+import { MonitoringService } from './utils/monitoring';
+import { PerformanceUtils } from './utils/performance';
 
 function App() {
+  useEffect(() => {
+    // Initialize monitoring in production
+    if (process.env.NODE_ENV === 'production') {
+      MonitoringService.initialize();
+    }
+    
+    // Initialize performance monitoring
+    PerformanceUtils.reportWebVitals();
+    
+    // Preload critical resources
+    PerformanceUtils.preloadCriticalResources([
+      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+    ]);
+    
+    // Initialize lazy image loading
+    PerformanceUtils.lazyLoadImages();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 px-2 sm:px-4">
       <div className="container mx-auto px-4 py-8">

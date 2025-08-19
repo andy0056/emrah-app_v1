@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit } from 'lucide-react';
 import { FalService, ImageGenerationRequest } from '../services/falService';
 import { ProjectService } from '../services/projectService';
+import { SecurityUtils } from '../utils/security';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
+import LazyImage from './atoms/LazyImage';
 
 interface ImageGenerationProps {
   prompts: {
@@ -103,6 +105,11 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       return;
     }
 
+    // Rate limiting check
+    if (!SecurityUtils.checkRateLimit('image_generation', 3, 180000)) {
+      setError('Rate limit exceeded. Please wait 3 minutes before generating more images.');
+      return;
+    }
     setIsGenerating(true);
     setError(null);
     setGeneratedImages({});
@@ -271,10 +278,12 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
               <div className="relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center mb-3 overflow-hidden group">
                 {imageUrl ? (
                   <>
-                    <img
+                    <LazyImage
                       src={imageUrl}
                       alt={title}
-                      className="w-full h-full object-cover rounded-lg cursor-pointer transition-transform hover:scale-105"
+                      className="rounded-lg cursor-pointer transition-transform hover:scale-105"
+                      aspectRatio="1/1"
+                      quality={90}
                       onClick={() => openModal(imageUrl, title, filename)}
                     />
                     <div 

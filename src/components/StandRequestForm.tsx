@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { Suspense } from 'react';
 import { Upload, Calendar, Palette, Package, Ruler, FileText, Send } from 'lucide-react';
 import { PromptGenerator } from '../utils/promptGenerator';
+import { SecurityUtils } from '../utils/security';
+import { PerformanceUtils } from '../utils/performance';
 import PromptPreview from './PromptPreview';
-import ImageGeneration from './ImageGeneration';
-import ProjectManager from './ProjectManager';
+import LazyImageGeneration from './lazy/LazyImageGeneration';
+import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
+import type { FormData as FormDataType, StandType, Material } from '../types';
+import LoadingSpinner from './atoms/LoadingSpinner';
 
-interface FormData {
+interface FormData extends FormDataType {
+  // FormData is now properly typed via types/index.ts
+}
+
+// Remove the old interface definition and use the one from types
+/*interface FormData {
   submissionId: string;
   respondentId: string;
   submittedAt: string;
@@ -31,9 +41,9 @@ interface FormData {
   shelfDepth: number;
   shelfCount: number;
   description: string;
-}
+}*/
 
-const STAND_TYPES = [
+const STAND_TYPES: StandType[] = [
   'Ayaklı Stant (Floor Stand)',
   'Masa Üstü Stant (Tabletop Stand)',
   'Duvar Stantı (Wall Mount Stand)',
@@ -42,7 +52,7 @@ const STAND_TYPES = [
   'Çok Katlı Stant (Multi-tier Stand)'
 ];
 
-const MATERIALS = [
+const MATERIALS: Material[] = [
   'Metal',
   'Ahşap (Wood)',
   'Plastik (Plastic)',
@@ -103,8 +113,32 @@ const StandRequestForm: React.FC = () => {
      threeQuarterView?: string;
    }>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string>('');
+  
+  // Performance optimization: debounce form validation
+  const debouncedValidation = PerformanceUtils.debounce(() => {
+    const requiredFields = [
+      'respondentId', 'brand', 'product', 'standType', 'description'
+    ];
+    
+    const numericFields = [
+      'productWidth', 'productDepth', 'productHeight',
+      'frontFaceCount', 'backToBackCount',
+      'standWidth', 'standDepth', 'standHeight',
+      'shelfWidth', 'shelfDepth', 'shelfCount'
+    ];
+
+    const hasRequiredFields = requiredFields.every(field => formData[field as keyof FormData]);
+    const hasValidNumbers = numericFields.every(field => (formData[field as keyof FormData] as number) > 0);
+    const hasMaterials = formData.materials.length > 0;
+
+    setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials);
+  }, 300);
 
   useEffect(() => {
+    // Generate CSRF token on component mount
+    SecurityUtils.generateCSRFToken().then(setCsrfToken);
+    
     // Generate submission ID and set current timestamp
     const generateSubmissionId = () => {
       // Use example ID for testing, or generate new one
@@ -131,22 +165,7 @@ const StandRequestForm: React.FC = () => {
 
   // Check form validity
   useEffect(() => {
-    const requiredFields = [
-      'respondentId', 'brand', 'product', 'standType', 'description'
-    ];
-    
-    const numericFields = [
-      'productWidth', 'productDepth', 'productHeight',
-      'frontFaceCount', 'backToBackCount',
-      'standWidth', 'standDepth', 'standHeight',
-      'shelfWidth', 'shelfDepth', 'shelfCount'
-    ];
-
-    const hasRequiredFields = requiredFields.every(field => formData[field as keyof FormData]);
-    const hasValidNumbers = numericFields.every(field => (formData[field as keyof FormData] as number) > 0);
-    const hasMaterials = formData.materials.length > 0;
-
-    setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials);
+    debouncedValidation();
   }, [formData]);
 
   const handleLoadProject = (project: SavedProject) => {
@@ -205,6 +224,24 @@ const StandRequestForm: React.FC = () => {
 
   const handleFileUpload = (field: keyof FormData, files: FileList | null) => {
     if (!files || files.length === 0) return;
+
+    // Security validation for file uploads
+    const invalidFiles: string[] = [];
+    
+    Array.from(files).forEach(file => {
+      const validation = SecurityUtils.validateFileUpload(file);
+      if (!validation.valid) {
+        invalidFiles.push(`${file.name}: ${validation.error}`);
+      }
+    });
+    
+    if (invalidFiles.length > 0) {
+      setErrors(prev => ({ 
+        ...prev, 
+        [field]: `Invalid files: ${invalidFiles.join(', ')}` 
+      }));
+      return;
+    }
 
     // Clear any existing error for this field
     if (errors[field]) {
@@ -297,8 +334,15 @@ const StandRequestForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Rate limiting for form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check rate limit
+    if (!SecurityUtils.checkRateLimit('form_submission', 3, 300000)) {
+      setFormError('Too many submission attempts. Please wait 5 minutes before trying again.');
+      return;
+    }
     
     if (!validateForm()) {
       // Scroll to first error
@@ -314,6 +358,12 @@ const StandRequestForm: React.FC = () => {
 
     try {
       console.log('Submitting form data:', formData);
+
+      // Add CSRF token to submission
+      const submissionData = {
+        ...formData,
+        csrf_token: csrfToken
+      };
 
       alert('Stand design request submitted successfully! Use the form below to generate AI-powered designs.');
 
@@ -901,13 +951,15 @@ const StandRequestForm: React.FC = () => {
       </form>
 
       {/* Project Management */}
-      <ProjectManager
-        formData={formData}
-        prompts={prompts}
-        enhancedPrompts={enhancedPrompts}
-        onLoadProject={handleLoadProject}
-        currentProjectId={currentProjectId || undefined}
-      />
+      <Suspense fallback={<LoadingSpinner size="lg" text="Loading project manager..." />}>
+        <LazyProjectManager
+          formData={formData}
+          prompts={prompts}
+          enhancedPrompts={enhancedPrompts}
+          onLoadProject={handleLoadProject}
+          currentProjectId={currentProjectId || undefined}
+        />
+      </Suspense>
 
       {/* Dynamic Prompt Preview */}
       <PromptPreview 
@@ -918,14 +970,16 @@ const StandRequestForm: React.FC = () => {
       />
 
       {/* Image Generation Section */}
-      <ImageGeneration 
-        prompts={prompts} 
-        enhancedPrompts={enhancedPrompts}
-        isFormValid={isFormValid} 
-        currentProjectId={currentProjectId}
-        initialImages={generatedImages}
-        onImagesUpdated={setGeneratedImages}
-      />
+      <Suspense fallback={<LoadingSpinner size="lg" text="Loading image generation..." />}>
+        <LazyImageGeneration 
+          prompts={prompts} 
+          enhancedPrompts={enhancedPrompts}
+          isFormValid={isFormValid} 
+          currentProjectId={currentProjectId}
+          initialImages={generatedImages}
+          onImagesUpdated={setGeneratedImages}
+        />
+      </Suspense>
     </div>
   );
 };
