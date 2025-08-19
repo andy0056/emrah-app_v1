@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit, Loader2, Download } from 'lucide-react';
+import { X, Edit, Loader2, Download, Save, CheckCircle } from 'lucide-react';
 import { FalService, FluxKontextRequest } from '../services/falService';
+import { ProjectService } from '../services/projectService';
 
 interface ImageEditModalProps {
   isOpen: boolean;
   imageUrl: string | null;
   imageTitle: string;
   aspectRatio: "9:16" | "16:9" | "3:4" | "1:1";
+  projectId?: string;
   onClose: () => void;
+  onImageEdited?: (editedImageUrl: string) => void;
 }
 
 const ImageEditModal: React.FC<ImageEditModalProps> = ({
@@ -15,12 +18,16 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
   imageUrl,
   imageTitle,
   aspectRatio,
+  projectId,
   onClose
+  onImageEdited
 }) => {
   const [editPrompt, setEditPrompt] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Handle escape key press
   useEffect(() => {
@@ -47,6 +54,8 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       setEditPrompt('');
       setEditedImageUrl(null);
       setError(null);
+      setIsSaving(false);
+      setIsSaved(false);
     }
   }, [isOpen]);
 
@@ -80,6 +89,9 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       
       if (result.images && result.images.length > 0) {
         setEditedImageUrl(result.images[0].url);
+        if (onImageEdited) {
+          onImageEdited(result.images[0].url);
+        }
       } else {
         setError('No edited image was generated. Please try again.');
       }
@@ -91,9 +103,39 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
     }
   };
 
+  const saveEditedImage = async () => {
+    if (!editedImageUrl || !imageUrl || !projectId || !editPrompt.trim()) {
+      setError('Cannot save: missing required data');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      await ProjectService.saveEditedImage(
+        projectId,
+        imageUrl,
+        editedImageUrl,
+        editPrompt
+      );
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000); // Reset after 3 seconds
+    } catch (error) {
+      console.error('Error saving edited image:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save edited image');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const downloadImage = async (url: string, filename: string) => {
     try {
+      setError(null);
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -105,6 +147,7 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error downloading image:', error);
+      setError('Failed to download image. Please try again.');
     }
   };
 
@@ -152,20 +195,39 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
             {/* Edited Image */}
             <div className="space-y-3">
               <h4 className="font-medium text-gray-900">Edited Result</h4>
-              <div className="relative bg-gray-100 rounded-lg overflow-hidden h-64 flex items-center justify-center">
+              <div className="relative bg-gray-100 rounded-lg overflow-hidden h-64 flex items-center justify-center group">
                 {isEditing ? (
                   <div className="flex flex-col items-center">
                     <Loader2 className="w-8 h-8 animate-spin text-purple-600 mb-2" />
                     <p className="text-sm text-gray-600">Editing image...</p>
                   </div>
                 ) : editedImageUrl ? (
-                  <div className="relative w-full h-full group">
+                  <div className="relative w-full h-full">
                     <img
                       src={editedImageUrl}
                       alt="Edited"
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+                      {projectId && (
+                        <button
+                          onClick={saveEditedImage}
+                          disabled={isSaving || isSaved}
+                          className={`p-2 rounded-full shadow-md transition-all ${
+                            isSaved 
+                              ? 'bg-green-500 text-white' 
+                              : 'bg-white bg-opacity-90 text-gray-700 hover:bg-opacity-100'
+                          }`}
+                        >
+                          {isSaving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : isSaved ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <Save className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => downloadImage(editedImageUrl, `edited-${imageTitle.toLowerCase().replace(/\s+/g, '-')}.jpg`)}
                         className="p-2 bg-white bg-opacity-90 rounded-full shadow-md hover:bg-opacity-100 transition-all"
@@ -202,7 +264,13 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
 
             {error && (
               <div className="p-3 bg-red-100 border border-red-200 rounded-lg">
-                <p className="text-red-800 text-sm">{error}</p>
+                <p className="text-red-800 text-sm font-medium">{error}</p>
+              </div>
+            )}
+
+            {isSaved && (
+              <div className="p-3 bg-green-100 border border-green-200 rounded-lg">
+                <p className="text-green-800 text-sm font-medium">✅ Edited image saved to project successfully!</p>
               </div>
             )}
 
@@ -211,27 +279,29 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
                 Using Flux Kontext Max model for professional image editing
               </div>
               
-              <button
-                onClick={handleEditImage}
-                disabled={isEditing || !editPrompt.trim()}
-                className={`flex items-center px-6 py-2 rounded-lg font-medium transition-all ${
-                  isEditing || !editPrompt.trim()
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl'
-                }`}
-              >
-                {isEditing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Editing...
-                  </>
-                ) : (
-                  <>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Image
-                  </>
-                )}
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleEditImage}
+                  disabled={isEditing || !editPrompt.trim()}
+                  className={`flex items-center px-6 py-2 rounded-lg font-medium transition-all ${
+                    isEditing || !editPrompt.trim()
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {isEditing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Editing...
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Image
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

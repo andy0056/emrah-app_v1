@@ -5,16 +5,16 @@ export interface FormData {
   respondentId: string;
   submittedAt: string;
   brand: string;
-  brandLogo: File | null;
+  brandLogo: string | null;
   product: string;
-  productImage: File | null;
+  productImage: string | null;
   productWidth: number;
   productDepth: number;
   productHeight: number;
   frontFaceCount: number;
   backToBackCount: number;
-  keyVisual: File | null;
-  exampleStands: File[];
+  keyVisual: string | null;
+  exampleStands: string[];
   standType: string;
   materials: string[];
   standBaseColor: string;
@@ -199,21 +199,212 @@ export class ProjectService {
   }
 
   // Upload file to Supabase Storage
-  static async uploadFile(file: File, bucket: string, path: string): Promise<string> {
+  static async uploadFile(file: File, bucket = 'project-files'): Promise<string> {
+    try {
+      // Generate unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      console.log('Uploading file:', { name: file.name, size: file.size, type: file.type });
+
+      // Upload file to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw new Error(`Failed to upload file: ${error.message}`);
+      }
+
+      console.log('Upload successful:', data);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(data.path);
+
+      console.log('Public URL:', publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error('Upload service error:', error);
+      throw error;
+    }
+  }
+
+  // Upload multiple files and return their URLs
+  static async uploadFiles(files: File[]): Promise<string[]> {
+    if (!files || files.length === 0) return [];
+    
+    try {
+      const uploadPromises = files.map(file => this.uploadFile(file));
+      return await Promise.all(uploadPromises);
+    } catch (error) {
+      console.error('Error uploading multiple files:', error);
+      throw new Error(`Failed to upload files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Process form data to upload files and convert to URLs
+  static async processFormDataFiles(formData: any): Promise<FormData> {
+    try {
+      const processedData = { ...formData };
+
+      // Upload brand logo if it's a File
+      if (formData.brandLogo && formData.brandLogo instanceof File) {
+        console.log('Uploading brand logo...');
+        processedData.brandLogo = await this.uploadFile(formData.brandLogo);
+      }
+
+      // Upload product image if it's a File
+      if (formData.productImage && formData.productImage instanceof File) {
+        console.log('Uploading product image...');
+        processedData.productImage = await this.uploadFile(formData.productImage);
+      }
+
+      // Upload key visual if it's a File
+      if (formData.keyVisual && formData.keyVisual instanceof File) {
+        console.log('Uploading key visual...');
+        processedData.keyVisual = await this.uploadFile(formData.keyVisual);
+      }
+
+      // Upload example stands if they're Files
+      if (formData.exampleStands && Array.isArray(formData.exampleStands) && formData.exampleStands.length > 0 && formData.exampleStands[0] instanceof File) {
+        console.log('Uploading example stands...');
+        processedData.exampleStands = await this.uploadFiles(formData.exampleStands);
+      }
+
+      return processedData as FormData;
+    } catch (error) {
+      console.error('Error processing form data files:', error);
+      throw error;
+    }
+  }
+
+  // Updated save method to handle file uploads
+  static async saveProject(
+    formData: any,
+    basePrompts: any,
+    enhancedPrompts: any = null,
+    name?: string,
+    description?: string
+  ): Promise<SavedProject> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      // Process and upload files
+      const processedFormData = await this.processFormDataFiles(formData);
+
+      const projectData: ProjectInsert = {
+        user_id: user.id,
+        name: name || `${processedFormData.brand} - ${processedFormData.product}`,
+        description: description || processedFormData.description,
+        form_data: processedFormData,
+        base_prompts: basePrompts,
+        enhanced_prompts: enhancedPrompts,
+        brand: processedFormData.brand,
+        product: processedFormData.product,
+        stand_type: processedFormData.standType,
+        status: 'draft'
+      };
+
+      const { data, error } = await supabase
+        .from('projects')
+        .insert(projectData)
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to save project: ${error.message}`);
+      return data;
+    } catch (error) {
+      console.error('Error in saveProject:', error);
+      throw error;
+    }
+  }
+
+  // Updated update method to handle file uploads
+  static async updateProject(
+    projectId: string,
+    formData: any,
+    basePrompts: any,
+    enhancedPrompts: any = null
+  ): Promise<SavedProject> {
+    try {
+      // Process and upload files
+      const processedFormData = await this.processFormDataFiles(formData);
+
+      const updateData: ProjectUpdate = {
+        form_data: processedFormData,
+        base_prompts: basePrompts,
+        enhanced_prompts: enhancedPrompts,
+        brand: processedFormData.brand,
+        product: processedFormData.product,
+        stand_type: processedFormData.standType
+      };
+
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updateData)
+        .eq('id', projectId)
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to update project: ${error.message}`);
+      return data;
+    } catch (error) {
+      console.error('Error in updateProject:', error);
+      throw error;
+    }
+  }
+
+  // Save edited image to project
+  static async saveEditedImage(
+    projectId: string,
+    originalImageUrl: string,
+    editedImageUrl: string,
+    editPrompt: string,
+    versionId?: string
+  ): Promise<GeneratedImage> {
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(path, file, {
+      .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
       });
 
-    if (error) throw new Error(`Failed to upload file: ${error.message}`);
+    try {
+      const imageData: GeneratedImageInsert = {
+        project_id: projectId,
+        version_id: versionId || null,
+        image_type: 'edited',
+        image_url: editedImageUrl,
+        prompt_used: `EDIT: ${editPrompt} | ORIGINAL: ${originalImageUrl}`,
+        model_used: 'flux-kontext-max',
+        aspect_ratio: '1:1', // Default, could be determined from image
+        status: 'generated',
+        generation_params: {
+          original_image_url: originalImageUrl,
+          edit_prompt: editPrompt
+        }
+      };
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
+      const { data, error } = await supabase
+        .from('generated_images')
+        .insert(imageData)
+        .select()
+        .single();
 
-    return publicUrl;
+      if (error) throw new Error(`Failed to save edited image: ${error.message}`);
+      return data;
+    } catch (error) {
+      console.error('Error saving edited image:', error);
+      throw error;
+    }
   }
 
   // Export project data as JSON

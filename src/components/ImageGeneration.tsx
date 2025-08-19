@@ -200,6 +200,10 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     setImageToEdit(null);
   };
 
+  const handleImageEdited = (editedImageUrl: string) => {
+    console.log('Image edited successfully:', editedImageUrl);
+    // Could update the UI to show the new edited image or refresh the gallery
+  };
   const imageTypes = [
     { key: 'frontView', title: 'Front View (9:16)', filename: 'pop-stand-front-view.png', aspectRatio: '9:16' as const },
     { key: 'storeView', title: 'Store View (16:9)', filename: 'pop-stand-store-view.png', aspectRatio: '16:9' as const },
@@ -336,7 +340,9 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         imageUrl={imageToEdit?.url || null}
         imageTitle={imageToEdit?.title || ''}
         aspectRatio={imageToEdit?.aspectRatio || '1:1'}
+        projectId={currentProjectId}
         onClose={closeEditModal}
+        onImageEdited={handleImageEdited}
       />
     </div>
   );
