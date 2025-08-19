@@ -275,28 +275,29 @@ const EnhancedImageGeneration: React.FC<EnhancedImageGenerationProps> = ({
           const imageUrl = generatedImages[key as keyof GeneratedImageSet];
 
           return (
-            <div key={key} className="bg-white rounded-lg p-3 sm:p-4 shadow-md">
-              <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">
-                {title}
-              </h4>
-
-              <div className="relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center mb-2 sm:mb-3 overflow-hidden">
-                {imageUrl ? (
-                  <ImagePreview
-                    imageUrl={imageUrl}
-                    title={title}
-                    aspectRatio={aspectRatio}
-                    onView={() => openModal(imageUrl, title, filename)}
-                    onEdit={() => openEditModal(imageUrl, title, aspectRatio)}
-                    onDownload={() => downloadImage(imageUrl, filename)}
-                  />
-                ) : (
-                  <div className="text-gray-400 text-center p-4">
-                    <Wand2 className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2" />
-                    <p className="text-xs sm:text-sm">Image will appear here</p>
+            <div key={key}>
+              {imageUrl ? (
+                <ImagePreview
+                  imageUrl={imageUrl}
+                  title={title}
+                  aspectRatio={aspectRatio}
+                  onView={() => openModal(imageUrl, title, filename)}
+                  onEdit={() => openEditModal(imageUrl, title, aspectRatio)}
+                  onDownload={() => downloadImage(imageUrl, filename)}
+                />
+              ) : (
+                <div className="bg-white rounded-lg p-3 sm:p-4 shadow-md">
+                  <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">
+                    {title}
+                  </h4>
+                  <div className="relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center mb-2 sm:mb-3 overflow-hidden">
+                    <div className="text-gray-400 text-center p-4">
+                      <Wand2 className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2" />
+                      <p className="text-xs sm:text-sm">Image will appear here</p>
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })}
