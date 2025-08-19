@@ -153,43 +153,12 @@ export const useAuth = (): UseAuthReturn => {
           console.log('OAuth callback successful');
           // Clean up URL
           window.history.replaceState({}, document.title, window.location.pathname);
-          }
         }
       }
     };
     
     checkOAuthCallback();
   }, []);
-
-  return {
-    user,
-    session,
-    loading,
-    signIn,
-    signUp,
-    signInWithGoogle,
-    signOut,
-    resetPassword,
-    handleOAuthCallback
-  };
-      
-      if (error) {
-        console.error('Google OAuth Error:', error);
-        throw error;
-      }
-      
-      console.log('Google OAuth initiated successfully with redirect:', redirectUrl);
-      return { error };
-    } catch (error) {
-      console.error('Google Sign-in Error:', error);
-      return { 
-        error: {
-          message: error instanceof Error ? error.message : 'Google sign-in failed',
-          details: error
-        }
-      };
-    }
-  };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
