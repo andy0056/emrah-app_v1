@@ -222,12 +222,14 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const signIn = async () => {
     try {
       console.log('🚀 Starting Google sign-in from ProjectManager...');
+      const currentUrl = `${window.location.protocol}//${window.location.host}`;
+      console.log('Using redirect URL:', currentUrl);
       setError(null);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: currentUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'

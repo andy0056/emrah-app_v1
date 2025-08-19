@@ -60,17 +60,17 @@ export const useAuth = (): UseAuthReturn => {
   const signInWithGoogle = async () => {
     try {
       console.log('🚀 Starting Google OAuth flow...');
-      console.log('Current URL:', window.location.href);
-      console.log('Current Origin:', window.location.origin);
+      const currentUrl = `${window.location.protocol}//${window.location.host}`;
+      console.log('Redirect URL will be:', currentUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: currentUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-            hd: undefined // Remove domain hint to allow any Google account
+            hd: undefined // Allow any domain
           },
           skipBrowserRedirect: false
         }
