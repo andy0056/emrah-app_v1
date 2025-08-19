@@ -96,6 +96,11 @@ const StandRequestForm: React.FC = () => {
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
+   const [generatedImages, setGeneratedImages] = useState<{
+     frontView?: string;
+     storeView?: string;
+     threeQuarterView?: string;
+   }>({});
 
   useEffect(() => {
     // Generate submission ID and set current timestamp
@@ -162,6 +167,24 @@ const StandRequestForm: React.FC = () => {
       // Set current project ID
       setCurrentProjectId(project.id);
       
+       // Load generated images if available
+       setGeneratedImages({});
+       if (project.images && project.images.length > 0) {
+         const imageMap: { [key: string]: string } = {};
+         project.images.forEach(img => {
+           const typeMap = {
+             'front_view': 'frontView',
+             'store_view': 'storeView', 
+             'three_quarter_view': 'threeQuarterView'
+           };
+           const mappedType = typeMap[img.image_type as keyof typeof typeMap];
+           if (mappedType) {
+             imageMap[mappedType] = img.image_url;
+           }
+         });
+         setGeneratedImages(imageMap);
+       }
+       
     } catch (error) {
       console.error('Error loading project:', error);
       alert('Failed to load project data');
@@ -791,6 +814,9 @@ const StandRequestForm: React.FC = () => {
         prompts={prompts} 
         enhancedPrompts={enhancedPrompts}
         isFormValid={isFormValid} 
+        currentProjectId={currentProjectId}
+        initialImages={generatedImages}
+        onImagesUpdated={setGeneratedImages}
       />
     </div>
   );

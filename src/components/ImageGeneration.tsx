@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit } from 'lucide-react';
 import { FalService, ImageGenerationRequest } from '../services/falService';
+import { ProjectService } from '../services/projectService';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
 
@@ -16,6 +17,13 @@ interface ImageGenerationProps {
     threeQuarterView: string;
   } | null;
   isFormValid: boolean;
+  currentProjectId?: string;
+  initialImages?: {
+    frontView?: string;
+    storeView?: string;
+    threeQuarterView?: string;
+  };
+  onImagesUpdated?: (images: GeneratedImageSet) => void;
 }
 
 interface GeneratedImageSet {
@@ -24,9 +32,16 @@ interface GeneratedImageSet {
   threeQuarterView?: string;
 }
 
-const ImageGeneration: React.FC<ImageGenerationProps> = ({ prompts, enhancedPrompts, isFormValid }) => {
+const ImageGeneration: React.FC<ImageGenerationProps> = ({ 
+  prompts, 
+  enhancedPrompts, 
+  isFormValid, 
+  currentProjectId,
+  initialImages,
+  onImagesUpdated
+}) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>({});
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>(initialImages || {});
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -41,6 +56,46 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({ prompts, enhancedProm
     title: string;
     aspectRatio: "9:16" | "16:9" | "3:4" | "1:1";
   } | null>(null);
+
+  // Update generated images when initialImages prop changes
+  React.useEffect(() => {
+    if (initialImages) {
+      setGeneratedImages(initialImages);
+    }
+  }, [initialImages]);
+
+  // Call onImagesUpdated when generatedImages changes
+  React.useEffect(() => {
+    if (onImagesUpdated) {
+      onImagesUpdated(generatedImages);
+    }
+  }, [generatedImages, onImagesUpdated]);
+
+  const saveImageToSupabase = async (
+    imageUrl: string, 
+    imageType: 'front_view' | 'store_view' | 'three_quarter_view',
+    promptUsed: string,
+    aspectRatio: string
+  ) => {
+    if (!currentProjectId) {
+      console.warn('No current project ID, skipping image save to Supabase');
+      return;
+    }
+
+    try {
+      await ProjectService.saveGeneratedImage(
+        currentProjectId,
+        imageType,
+        imageUrl,
+        promptUsed,
+        aspectRatio
+      );
+      console.log(`✅ Saved ${imageType} image to Supabase for project ${currentProjectId}`);
+    } catch (error) {
+      console.error(`❌ Failed to save ${imageType} image to Supabase:`, error);
+      // Don't throw error - image generation was successful, just storage failed
+    }
+  };
 
   const generateImages = async () => {
     if (!isFormValid) {
@@ -76,17 +131,29 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({ prompts, enhancedProm
 
       setProgress('Generating front view...');
       const frontResult = await FalService.generateImage(requests[0]);
-      setGeneratedImages(prev => ({ ...prev, frontView: frontResult.images[0]?.url }));
+      const frontImageUrl = frontResult.images[0]?.url;
+      if (frontImageUrl) {
+        setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
+        await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
+      }
 
       setProgress('Generating store view...');
       const storeResult = await FalService.generateImage(requests[1]);
-      setGeneratedImages(prev => ({ ...prev, storeView: storeResult.images[0]?.url }));
+      const storeImageUrl = storeResult.images[0]?.url;
+      if (storeImageUrl) {
+        setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
+        await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
+      }
 
       setProgress('Generating 3/4 view...');
       const threeQuarterResult = await FalService.generateImage(requests[2]);
-      setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterResult.images[0]?.url }));
+      const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
+      if (threeQuarterImageUrl) {
+        setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
+        await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
+      }
 
-      setProgress('All images generated successfully!');
+      setProgress('All images generated and saved successfully!');
     } catch (error) {
       console.error('Error generating images:', error);
       setError(error instanceof Error ? error.message : 'Failed to generate images. Please try again.');
