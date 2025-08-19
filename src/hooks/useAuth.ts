@@ -59,27 +59,119 @@ export const useAuth = (): UseAuthReturn => {
 
   const signInWithGoogle = async () => {
     try {
-      console.log('Initiating Google OAuth...');
-      
-      // Get the current URL and ensure we use the correct port
-      const currentOrigin = window.location.origin;
-      const redirectUrl = currentOrigin.includes('localhost:3000') 
-        ? currentOrigin.replace('localhost:3000', 'localhost:5173')
-        : currentOrigin;
-      
-      console.log('Current origin:', currentOrigin);
-      console.log('Redirect URL:', redirectUrl);
+      console.log('🚀 Starting Google OAuth flow...');
+      console.log('Current URL:', window.location.href);
+      console.log('Current Origin:', window.location.origin);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent'
-          }
+            prompt: 'consent',
+            hd: undefined // Remove domain hint to allow any Google account
+          },
+          skipBrowserRedirect: false
         }
       });
+      
+      if (error) {
+        console.error('❌ Supabase OAuth Error:', error);
+        throw error;
+      }
+      
+      console.log('✅ OAuth request initiated successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('💥 Google Sign-in Error:', error);
+      return { 
+        error: {
+          message: error instanceof Error ? error.message : 'Google sign-in failed',
+          details: error
+        }
+      };
+    }
+  };
+
+  // Handle OAuth callback and session recovery
+  const handleOAuthCallback = async () => {
+    try {
+      console.log('🔄 Handling OAuth callback...');
+      console.log('Current URL:', window.location.href);
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+      const errorDescription = urlParams.get('error_description');
+      
+      if (error) {
+        console.error('❌ OAuth callback error:', error, errorDescription);
+        return { error: { message: errorDescription || error } };
+      }
+      
+      if (code) {
+        console.log('✅ OAuth code received:', code);
+        // Supabase should automatically handle the code exchange
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          return { error: sessionError };
+        }
+        
+        console.log('✅ Session data:', data);
+        return { error: null, session: data.session };
+      }
+      
+      return { error: null };
+    } catch (error) {
+      console.error('💥 OAuth callback error:', error);
+      return { 
+        error: {
+          message: error instanceof Error ? error.message : 'OAuth callback failed',
+          details: error
+        }
+      };
+    }
+  };
+
+  // Check for OAuth callback on component mount
+  useEffect(() => {
+    const checkOAuthCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+      
+      if (code || error) {
+        console.log('🔍 OAuth callback detected in URL');
+        const result = await handleOAuthCallback();
+        
+        if (result.error) {
+          console.error('OAuth callback failed:', result.error);
+        } else {
+          console.log('OAuth callback successful');
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+      }
+    };
+    
+    checkOAuthCallback();
+  }, []);
+
+  return {
+    user,
+    session,
+    loading,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signOut,
+    resetPassword,
+    handleOAuthCallback
+  };
       
       if (error) {
         console.error('Google OAuth Error:', error);

@@ -221,37 +221,30 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
   const signIn = async () => {
     try {
-      console.log('Starting Google sign-in process...');
+      console.log('🚀 Starting Google sign-in from ProjectManager...');
       setError(null);
-      
-      // Ensure correct redirect URL
-      const currentOrigin = window.location.origin;
-      const redirectUrl = currentOrigin.includes('localhost:3000') 
-        ? currentOrigin.replace('localhost:3000', 'localhost:5173')
-        : currentOrigin;
-      
-      console.log('Using redirect URL:', redirectUrl);
-      
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'
-          }
+          },
+          skipBrowserRedirect: false
         }
       });
-
+      
       if (error) {
-        console.error('Google OAuth error:', error);
-        setError(`Google sign-in failed: ${error.message}`);
+        console.error('❌ Google OAuth error:', error);
+        setError(`Google sign-in failed: ${error.message || 'Unknown error'}`);
       } else {
-        console.log('Google OAuth initiated with redirect:', redirectUrl);
+        console.log('✅ Google OAuth initiated successfully');
       }
     } catch (err) {
-      console.error('Sign-in error:', err);
-      setError('Failed to initiate Google sign-in. Please check your configuration.');
+      console.error('💥 Sign-in error:', err);
+      setError(`Failed to initiate Google sign-in: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 

@@ -1,11 +1,24 @@
 import React from 'react';
 import { useEffect } from 'react';
+import { useAuth } from './hooks/useAuth';
 import StandRequestForm from './components/StandRequestForm';
 import { MonitoringService } from './utils/monitoring';
 import { PerformanceUtils } from './utils/performance';
+import AuthDebugPanel from './components/AuthDebugPanel';
 
 function App() {
+  const { handleOAuthCallback } = useAuth();
+
   useEffect(() => {
+    // Handle OAuth callback if present in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasOAuthParams = urlParams.get('code') || urlParams.get('error');
+    
+    if (hasOAuthParams) {
+      console.log('🔍 OAuth callback detected in App component');
+      handleOAuthCallback();
+    }
+
     // Initialize monitoring in production
     if (process.env.NODE_ENV === 'production') {
       MonitoringService.initialize();
@@ -35,6 +48,7 @@ function App() {
         </div>
         <StandRequestForm />
       </div>
+      <AuthDebugPanel />
     </div>
   );
 }
