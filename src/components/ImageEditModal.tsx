@@ -19,7 +19,7 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
   imageTitle,
   aspectRatio,
   projectId,
-  onClose
+  onClose,
   onImageEdited
 }) => {
   const [editPrompt, setEditPrompt] = useState('');
