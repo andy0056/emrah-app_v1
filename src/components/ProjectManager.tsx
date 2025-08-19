@@ -222,24 +222,14 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const signIn = async () => {
     try {
       console.log('🚀 Starting Google sign-in from ProjectManager...');
-      const currentUrl = `${window.location.protocol}//${window.location.host}`;
-      console.log('Using redirect URL:', currentUrl);
       setError(null);
+      setIsLoading(true);
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: currentUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
-          },
-          skipBrowserRedirect: false
-        }
-      });
+      // Use the improved auth hook method
+      const { signInWithGoogle } = useAuth();
+      const { error } = await signInWithGoogle();
       
       if (error) {
-        console.error('❌ Google OAuth error:', error);
         setError(`Google sign-in failed: ${error.message || 'Unknown error'}`);
       } else {
         console.log('✅ Google OAuth initiated successfully');
@@ -247,6 +237,8 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     } catch (err) {
       console.error('💥 Sign-in error:', err);
       setError(`Failed to initiate Google sign-in: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 

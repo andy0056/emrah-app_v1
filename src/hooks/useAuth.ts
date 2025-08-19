@@ -17,14 +17,17 @@ export const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
+      setIsAuthenticating(true);
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      setIsAuthenticating(false);
     };
 
     getInitialSession();
@@ -32,6 +35,9 @@ export const useAuth = (): UseAuthReturn => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          setIsAuthenticating(false);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -60,6 +66,7 @@ export const useAuth = (): UseAuthReturn => {
   const signInWithGoogle = async () => {
     try {
       console.log('🚀 Starting Google OAuth flow...');
+      setIsAuthenticating(true);
       const currentUrl = `${window.location.protocol}//${window.location.host}`;
       console.log('Redirect URL will be:', currentUrl);
       
@@ -78,6 +85,7 @@ export const useAuth = (): UseAuthReturn => {
       
       if (error) {
         console.error('❌ Supabase OAuth Error:', error);
+        setIsAuthenticating(false);
         throw error;
       }
       
@@ -85,6 +93,7 @@ export const useAuth = (): UseAuthReturn => {
       return { error: null };
     } catch (error) {
       console.error('💥 Google Sign-in Error:', error);
+      setIsAuthenticating(false);
       return { 
         error: {
           message: error instanceof Error ? error.message : 'Google sign-in failed',
