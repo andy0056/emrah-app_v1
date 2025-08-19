@@ -102,6 +102,7 @@ const StandRequestForm: React.FC = () => {
      storeView?: string;
      threeQuarterView?: string;
    }>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     // Generate submission ID and set current timestamp
@@ -309,7 +310,7 @@ const StandRequestForm: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    setError(null);
+    setFormError(null);
 
     try {
       console.log('Submitting form data:', formData);
@@ -318,7 +319,7 @@ const StandRequestForm: React.FC = () => {
 
     } catch (error) {
       console.error('Submission error:', error);
-      setError('Error submitting form. Please try again.');
+      setFormError('Error submitting form. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
