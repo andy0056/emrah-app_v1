@@ -278,12 +278,10 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
               <div className="relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center mb-3 overflow-hidden group">
                 {imageUrl ? (
                   <>
-                    <LazyImage
+                    <img
                       src={imageUrl}
                       alt={title}
-                      className="rounded-lg cursor-pointer transition-transform hover:scale-105"
-                      aspectRatio="1/1"
-                      quality={90}
+                      className="w-full h-full object-cover rounded-lg cursor-pointer transition-transform hover:scale-105"
                       onClick={() => openModal(imageUrl, title, filename)}
                     />
                     <div 
