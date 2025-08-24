@@ -182,17 +182,20 @@ export class MonitoringService {
     const errors = [...this.errorQueue];
     this.errorQueue = [];
 
-    try {
-      await fetch(this.ERROR_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ errors })
-      });
-    } catch (error) {
-      // If sending fails, add errors back to queue
-      this.errorQueue.unshift(...errors.slice(-5)); // Keep only last 5
+    // Only attempt to send errors in development or if backend is available
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        await fetch(this.ERROR_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ errors })
+        });
+      } catch (error) {
+        // If sending fails, add errors back to queue
+        this.errorQueue.unshift(...errors.slice(-5)); // Keep only last 5
+      }
     }
   }
 
@@ -200,16 +203,19 @@ export class MonitoringService {
    * Send metric to server
    */
   private static async sendMetric(metric: any): Promise<void> {
-    try {
-      await fetch(this.METRICS_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(metric)
-      });
-    } catch (error) {
-      // Silently fail for metrics
+    // Metrics disabled in production - no backend endpoint available
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        await fetch(this.METRICS_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metric)
+        });
+      } catch (error) {
+        // Silently fail for metrics
+      }
     }
   }
 
