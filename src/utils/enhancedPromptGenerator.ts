@@ -337,6 +337,22 @@ export class EnhancedPromptGenerator {
   }
 
   /**
+   * Generate varied composition elements for uniqueness
+   */
+  private getCompositionVariant(): string {
+    const variants = [
+      'revealing architectural details and material craftsmanship',
+      'emphasizing the interplay between structure and products',
+      'showcasing the display as retail sculpture and functional art',
+      'highlighting the brand narrative embedded in the design',
+      'demonstrating how form follows both function and brand identity',
+      'capturing the essence of the brand through dimensional storytelling'
+    ];
+    
+    return variants[Math.floor(Math.random() * variants.length)];
+  }
+
+  /**
    * Main prompt generation methods
    */
   public generateFrontView(data: FormData): string {

@@ -65,11 +65,12 @@ Focus on creating prompts that produce images with the "WOW factor" - innovative
 
 **REQUIREMENTS:**
 - Maintain ALL dimensions and technical specifications EXACTLY as provided in base prompt
-- Push creative boundaries while ensuring manufacturability and physics realism
-- Use vivid, descriptive language and figurative expressions to inspire Imagen 4's creativity
+- Push creative boundaries with FRESH approaches while ensuring manufacturability and physics realism  
+- Use vivid, descriptive language with UNIQUE figurative expressions that haven't been used before
+- Avoid repetitive phrases - each prompt should feel completely original and distinctive
 - Output ONLY the final enhanced prompt ready for Google Imagen 4 generation
 
-Create a prompt that will generate an image with serious "WOW factor" - innovative, eye-catching, and professionally compelling!`;
+Create a UNIQUE prompt with serious "WOW factor" that feels completely fresh and different from previous generations!`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -78,7 +79,7 @@ Create a prompt that will generate an image with serious "WOW factor" - innovati
           { role: "user", content: userPrompt }
         ],
         max_tokens: 800,
-        temperature: 0.7
+        temperature: 0.8 // Increased for more creative variety
       });
 
       return completion.choices[0]?.message?.content || request.basePrompt;
