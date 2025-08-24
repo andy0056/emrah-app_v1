@@ -265,16 +265,61 @@ export class EnhancedPromptGenerator {
    * Generate store environment based on brand and product type
    */
   private getStoreEnvironment(data: FormData): string {
-    const environments: Record<string, string> = {
-      'Coca-Cola': 'bustling supermarket with the energy of weekend shopping, fluorescent lights mixing with natural daylight from skylights',
-      'Monster Energy': 'modern convenience store with neon accents, urban street visible through glass storefront',
-      'NIVEA': 'pristine pharmacy beauty section with soft LED track lighting, white tile floors reflecting gentle illumination',
-      'PANTENE': 'upscale beauty retailer with warm spotlights, marble flooring, and mirrors amplifying the space',
-      'Flormar': 'vibrant cosmetics boutique with artistic lighting and colorful displays creating energy',
-      'Avon': 'elegant beauty section with sophisticated lighting and refined atmosphere',
-      'Whiskey': 'premium liquor store with dark wood fixtures, amber lighting, leather and brass accents',
-      'paradontax': 'bright health-focused pharmacy, clinical white with trust-building blue accents'
+    // Standalone display placement options - randomize for variety
+    const placements = [
+      'positioned strategically at the store entrance creating an immediate brand impact',
+      'placed as an island display in the main aisle drawing traffic from all directions',
+      'stationed at the aisle end-cap commanding attention from the primary traffic flow',
+      'positioned near checkout creating last-minute purchase opportunity',
+      'placed in the center aisle as a destination shopping experience'
+    ];
+    
+    const storeTypes = {
+      'Coca-Cola': 'bustling supermarket weekend atmosphere, bright fluorescent lighting with natural daylight streaming from skylights',
+      'Monster Energy': 'modern convenience store with urban energy, neon accent lighting, city street visible through large windows',
+      'NIVEA': 'pristine pharmacy beauty section, soft LED track lighting, clean white tile floors creating gentle reflections',
+      'PANTENE': 'upscale beauty retailer atmosphere, warm directional spotlights, polished floors and mirror accents amplifying space',
+      'Whiskey': 'premium liquor store ambiance, rich wood fixtures, amber lighting creating sophisticated atmosphere',
+      'paradontax': 'bright health-focused pharmacy environment, clinical white surfaces with trust-building blue accents'
     };
+    
+    const selectedPlacement = placements[Math.floor(Math.random() * placements.length)];
+    const storeAtmosphere = storeTypes[data.brand] || 'modern retail environment with bright, welcoming atmosphere';
+    
+    return `${storeAtmosphere}. The standalone ${data.brand} display is ${selectedPlacement}`;
+  }
+
+  /**
+   * Generate randomized creative angles for 3/4 view variety
+   */
+  private getCreativeAngle(data: FormData): string {
+    const angles = [
+      'dynamic three-quarter view from slightly above, emphasizing architectural presence',
+      'dramatic low-angle perspective making the display appear monumental and inspiring',
+      'elegant side-angle revealing both depth and brand storytelling elements', 
+      'sculptural view from customer\'s approach angle, showing discovery journey',
+      'artistic three-quarter composition highlighting material interplay and shadows',
+      'retail photography angle that captures both function and visual poetry'
+    ];
+    
+    return angles[Math.floor(Math.random() * angles.length)];
+  }
+
+  /**
+   * Generate varied lighting scenarios for uniqueness
+   */
+  private getLightingScenario(): string {
+    const scenarios = [
+      'Dramatic studio lighting with key light from upper left, fill from right, and rim lighting defining edges',
+      'Cinematic lighting setup with soft key light, subtle fill, and dramatic rim highlighting the silhouette',
+      'Professional retail photography lighting emphasizing materials and creating gentle shadows',
+      'Artistic lighting with controlled contrast, revealing texture details and dimensional depth',
+      'Commercial visualization lighting that makes products glow while showcasing structure',
+      'Gallery-quality lighting that treats the display as both functional furniture and art piece'
+    ];
+    
+    return scenarios[Math.floor(Math.random() * scenarios.length)];
+  }
     
     // Try direct match first, then partial match
     let environment = environments[data.brand];
@@ -314,7 +359,7 @@ export class EnhancedPromptGenerator {
     const heroFeature = this.generateHeroFeature(data);
     const materials = this.getMaterialNarrative(data.materials, data.brand);
     
-    const prompt = `${environment}, featuring ${data.brand}'s ${proportions.scale} display as the hero. The stand's ${heroFeature} immediately captures attention from the main aisle. ${materials} construction harmonizes with the retail environment while standing out through ${brand.colors[0]} brand accents. Real shoppers browsing nearby provide scale and context, their movement slightly blurred to keep focus on the display. Natural retail lighting creates authentic shadows and reflections. The ${proportions.footprint} fits perfectly in the space while maintaining ${brand.adjectives[0]} presence. Wide-angle retail photography, shallow depth of field, no technical overlays.`;
+    return `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
     
     return PromptOptimizer.cleanPrompt(prompt);
   }
