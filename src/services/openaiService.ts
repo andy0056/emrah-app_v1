@@ -65,6 +65,10 @@ Focus on creating prompts that produce images with the "WOW factor" - innovative
 
 **REQUIREMENTS:**
 - Maintain ALL dimensions and technical specifications EXACTLY as provided in base prompt
+- CRITICAL: Ensure the display includes functional shelving as specified in the form data
+- The shelf structure must be clearly visible and innovative, not abstract or hidden
+- Product arrangement must follow the specified front-face and back-to-back counts
+- Balance creativity with practical shelf functionality - shelves should be both beautiful and functional
 - Push creative boundaries with FRESH approaches while ensuring manufacturability and physics realism  
 - Use vivid, descriptive language with UNIQUE figurative expressions that haven't been used before
 - Avoid repetitive phrases - each prompt should feel completely original and distinctive

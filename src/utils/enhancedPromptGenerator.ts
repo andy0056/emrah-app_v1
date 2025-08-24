@@ -360,8 +360,6 @@ export class EnhancedPromptGenerator {
     const selectedStyle = styleOptions[Math.floor(Math.random() * styleOptions.length)];
     
     return `${arrangementBase}, ${selectedStyle}`;
-  }
-
   /**
    * Generate store environment based on brand and product type
    */
@@ -432,8 +430,9 @@ export class EnhancedPromptGenerator {
     const heroFeature = this.generateHeroFeature(data);
     const arrangement = this.getArrangementPattern(data);
     const metaphor = this.metaphorLib.getMetaphor(data.brand, 'architecture');
+    const shelfEmphasis = this.getShelfVisibilityEmphasis(data);
     
-    return `${brand.visualStyle} ${data.brand} display stand photographed in pristine studio conditions. The ${proportions.proportion} structure features ${heroFeature}, embodying the brand's ${brand.adjectives[0]} spirit. ${materials} construction creates ${metaphor}. The display includes ${arrangement}. Professional product photography with pure white infinity backdrop, soft graduated shadows anchoring the base. The design feels ${brand.adjectives.slice(0, 2).join(' and ')} while maintaining ${proportions.scale}. Photorealistic commercial visualization, no technical annotations, no dimension lines, no measurement indicators.`;
+    return `${brand.visualStyle} ${data.brand} display stand photographed in pristine studio conditions. The ${proportions.proportion} structure features ${heroFeature}, embodying the brand's ${brand.adjectives[0]} spirit. ${materials} construction creates ${metaphor}. ${shelfEmphasis} The display includes ${arrangement}. Professional product photography with pure white infinity backdrop, soft graduated shadows anchoring the base. The design feels ${brand.adjectives.slice(0, 2).join(' and ')} while maintaining ${proportions.scale}. Photorealistic commercial visualization, no technical annotations, no dimension lines, no measurement indicators.`;
     
     return PromptOptimizer.cleanPrompt(prompt);
   }
@@ -444,9 +443,8 @@ export class EnhancedPromptGenerator {
     const environment = this.getStoreEnvironment(data);
     const heroFeature = this.generateHeroFeature(data);
     const materials = this.getMaterialNarrative(data.materials, data.brand);
-    const arrangement = this.getArrangementPattern(data);
     
-    const prompt = `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, positioned as an independent branded installation clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive presence. The display includes ${arrangement}. Real customers shopping nearby provide natural scale reference while the display maintains its own identity separate from store fixtures. Natural retail lighting creates authentic shadows while highlighting the standalone nature of this branded installation. Documentary retail photography showing clear separation between the pop-up display and regular store infrastructure, no technical overlays.`;
+    const prompt = `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
     
     return PromptOptimizer.cleanPrompt(prompt);
   }
