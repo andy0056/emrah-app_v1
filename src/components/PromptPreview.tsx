@@ -99,7 +99,7 @@ const PromptPreview: React.FC<PromptPreviewProps> = ({ prompts, brandContext, pr
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center">
           <Eye className="w-5 h-5 mr-2" />
-          {enhancedPrompts ? 'AI-Enhanced Creative Prompts' : 'Creative Prompt Templates'}
+          {enhancedPrompts ? 'AI-Enhanced Brand Prompts' : 'Brand-First Creative Templates'}
         </h3>
         
         <button
@@ -179,14 +179,14 @@ const PromptPreview: React.FC<PromptPreviewProps> = ({ prompts, brandContext, pr
       {enhancedPrompts && (
         <div className="mt-4 p-3 bg-green-100 border border-green-200 rounded-lg">
           <p className="text-green-800 text-sm font-medium">
-            ✨ Creative prompts enhanced with storytelling, brand personality, and innovative visual concepts!
+            ✨ Brand prompts enhanced with personality-driven storytelling and signature design elements!
           </p>
         </div>
       )}
       
       <div className="mt-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
         <p className="text-purple-800 text-sm font-medium">
-          🎨 Now using advanced creative templates that focus on brand storytelling and visual impact rather than technical measurements!
+          🎨 Now using advanced Brand-First templates with signature elements, metaphors, and emotional language that brings brands to life!
         </p>
       </div>
     </div>

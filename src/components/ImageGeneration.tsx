@@ -115,7 +115,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     setGeneratedImages({});
     
     try {
-      // Use enhanced prompts if available, otherwise use base prompts
+        {enhancedPrompts ? 'Enhanced Brand-First AI Generation' : 'Brand-First AI Image Generation'}
       const finalPrompts = enhancedPrompts || prompts;
       
       const requests: ImageGenerationRequest[] = [
@@ -250,7 +250,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
 
       {enhancedPrompts && (
         <div className="mb-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
-          <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced creative prompts with brand storytelling and visual narrative!</p>
+          <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced Brand-First prompts with signature elements, brand metaphors, and emotional storytelling!</p>
         </div>
       )}
 
