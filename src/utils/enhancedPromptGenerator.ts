@@ -98,6 +98,31 @@ export class EnhancedPromptGenerator {
   }
 
   /**
+   * Generate shelf visibility emphasis to ensure shelves are prominent
+   */
+  private getShelfVisibilityEmphasis(data: FormData): string {
+    const shelfCount = data.shelfCount;
+    const brand = this.brandEngine.getPersonality(data.brand);
+    
+    const visibilityPhrases = [
+      'The innovative shelving system is clearly visible and forms the backbone of the design,',
+      'Distinctive shelf levels are prominently featured as key structural elements,',
+      'The creative shelving configuration stands out as the primary functional feature,',
+      'Bold shelf architecture dominates the composition while maintaining elegance,',
+      'The sophisticated shelf system serves as both function and focal point,'
+    ];
+    
+    const countSpecific = shelfCount === 1 ? 'single prominent shelf level' :
+                         shelfCount === 2 ? 'dual shelf configuration' :
+                         shelfCount === 3 ? 'triple-tier shelf system' :
+                         `${shelfCount}-level shelf arrangement`;
+    
+    const randomPhrase = visibilityPhrases[Math.floor(Math.random() * visibilityPhrases.length)];
+    
+    return `${randomPhrase} showcasing a ${countSpecific} that seamlessly integrates with the ${brand.adjectives[0]} brand aesthetic.`;
+  }
+
+  /**
    * Generate material descriptions that inspire rather than specify
    */
   private getMaterialNarrative(materials: string[], brand: string): string {
@@ -361,7 +386,6 @@ export class EnhancedPromptGenerator {
     
     return `${arrangementBase}, ${selectedStyle}`;
   }
-
   /**
    * Generate store environment based on brand and product type
    */
@@ -444,10 +468,10 @@ export class EnhancedPromptGenerator {
     const environment = this.getStoreEnvironment(data);
     const heroFeature = this.generateHeroFeature(data);
     const materials = this.getMaterialNarrative(data.materials, data.brand);
-    const arrangement = this.getArrangementPattern(data);
-    const shelfEmphasis = this.getShelfVisibilityEmphasis(data);
     
-    return `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, positioned as an independent branded installation clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive presence. ${shelfEmphasis} The installation includes ${arrangement}. Real customers shopping nearby provide natural scale reference while the display maintains its own identity separate from store fixtures. Natural retail lighting creates authentic shadows while highlighting the standalone nature of this branded installation. Documentary retail photography showing clear separation between the pop-up display and regular store infrastructure, no technical overlays.`;
+    const prompt = `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
+    
+    return PromptOptimizer.cleanPrompt(prompt);
   }
 
   public generateThreeQuarterView(data: FormData): string {
