@@ -222,7 +222,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-900 flex items-center">
           <Wand2 className="w-5 h-5 mr-2" />
-          {enhancedPrompts ? 'Enhanced AI Image Generation' : 'AI Image Generation'}
+          {enhancedPrompts ? 'Enhanced Creative AI Generation' : 'Creative AI Image Generation'}
         </h3>
         
         <button
@@ -250,7 +250,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
 
       {enhancedPrompts && (
         <div className="mb-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
-          <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced prompts for superior image quality!</p>
+          <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced creative prompts with brand storytelling and visual narrative!</p>
         </div>
       )}
 

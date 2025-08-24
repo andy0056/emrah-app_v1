@@ -138,4 +138,22 @@ View: Wide-angle store context, 16:9 aspect ratio, shallow depth of field focusi
   static generateStoreViewPrompt = this.generateAdvancedStoreViewPrompt;
   static generateThreeQuarterViewPrompt = this.generateAdvancedThreeQuarterViewPrompt;
   static generateAllPrompts = this.generateAllAdvancedPrompts;
+
+  // NEW: Creative prompt generation using improved templates
+  static generateCreativePrompts(formData: FormData) {
+    return EnhancedPromptGenerator.generateAllCreativePrompts(formData);
+  }
+
+  static generateCreativeFrontView(formData: FormData) {
+    return EnhancedPromptGenerator.generateHeroShotPrompt(formData);
+  }
+
+  static generateCreativeStoreView(formData: FormData) {
+    return EnhancedPromptGenerator.generateStoreContextPrompt(formData);
+  }
+
+  static generateCreativeThreeQuarterView(formData: FormData) {
+    return EnhancedPromptGenerator.generateBeautyShotPrompt(formData);
+  }
+import { EnhancedPromptGenerator } from './enhancedPromptGenerator';
 }
