@@ -1,3 +1,5 @@
+import { EnhancedPromptGenerator } from './enhancedPromptGenerator';
+
 interface FormData {
   brand: string;
   product: string;
@@ -155,5 +157,4 @@ View: Wide-angle store context, 16:9 aspect ratio, shallow depth of field focusi
   static generateCreativeThreeQuarterView(formData: FormData) {
     return EnhancedPromptGenerator.generateBeautyShotPrompt(formData);
   }
-import { EnhancedPromptGenerator } from './enhancedPromptGenerator';
 }
