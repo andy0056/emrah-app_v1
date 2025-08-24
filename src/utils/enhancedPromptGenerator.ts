@@ -320,6 +320,22 @@ export class EnhancedPromptGenerator {
     
     return scenarios[Math.floor(Math.random() * scenarios.length)];
   }
+
+  /**
+   * Generate varied composition variants for uniqueness
+   */
+  private getCompositionVariant(): string {
+    const variants = [
+      'revealing the intricate interplay of form and function',
+      'showcasing the architectural poetry of retail design',
+      'emphasizing the sculptural quality that transforms commerce into art',
+      'highlighting the dimensional storytelling that draws customers closer',
+      'capturing the essence of brand personality through physical form',
+      'demonstrating how structure becomes brand experience'
+    ];
+    
+    return variants[Math.floor(Math.random() * variants.length)];
+  }
     
     // Try direct match first, then partial match
     let environment = environments[data.brand];
@@ -334,22 +350,6 @@ export class EnhancedPromptGenerator {
     }
     
     return environment || 'modern retail environment with bright, welcoming atmosphere';
-  }
-
-  /**
-   * Generate varied composition elements for uniqueness
-   */
-  private getCompositionVariant(): string {
-    const variants = [
-      'revealing architectural details and material craftsmanship',
-      'emphasizing the interplay between structure and products',
-      'showcasing the display as retail sculpture and functional art',
-      'highlighting the brand narrative embedded in the design',
-      'demonstrating how form follows both function and brand identity',
-      'capturing the essence of the brand through dimensional storytelling'
-    ];
-    
-    return variants[Math.floor(Math.random() * variants.length)];
   }
 
   /**
@@ -387,10 +387,11 @@ export class EnhancedPromptGenerator {
     const heroFeature = this.generateHeroFeature(data);
     const metaphor = this.metaphorLib.getMetaphor(data.brand, 'sculpture');
     const arrangement = this.getArrangementPattern(data);
+    const creativeAngle = this.getCreativeAngle(data);
+    const lightingScenario = this.getLightingScenario();
+    const compositionVariant = this.getCompositionVariant();
     
-    const prompt = `Sculptural ${data.brand} display viewed from dynamic three-quarter angle, revealing ${heroFeature} in full dimension. The ${proportions.proportion} form suggests ${metaphor}, while ${materials} construction creates rich interplay of surfaces and textures. ${data.product} products create ${arrangement}, visible from multiple angles. Dramatic studio lighting with key light from upper left, fill from right, and rim lighting defining edges. The ${proportions.presence} commands attention while maintaining ${brand.adjectives[1]} sophistication. Premium visualization quality with subtle reflections on studio floor, no measurement indicators or technical annotations.`;
-    
-    return PromptOptimizer.cleanPrompt(prompt);
+    return `Sculptural ${data.brand} display captured from ${creativeAngle}, ${compositionVariant}. The ${proportions.proportion} form suggests ${metaphor}, featuring ${heroFeature} in full dimensional glory. ${materials} construction creates rich interplay of surfaces and textures while ${data.product} products create ${arrangement}, visible from multiple angles. ${lightingScenario}. The ${proportions.presence} commands attention while maintaining ${brand.adjectives[1]} sophistication. Premium visualization quality with subtle reflections on studio floor, no measurement indicators or technical annotations.`;
   }
 
   /**
