@@ -322,37 +322,6 @@ export class EnhancedPromptGenerator {
   }
 
   /**
-   * Generate varied composition variants for uniqueness
-   */
-  private getCompositionVariant(): string {
-    const variants = [
-      'revealing the intricate interplay of form and function',
-      'showcasing the architectural poetry of retail design',
-      'emphasizing the sculptural quality that transforms commerce into art',
-      'highlighting the dimensional storytelling that draws customers closer',
-      'capturing the essence of brand personality through physical form',
-      'demonstrating how structure becomes brand experience'
-    ];
-    
-    return variants[Math.floor(Math.random() * variants.length)];
-  }
-    
-    // Try direct match first, then partial match
-    let environment = environments[data.brand];
-    if (!environment) {
-      const brandLower = data.brand.toLowerCase();
-      for (const [key, env] of Object.entries(environments)) {
-        if (key.toLowerCase().includes(brandLower) || brandLower.includes(key.toLowerCase())) {
-          environment = env;
-          break;
-        }
-      }
-    }
-    
-    return environment || 'modern retail environment with bright, welcoming atmosphere';
-  }
-
-  /**
    * Main prompt generation methods
    */
   public generateFrontView(data: FormData): string {
@@ -375,7 +344,7 @@ export class EnhancedPromptGenerator {
     const heroFeature = this.generateHeroFeature(data);
     const materials = this.getMaterialNarrative(data.materials, data.brand);
     
-    return `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
+    const prompt = `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
     
     return PromptOptimizer.cleanPrompt(prompt);
   }
@@ -387,11 +356,10 @@ export class EnhancedPromptGenerator {
     const heroFeature = this.generateHeroFeature(data);
     const metaphor = this.metaphorLib.getMetaphor(data.brand, 'sculpture');
     const arrangement = this.getArrangementPattern(data);
-    const creativeAngle = this.getCreativeAngle(data);
-    const lightingScenario = this.getLightingScenario();
-    const compositionVariant = this.getCompositionVariant();
     
-    return `Sculptural ${data.brand} display captured from ${creativeAngle}, ${compositionVariant}. The ${proportions.proportion} form suggests ${metaphor}, featuring ${heroFeature} in full dimensional glory. ${materials} construction creates rich interplay of surfaces and textures while ${data.product} products create ${arrangement}, visible from multiple angles. ${lightingScenario}. The ${proportions.presence} commands attention while maintaining ${brand.adjectives[1]} sophistication. Premium visualization quality with subtle reflections on studio floor, no measurement indicators or technical annotations.`;
+    const prompt = `Sculptural ${data.brand} display viewed from dynamic three-quarter angle, revealing ${heroFeature} in full dimension. The ${proportions.proportion} form suggests ${metaphor}, while ${materials} construction creates rich interplay of surfaces and textures. ${data.product} products create ${arrangement}, visible from multiple angles. Dramatic studio lighting with key light from upper left, fill from right, and rim lighting defining edges. The ${proportions.presence} commands attention while maintaining ${brand.adjectives[1]} sophistication. Premium visualization quality with subtle reflections on studio floor, no measurement indicators or technical annotations.`;
+    
+    return PromptOptimizer.cleanPrompt(prompt);
   }
 
   /**
