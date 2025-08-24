@@ -344,7 +344,7 @@ export class EnhancedPromptGenerator {
     const heroFeature = this.generateHeroFeature(data);
     const materials = this.getMaterialNarrative(data.materials, data.brand);
     
-    const prompt = `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
+    const prompt = `${environment}, featuring ${data.brand}'s ${proportions.scale} display as the hero. The stand's ${heroFeature} immediately captures attention from the main aisle. ${materials} construction harmonizes with the retail environment while standing out through ${brand.colors[0]} brand accents. Real shoppers browsing nearby provide scale and context, their movement slightly blurred to keep focus on the display. Natural retail lighting creates authentic shadows and reflections. The ${proportions.footprint} fits perfectly in the space while maintaining ${brand.adjectives[0]} presence. Wide-angle retail photography, shallow depth of field, no technical overlays.`;
     
     return PromptOptimizer.cleanPrompt(prompt);
   }
