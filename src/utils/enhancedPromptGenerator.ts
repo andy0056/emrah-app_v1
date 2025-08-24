@@ -262,6 +262,105 @@ export class EnhancedPromptGenerator {
   }
 
   /**
+   * Generate shelf structure descriptions based on form specifications
+   */
+  private getShelfStructure(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const shelfCount = data.shelfCount;
+    const proportions = this.getProportionalDescription(data);
+    
+    let shelfDescription = '';
+    
+    // Base description based on shelf count
+    if (shelfCount === 1) {
+      shelfDescription = 'featuring a single prominent display platform';
+    } else if (shelfCount === 2) {
+      shelfDescription = 'with dual-tier shelving creating visual hierarchy';
+    } else if (shelfCount <= 4) {
+      shelfDescription = `showcasing multiple tiered levels cascading elegantly`;
+    } else {
+      shelfDescription = `with abundant multi-level shelving creating a tower of product presentation`;
+    }
+    
+    // Add brand-specific shelf styling
+    const shelfStyles: Record<string, string[]> = {
+      'premium': [
+        'floating glass shelves with invisible supports',
+        'curved acrylic platforms that seem to defy gravity', 
+        'individually spotlit display ledges',
+        'museum-style stepped platforms'
+      ],
+      'energetic': [
+        'angular geometric shelves creating dynamic rhythm',
+        'LED-backlit platforms pulsing with brand energy',
+        'zigzag shelf arrangement generating visual motion',
+        'explosive starburst shelf configuration'
+      ],
+      'trustworthy': [
+        'systematically arranged horizontal platforms',
+        'sturdy, reliable shelving with clean lines',
+        'perfectly aligned display levels',
+        'methodical tier structure ensuring accessibility'
+      ],
+      'playful': [
+        'organically curved shelves like flower petals',
+        'rainbow-arranged platforms in ascending heights',
+        'whimsical stepped levels creating visual dance',
+        'artistic shelf curves suggesting movement'
+      ]
+    };
+    
+    const shelfStyleOptions = shelfStyles[brand.primaryTrait] || shelfStyles['trustworthy'];
+    const selectedStyle = shelfStyleOptions[Math.floor(Math.random() * shelfStyleOptions.length)];
+    
+    return `${shelfDescription}, ${selectedStyle}`;
+  }
+
+  /**
+   * Generate product arrangement based on shelf specifications
+   */
+  private getProductShelfArrangement(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const totalProducts = data.frontFaceCount * data.backToBackCount;
+    const shelfCount = data.shelfCount;
+    const productsPerShelf = Math.ceil(totalProducts / shelfCount);
+    
+    let arrangementBase = '';
+    
+    if (shelfCount === 1) {
+      arrangementBase = `${totalProducts} ${data.product} units arranged across the single display platform`;
+    } else {
+      arrangementBase = `${data.product} units thoughtfully distributed across ${shelfCount} levels, with approximately ${productsPerShelf} products per tier`;
+    }
+    
+    const arrangementStyles: Record<string, string[]> = {
+      'premium': [
+        'each product positioned with museum-quality precision',
+        'products nestled in individual spotlight zones',
+        'curated placement allowing each item to shine'
+      ],
+      'energetic': [
+        'products creating dynamic visual flow between levels',
+        'explosive arrangement radiating energy upward',
+        'kinetic product placement suggesting constant motion'
+      ],
+      'trustworthy': [
+        'systematic product organization ensuring easy selection',
+        'orderly arrangement conveying reliability and accessibility',
+        'methodical placement creating clear product visibility'
+      ],
+      'playful': [
+        'products dancing between levels in joyful choreography',
+        'whimsical arrangement creating visual storytelling',
+        'playful product placement inviting discovery'
+      ]
+    };
+    
+    const styleOptions = arrangementStyles[brand.primaryTrait] || arrangementStyles['trustworthy'];
+    const selectedStyle = styleOptions[Math.floor(Math.random() * styleOptions.length)];
+    
+    return `${arrangementBase}, ${selectedStyle}`;
+  /**
    * Generate store environment based on brand and product type
    */
   private getStoreEnvironment(data: FormData): string {
@@ -332,7 +431,7 @@ export class EnhancedPromptGenerator {
     const arrangement = this.getArrangementPattern(data);
     const metaphor = this.metaphorLib.getMetaphor(data.brand, 'architecture');
     
-    const prompt = `${brand.visualStyle} ${data.brand} display stand photographed in pristine studio conditions. The ${proportions.proportion} structure features ${heroFeature}, embodying the brand's ${brand.adjectives[0]} spirit. ${materials} construction creates ${metaphor}. ${data.product} products arranged in ${arrangement}. Professional product photography with pure white infinity backdrop, soft graduated shadows anchoring the base. The design feels ${brand.adjectives.slice(0, 2).join(' and ')} while maintaining ${proportions.scale}. Photorealistic commercial visualization, no technical annotations, no dimension lines, no measurement indicators.`;
+    return `${brand.visualStyle} ${data.brand} display stand photographed in pristine studio conditions. The ${proportions.proportion} structure features ${heroFeature}, embodying the brand's ${brand.adjectives[0]} spirit. ${materials} construction creates ${metaphor}. The display includes ${arrangement}. Professional product photography with pure white infinity backdrop, soft graduated shadows anchoring the base. The design feels ${brand.adjectives.slice(0, 2).join(' and ')} while maintaining ${proportions.scale}. Photorealistic commercial visualization, no technical annotations, no dimension lines, no measurement indicators.`;
     
     return PromptOptimizer.cleanPrompt(prompt);
   }
