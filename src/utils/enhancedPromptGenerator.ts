@@ -1,3 +1,8 @@
+import { BrandPersonalityEngine } from './brandPersonalityEngine';
+import { MetaphorLibrary } from './metaphorLibrary';
+import { InnovationEngine } from './innovationEngine';
+import { PromptOptimizer } from './promptOptimizer';
+
 interface FormData {
   brand: string;
   product: string;
@@ -18,285 +23,361 @@ interface FormData {
   description: string;
 }
 
-interface BrandProfile {
-  category: 'beverage' | 'beauty' | 'pharmaceutical' | 'food' | 'electronics' | 'fashion' | 'generic';
-  personality: string;
-  adjectives: string[];
-  signature_elements: string[];
-  material_preferences: string[];
-  metaphors: string[];
-  attention_grabbers: string[];
-  color_themes: string[];
-}
-
-interface ProportionalDescription {
-  height_category: string;
-  width_description: string;
-  interaction_style: string;
-}
-
 export class EnhancedPromptGenerator {
-  private static readonly BRAND_PROFILES: Record<string, BrandProfile> = {
-    'coca-cola': {
-      category: 'beverage',
-      personality: 'refreshing and energetic',
-      adjectives: ['refreshing', 'energetic', 'joyful', 'timeless', 'vibrant'],
-      signature_elements: ['wave-shaped header', 'curved ribbon design', 'frosted cooler-inspired panels', 'cascading bottle arrangement'],
-      material_preferences: ['sleek metal', 'frosted acrylic', 'brushed aluminum'],
-      metaphors: ['vintage cooler', 'refreshing waterfall', 'flowing ribbon', 'ice-cold refreshment station'],
-      attention_grabbers: ['LED backlighting that mimics ice glow', 'wave patterns', 'cascading arrangement'],
-      color_themes: ['vibrant red', 'classic red and white', 'ice-blue accents']
-    },
-    'monster': {
-      category: 'beverage',
-      personality: 'rebellious and energetic',
-      adjectives: ['edgy', 'bold', 'rebellious', 'high-energy', 'aggressive'],
-      signature_elements: ['angular black structure', 'claw-mark cutouts', 'LED accent strips', 'geometric patterns'],
-      material_preferences: ['matte black metal', 'brushed steel', 'industrial aluminum'],
-      metaphors: ['energy fortress', 'power station', 'urban jungle', 'adrenaline chamber'],
-      attention_grabbers: ['green LED accents', 'angular geometry', 'industrial textures'],
-      color_themes: ['matte black', 'electric green', 'metallic silver']
-    },
-    'nivea': {
-      category: 'beauty',
-      personality: 'clean and trustworthy',
-      adjectives: ['clean', 'trustworthy', 'gentle', 'caring', 'pure'],
-      signature_elements: ['curved white shelving', 'spa-like atmosphere', 'flowing organic forms', 'cloud-inspired design'],
-      material_preferences: ['pristine white acrylic', 'soft-touch materials', 'clear glass'],
-      metaphors: ['spa station', 'care sanctuary', 'cloud formation', 'wellness oasis'],
-      attention_grabbers: ['soft blue lighting', 'curved organic forms', 'pristine white surfaces'],
-      color_themes: ['pristine white', 'deep blue', 'soft silver']
-    },
-    'pantene': {
-      category: 'beauty',
-      personality: 'luxurious and transformative',
-      adjectives: ['luxurious', 'transformative', 'premium', 'golden', 'radiant'],
-      signature_elements: ['waterfall arrangement', 'golden shimmer panels', 'tiered display', 'flowing hair-inspired curves'],
-      material_preferences: ['golden metal', 'glossy acrylic', 'mirror surfaces'],
-      metaphors: ['golden waterfall', 'salon station', 'beauty transformation center', 'hair temple'],
-      attention_grabbers: ['golden shimmer effects', 'cascading arrangement', 'mirror reflections'],
-      color_themes: ['golden yellow', 'champagne gold', 'warm bronze']
-    },
-    'flormar': {
-      category: 'beauty',
-      personality: 'feminine and colorful',
-      adjectives: ['feminine', 'colorful', 'playful', 'artistic', 'vibrant'],
-      signature_elements: ['flower-petal tiers', 'color gradient displays', 'artistic curves', 'blooming design'],
-      material_preferences: ['rose-gold metal', 'colored acrylic', 'mirror elements'],
-      metaphors: ['blooming flower', 'artist palette', 'jewelry box', 'beauty garden'],
-      attention_grabbers: ['petal-shaped shelving', 'color gradients', 'artistic arrangements'],
-      color_themes: ['rose gold', 'rainbow gradient', 'soft pastels']
-    },
-    'avon': {
-      category: 'beauty',
-      personality: 'elegant and accessible',
-      adjectives: ['elegant', 'accessible', 'sophisticated', 'timeless', 'refined'],
-      signature_elements: ['vanity mirror design', 'elegant curves', 'jewelry-inspired details', 'refined presentation'],
-      material_preferences: ['elegant metals', 'mirror surfaces', 'refined plastics'],
-      metaphors: ['vanity table', 'jewelry display', 'beauty boutique', 'elegant showcase'],
-      attention_grabbers: ['mirror elements', 'elegant lighting', 'sophisticated arrangements'],
-      color_themes: ['elegant silver', 'soft gold', 'classic black']
-    }
-  };
+  private brandEngine: BrandPersonalityEngine;
+  private metaphorLib: MetaphorLibrary;
+  private innovationEngine: InnovationEngine;
 
-  private static readonly STYLE_MODIFIERS = {
-    premium: 'Architectural photography style, subtle reflections, premium materials, Vogue aesthetic',
-    mass_market: 'Bright and approachable, Target/Walmart friendly, value-focused presentation',
-    innovation: 'Concept store aesthetic, Apple Store minimalism, future retail vision',
-    practical: 'IKEA-style efficiency, modular appearance, clearly assembled from standard components'
-  };
-
-  private static readonly NEGATIVE_PROMPTS = `
-Exclude: technical drawings, CAD renders, dimension lines, measurement text, blueprint style, wireframe, schematic, ruler markings, grid overlays, annotation arrows, technical specifications, engineering diagrams, floating text, watermarks
-`.trim();
-
-  private static getBrandProfile(brand: string): BrandProfile {
-    const normalizedBrand = brand.toLowerCase().replace(/[^a-z]/g, '');
-    
-    // Direct match
-    if (this.BRAND_PROFILES[normalizedBrand]) {
-      return this.BRAND_PROFILES[normalizedBrand];
-    }
-    
-    // Partial match
-    for (const [key, profile] of Object.entries(this.BRAND_PROFILES)) {
-      if (normalizedBrand.includes(key) || key.includes(normalizedBrand)) {
-        return profile;
-      }
-    }
-    
-    // Generic fallback based on common brand patterns
-    if (normalizedBrand.includes('beauty') || normalizedBrand.includes('cosmetic')) {
-      return {
-        category: 'beauty',
-        personality: 'elegant and refined',
-        adjectives: ['elegant', 'refined', 'premium', 'sophisticated'],
-        signature_elements: ['curved design', 'mirror accents', 'premium finishes'],
-        material_preferences: ['premium metals', 'glass elements', 'refined surfaces'],
-        metaphors: ['beauty sanctuary', 'premium showcase', 'elegant display'],
-        attention_grabbers: ['premium finishes', 'elegant lighting', 'sophisticated design'],
-        color_themes: ['premium silver', 'elegant gold', 'sophisticated black']
-      };
-    }
-    
-    // Generic professional fallback
-    return {
-      category: 'generic',
-      personality: 'professional and reliable',
-      adjectives: ['professional', 'reliable', 'clean', 'modern', 'functional'],
-      signature_elements: ['clean lines', 'modern structure', 'functional design', 'professional appearance'],
-      material_preferences: ['clean metal', 'modern plastic', 'professional finishes'],
-      metaphors: ['modern showcase', 'professional display', 'clean presentation', 'contemporary stand'],
-      attention_grabbers: ['clean design', 'modern aesthetics', 'professional appearance'],
-      color_themes: ['professional silver', 'clean white', 'modern black']
-    };
+  constructor() {
+    this.brandEngine = new BrandPersonalityEngine();
+    this.metaphorLib = new MetaphorLibrary();
+    this.innovationEngine = new InnovationEngine();
   }
 
-  private static getProportionalDescription(formData: FormData): ProportionalDescription {
-    const height = formData.standHeight;
-    const width = formData.standWidth;
-    const ratio = height / width;
-    
-    let height_category: string;
-    if (height <= 80) height_category = 'Intimate display that draws customers in for closer inspection';
-    else if (height <= 150) height_category = 'Comfortable browsing height that invites interaction';
-    else height_category = 'Tower-like presence that commands attention at eye level and above';
-    
-    let width_description: string;
-    if (width <= 25) width_description = 'Space-efficient design that fits seamlessly in tight retail aisles';
-    else if (width <= 50) width_description = 'Well-proportioned display area that balances presence with practicality';
-    else width_description = 'Generous display area that creates a destination within the store';
-    
-    let interaction_style: string;
-    if (ratio >= 3) interaction_style = 'vertical focus encouraging upward browsing';
-    else if (ratio >= 2) interaction_style = 'balanced proportions for comfortable product selection';
-    else interaction_style = 'horizontal emphasis for easy product comparison';
-    
-    return { height_category, width_description, interaction_style };
+  /**
+   * Convert dimensions to creative proportional descriptions
+   * NEVER mention exact measurements!
+   */
+  private getProportionalDescription(data: FormData): {
+    scale: string;
+    proportion: string;
+    presence: string;
+    footprint: string;
+  } {
+    const heightRatio = data.standHeight / data.standWidth;
+    const aspectRatio = data.standWidth / data.standDepth;
+    const volumePresence = (data.standWidth * data.standDepth * data.standHeight) / 1000000; // cubic meters
+
+    // Scale description based on height
+    let scale = '';
+    if (data.standHeight < 50) {
+      scale = 'intimate countertop scale that invites close inspection';
+    } else if (data.standHeight < 100) {
+      scale = 'approachable mid-height display at comfortable browsing level';
+    } else if (data.standHeight < 150) {
+      scale = 'confident eye-level presence commanding attention';
+    } else {
+      scale = 'towering flagship display creating a retail landmark';
+    }
+
+    // Proportion description based on ratios
+    let proportion = '';
+    if (heightRatio > 4) {
+      proportion = 'elegantly slender silhouette reaching skyward';
+    } else if (heightRatio > 2.5) {
+      proportion = 'balanced vertical stance with graceful proportions';
+    } else if (heightRatio > 1.5) {
+      proportion = 'robust and stable form with substantial presence';
+    } else {
+      proportion = 'wide horizontal emphasis creating a display stage';
+    }
+
+    // Presence based on volume
+    let presence = '';
+    if (volumePresence < 0.05) {
+      presence = 'compact efficiency maximizing every cubic inch';
+    } else if (volumePresence < 0.15) {
+      presence = 'space-conscious design fitting seamlessly in tight aisles';
+    } else if (volumePresence < 0.3) {
+      presence = 'commanding retail footprint creating a destination';
+    } else {
+      presence = 'monumental scale transforming the retail landscape';
+    }
+
+    // Footprint description
+    let footprint = '';
+    if (aspectRatio > 2) {
+      footprint = 'linear arrangement perfect for aisle end-caps';
+    } else if (aspectRatio > 1.3) {
+      footprint = 'rectangular footprint optimized for corner placement';
+    } else {
+      footprint = 'square stance creating 360-degree shopping experience';
+    }
+
+    return { scale, proportion, presence, footprint };
   }
 
-  private static getRandomElement<T>(array: T[]): T {
-    return array[Math.floor(Math.random() * array.length)];
-  }
-
-  private static getMaterialDescription(materials: string[], brandProfile: BrandProfile): string {
-    if (materials.length === 0) return brandProfile.material_preferences[0] || 'modern materials';
-    
-    const materialMap: Record<string, string> = {
-      'Metal': 'sleek metal framework',
-      'Ahşap (Wood)': 'warm wood elements',
-      'Plastik (Plastic)': 'modern polymer construction',
-      'Cam (Glass)': 'crystal-clear glass panels',
-      'Karton (Cardboard)': 'sustainable cardboard structure',
-      'Akrilik (Acrylic)': 'premium acrylic surfaces',
-      'MDF': 'refined composite construction',
-      'Alüminyum (Aluminum)': 'brushed aluminum framework'
-    };
-    
-    const descriptions = materials.map(m => materialMap[m] || m.toLowerCase());
-    return descriptions.length === 1 ? descriptions[0] : `${descriptions.slice(0, -1).join(', ')} with ${descriptions[descriptions.length - 1]}`;
-  }
-
-  private static getStoreEnvironment(standType: string): { store_type: string; location: string; atmosphere: string } {
-    const environments = {
-      'Ayaklı Stant (Floor Stand)': {
-        store_type: 'modern supermarket',
-        location: 'positioned at the end-cap creating a branded zone',
-        atmosphere: 'bright retail environment with the stand naturally commanding attention'
+  /**
+   * Generate material descriptions that inspire rather than specify
+   */
+  private getMaterialNarrative(materials: string[], brand: string): string {
+    const brandPersonality = this.brandEngine.getPersonality(brand);
+    const materialStories: Record<string, Record<string, string>> = {
+      'Metal': {
+        'premium': 'brushed titanium-finish metal exuding luxury',
+        'energetic': 'powder-coated steel in electric colors pulsing with energy',
+        'trustworthy': 'satin-finish aluminum conveying reliability',
+        'playful': 'glossy metallic surfaces reflecting joy',
+        'default': 'sleek metallic framework'
       },
-      'Masa Üstü Stant (Tabletop Stand)': {
-        store_type: 'premium convenience store',
-        location: 'placed at the checkout counter for impulse purchases',
-        atmosphere: 'intimate retail space where the compact display creates perfect browsing moments'
+      'Ahşap (Wood)': {
+        'premium': 'rich walnut grain with hand-rubbed finish',
+        'energetic': 'light bamboo bringing natural dynamism',
+        'trustworthy': 'solid oak conveying heritage and stability',
+        'playful': 'colorful laminated birch with visible grain',
+        'default': 'warm wood tones'
       },
-      'Duvar Stantı (Wall Mount Stand)': {
-        store_type: 'modern pharmacy',
-        location: 'mounted between product categories as a bridge display',
-        atmosphere: 'clean retail environment where the wall display adds vertical interest'
+      'Akrilik (Acrylic)': {
+        'premium': 'crystal-clear acrylic with diamond-polished edges',
+        'energetic': 'fluorescent edge-lit acrylic glowing with vitality',
+        'trustworthy': 'frosted acrylic providing gentle diffusion',
+        'playful': 'rainbow-tinted acrylic creating prismatic effects',
+        'default': 'pristine acrylic elements'
+      },
+      'Plastik (Plastic)': {
+        'premium': 'high-grade polymer with silk-touch finish',
+        'energetic': 'translucent plastic with internal light diffusion',
+        'trustworthy': 'durable composite materials built to last',
+        'playful': 'colorful injection-molded elements',
+        'default': 'modern polymer construction'
+      },
+      'Cam (Glass)': {
+        'premium': 'architectural glass with beveled edges',
+        'energetic': 'tempered glass with subtle tinting',
+        'trustworthy': 'safety glass providing clear visibility',
+        'playful': 'colored glass creating rainbow effects',
+        'default': 'transparent glass panels'
+      },
+      'Karton (Cardboard)': {
+        'premium': 'sustainable honeycomb cardboard with premium lamination',
+        'energetic': 'corrugated cardboard with vibrant printing',
+        'trustworthy': 'eco-friendly cardboard construction',
+        'playful': 'colorful cardboard with playful patterns',
+        'default': 'sturdy cardboard structure'
+      },
+      'MDF': {
+        'premium': 'precision-cut MDF with melamine finish',
+        'energetic': 'painted MDF in energetic colors',
+        'trustworthy': 'high-density MDF providing stability',
+        'playful': 'colored MDF with rounded edges',
+        'default': 'smooth MDF construction'
+      },
+      'Alüminyum (Aluminum)': {
+        'premium': 'anodized aluminum with brushed finish',
+        'energetic': 'powder-coated aluminum in vibrant hues',
+        'trustworthy': 'industrial-grade aluminum framework',
+        'playful': 'colored aluminum with polished accents',
+        'default': 'lightweight aluminum structure'
       }
     };
-    
-    return environments[standType as keyof typeof environments] || environments['Ayaklı Stant (Floor Stand)'];
+
+    const narratives = materials.map(material => {
+      const materialMap = materialStories[material] || materialStories['Metal'];
+      return materialMap[brandPersonality.primaryTrait] || materialMap['default'];
+    });
+
+    return this.combineWithFlow(narratives);
   }
 
-  // Template A: Brand-First Front View
-  static generateBrandFirstPrompt(formData: FormData): string {
-    const brandProfile = this.getBrandProfile(formData.brand);
-    const proportions = this.getProportionalDescription(formData);
-    const signature_element = this.getRandomElement(brandProfile.signature_elements);
-    const material = this.getMaterialDescription(formData.materials, brandProfile);
-    const adjectives = brandProfile.adjectives.slice(0, 2).join(' and ');
-    const color_theme = this.getRandomElement(brandProfile.color_themes);
+  /**
+   * Combine elements with natural language flow
+   */
+  private combineWithFlow(elements: string[]): string {
+    if (elements.length === 1) return elements[0];
+    if (elements.length === 2) return `${elements[0]} harmonizing with ${elements[1]}`;
     
-    return `Premium ${formData.brand} display stand showcasing ${formData.product} in a clean studio setting. The stand features a distinctive ${signature_element} that embodies ${formData.brand}'s identity. ${material} with ${color_theme} accents creates visual hierarchy. Products arranged in an eye-catching pattern that draws attention. Professional product photography, bright even lighting, pure white background. The design feels ${adjectives} while maintaining retail practicality. ${proportions.height_category} with ${proportions.interaction_style}. Sharp focus, commercial quality, no technical annotations.
-
-${this.NEGATIVE_PROMPTS}`;
+    const last = elements.pop();
+    return `${elements.join(', ')}, unified by ${last}`;
   }
 
-  // Template B: Environment-First Store Context
-  static generateEnvironmentFirstPrompt(formData: FormData): string {
-    const brandProfile = this.getBrandProfile(formData.brand);
-    const storeEnv = this.getStoreEnvironment(formData.standType);
-    const hero_feature = this.getRandomElement(brandProfile.signature_elements);
-    const attention_grabber = this.getRandomElement(brandProfile.attention_grabbers);
-    const metaphor = this.getRandomElement(brandProfile.metaphors);
+  /**
+   * Generate the hero innovation feature
+   */
+  private generateHeroFeature(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const context = this.extractContext(data.description);
     
-    return `${storeEnv.store_type} featuring an innovative ${formData.brand} display that naturally stands out. The ${formData.standType.toLowerCase()} showcases ${formData.product} with a unique ${hero_feature} that catches shoppers' attention from the aisle. ${storeEnv.atmosphere} ${storeEnv.location}. Real shoppers browsing nearby, the stand fits the space perfectly while commanding attention through ${attention_grabber}. The design suggests a ${metaphor} while remaining unmistakably functional for retail use. Natural retail lighting, lived-in atmosphere, the display feels both ${brandProfile.personality.split(' ').join(' and ')}.
-
-${this.NEGATIVE_PROMPTS}`;
+    return this.innovationEngine.generateFeature({
+      brand: data.brand,
+      brandTraits: brand,
+      context: context,
+      materials: data.materials,
+      standType: data.standType
+    });
   }
 
-  // Template C: Design-Hero Three-Quarter View
-  static generateDesignHeroPrompt(formData: FormData): string {
-    const brandProfile = this.getBrandProfile(formData.brand);
-    const proportions = this.getProportionalDescription(formData);
-    const defining_feature = this.getRandomElement(brandProfile.signature_elements);
-    const material = this.getMaterialDescription(formData.materials, brandProfile);
-    const visual_effect = this.getRandomElement(brandProfile.attention_grabbers);
-    const metaphor = this.getRandomElement(brandProfile.metaphors);
-    const key_design_element = this.getRandomElement(brandProfile.signature_elements);
+  /**
+   * Extract context from description
+   */
+  private extractContext(description: string): string[] {
+    const contexts = [];
+    const desc = description.toLowerCase();
     
-    const pattern_description = formData.shelfCount > 1 
-      ? `${formData.frontFaceCount} across in multiple tiers creating rhythm and abundance`
-      : `${formData.frontFaceCount} across creating perfect symmetry`;
+    if (desc.includes('ışık') || desc.includes('led') || desc.includes('light')) {
+      contexts.push('illuminated');
+    }
+    if (desc.includes('premium') || desc.includes('luxury') || desc.includes('özel')) {
+      contexts.push('premium');
+    }
+    if (desc.includes('yenilik') || desc.includes('innovat') || desc.includes('modern')) {
+      contexts.push('innovative');
+    }
+    if (desc.includes('dikkat') || desc.includes('attention') || desc.includes('göze')) {
+      contexts.push('attention-grabbing');
+    }
+    if (desc.includes('300 adet') || desc.includes('mass') || desc.includes('çok')) {
+      contexts.push('scalable');
+    }
     
-    return `Striking ${formData.brand} retail display viewed from a dynamic angle, revealing its sculptural ${defining_feature}. The ${material} structure creates ${visual_effect} while maintaining perfect product visibility. ${formData.product} arranged to create ${pattern_description}. Dramatic studio lighting emphasizes the ${key_design_element}, creating subtle shadows that enhance dimensionality. The overall form suggests ${metaphor} while remaining unmistakably functional for retail use. ${proportions.height_category} with sophisticated ${proportions.interaction_style}. Premium visualization quality, no measurement indicators.
-
-${this.NEGATIVE_PROMPTS}`;
+    return contexts;
   }
 
-  // Main method to generate all three views
-  static generateAllCreativePrompts(formData: FormData) {
-    return {
-      frontView: this.generateBrandFirstPrompt(formData),
-      storeView: this.generateEnvironmentFirstPrompt(formData),
-      threeQuarterView: this.generateDesignHeroPrompt(formData)
-    };
-  }
-
-  // Individual generators (for backward compatibility)
-  static generateHeroShotPrompt = this.generateBrandFirstPrompt;
-  static generateStoreContextPrompt = this.generateEnvironmentFirstPrompt;
-  static generateBeautyShotPrompt = this.generateDesignHeroPrompt;
-
-  // Utility method to get style modifier
-  static getStyleModifier(style: 'premium' | 'mass_market' | 'innovation' | 'practical'): string {
-    return this.STYLE_MODIFIERS[style];
-  }
-
-  // Method to analyze and improve prompts based on brand
-  static analyzeBrandFit(brand: string, generatedImages: any[], userRatings?: number[]) {
-    const brandProfile = this.getBrandProfile(brand);
+  /**
+   * Generate arrangement pattern based on brand and product
+   */
+  private getArrangementPattern(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const productCount = data.frontFaceCount * data.backToBackCount * data.shelfCount;
     
-    return {
-      brandCategory: brandProfile.category,
-      personality: brandProfile.personality,
-      averageRating: userRatings ? userRatings.reduce((a, b) => a + b, 0) / userRatings.length : 0,
-      suggestions: [
-        `Try emphasizing ${brandProfile.metaphors[0]} in future prompts`,
-        `Consider highlighting ${brandProfile.signature_elements[0]} more prominently`,
-        `Experiment with ${brandProfile.color_themes[0]} color schemes`
+    const patterns: Record<string, string[]> = {
+      'premium': [
+        'products displayed like precious gems in a jewelry case',
+        'minimalist grid creating breathing space between each item',
+        'museum-quality presentation with spotlight emphasis'
+      ],
+      'energetic': [
+        'dynamic cascade of products creating visual motion',
+        'explosive burst pattern radiating from center',
+        'zigzag arrangement generating kinetic energy'
+      ],
+      'trustworthy': [
+        'perfectly aligned rows conveying order and reliability',
+        'systematic grid ensuring every product is accessible',
+        'tiered presentation allowing clear visibility'
+      ],
+      'playful': [
+        'products dancing in a playful spiral',
+        'rainbow arc arrangement creating visual delight',
+        'checkerboard pattern adding graphic interest'
       ]
     };
+    
+    const brandPatterns = patterns[brand.primaryTrait] || patterns['trustworthy'];
+    const selectedPattern = brandPatterns[Math.floor(Math.random() * brandPatterns.length)];
+    
+    if (productCount > 20) {
+      return `${selectedPattern}, creating abundance through repetition`;
+    }
+    return selectedPattern;
   }
+
+  /**
+   * Generate store environment based on brand and product type
+   */
+  private getStoreEnvironment(data: FormData): string {
+    const environments: Record<string, string> = {
+      'Coca-Cola': 'bustling supermarket with the energy of weekend shopping, fluorescent lights mixing with natural daylight from skylights',
+      'Monster Energy': 'modern convenience store with neon accents, urban street visible through glass storefront',
+      'NIVEA': 'pristine pharmacy beauty section with soft LED track lighting, white tile floors reflecting gentle illumination',
+      'PANTENE': 'upscale beauty retailer with warm spotlights, marble flooring, and mirrors amplifying the space',
+      'Flormar': 'vibrant cosmetics boutique with artistic lighting and colorful displays creating energy',
+      'Avon': 'elegant beauty section with sophisticated lighting and refined atmosphere',
+      'Whiskey': 'premium liquor store with dark wood fixtures, amber lighting, leather and brass accents',
+      'paradontax': 'bright health-focused pharmacy, clinical white with trust-building blue accents'
+    };
+    
+    // Try direct match first, then partial match
+    let environment = environments[data.brand];
+    if (!environment) {
+      const brandLower = data.brand.toLowerCase();
+      for (const [key, env] of Object.entries(environments)) {
+        if (key.toLowerCase().includes(brandLower) || brandLower.includes(key.toLowerCase())) {
+          environment = env;
+          break;
+        }
+      }
+    }
+    
+    return environment || 'modern retail environment with bright, welcoming atmosphere';
+  }
+
+  /**
+   * Main prompt generation methods
+   */
+  public generateFrontView(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const proportions = this.getProportionalDescription(data);
+    const materials = this.getMaterialNarrative(data.materials, data.brand);
+    const heroFeature = this.generateHeroFeature(data);
+    const arrangement = this.getArrangementPattern(data);
+    const metaphor = this.metaphorLib.getMetaphor(data.brand, 'architecture');
+    
+    const prompt = `${brand.visualStyle} ${data.brand} display stand photographed in pristine studio conditions. The ${proportions.proportion} structure features ${heroFeature}, embodying the brand's ${brand.adjectives[0]} spirit. ${materials} construction creates ${metaphor}. ${data.product} products arranged in ${arrangement}. Professional product photography with pure white infinity backdrop, soft graduated shadows anchoring the base. The design feels ${brand.adjectives.slice(0, 2).join(' and ')} while maintaining ${proportions.scale}. Photorealistic commercial visualization, no technical annotations, no dimension lines, no measurement indicators.`;
+    
+    return PromptOptimizer.cleanPrompt(prompt);
+  }
+
+  public generateStoreView(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const proportions = this.getProportionalDescription(data);
+    const environment = this.getStoreEnvironment(data);
+    const heroFeature = this.generateHeroFeature(data);
+    const materials = this.getMaterialNarrative(data.materials, data.brand);
+    
+    const prompt = `${environment}, featuring ${data.brand}'s ${proportions.scale} display as the hero. The stand's ${heroFeature} immediately captures attention from the main aisle. ${materials} construction harmonizes with the retail environment while standing out through ${brand.colors[0]} brand accents. Real shoppers browsing nearby provide scale and context, their movement slightly blurred to keep focus on the display. Natural retail lighting creates authentic shadows and reflections. The ${proportions.footprint} fits perfectly in the space while maintaining ${brand.adjectives[0]} presence. Wide-angle retail photography, shallow depth of field, no technical overlays.`;
+    
+    return PromptOptimizer.cleanPrompt(prompt);
+  }
+
+  public generateThreeQuarterView(data: FormData): string {
+    const brand = this.brandEngine.getPersonality(data.brand);
+    const proportions = this.getProportionalDescription(data);
+    const materials = this.getMaterialNarrative(data.materials, data.brand);
+    const heroFeature = this.generateHeroFeature(data);
+    const metaphor = this.metaphorLib.getMetaphor(data.brand, 'sculpture');
+    const arrangement = this.getArrangementPattern(data);
+    
+    const prompt = `Sculptural ${data.brand} display viewed from dynamic three-quarter angle, revealing ${heroFeature} in full dimension. The ${proportions.proportion} form suggests ${metaphor}, while ${materials} construction creates rich interplay of surfaces and textures. ${data.product} products create ${arrangement}, visible from multiple angles. Dramatic studio lighting with key light from upper left, fill from right, and rim lighting defining edges. The ${proportions.presence} commands attention while maintaining ${brand.adjectives[1]} sophistication. Premium visualization quality with subtle reflections on studio floor, no measurement indicators or technical annotations.`;
+    
+    return PromptOptimizer.cleanPrompt(prompt);
+  }
+
+  /**
+   * Generate all three prompts at once
+   */
+  public generateAllCreativePrompts(data: FormData): {
+    frontView: string;
+    storeView: string;
+    threeQuarterView: string;
+  } {
+    return {
+      frontView: this.generateFrontView(data),
+      storeView: this.generateStoreView(data),
+      threeQuarterView: this.generateThreeQuarterView(data)
+    };
+  }
+
+  /**
+   * Generate optimized prompts for Imagen 4
+   */
+  public generateOptimizedPrompts(data: FormData): {
+    frontView: string;
+    storeView: string;
+    threeQuarterView: string;
+    negativePrompt: string;
+  } {
+    const basePrompts = this.generateAllCreativePrompts(data);
+    
+    return {
+      frontView: PromptOptimizer.optimizeForImagen4(basePrompts.frontView),
+      storeView: PromptOptimizer.optimizeForImagen4(basePrompts.storeView),
+      threeQuarterView: PromptOptimizer.optimizeForImagen4(basePrompts.threeQuarterView),
+      negativePrompt: PromptOptimizer.generateNegativePrompt()
+    };
+  }
+
+  /**
+   * Generate negative prompts to exclude unwanted elements
+   */
+  public generateNegativePrompt(): string {
+    return PromptOptimizer.generateNegativePrompt();
+  }
+
+  // Legacy method aliases for backward compatibility
+  public generateBrandFirstPrompt = this.generateFrontView;
+  public generateEnvironmentFirstPrompt = this.generateStoreView;
+  public generateDesignHeroPrompt = this.generateThreeQuarterView;
+  public generateHeroShotPrompt = this.generateFrontView;
+  public generateStoreContextPrompt = this.generateStoreView;
+  public generateBeautyShotPrompt = this.generateThreeQuarterView;
 }

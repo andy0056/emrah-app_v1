@@ -32,8 +32,9 @@ export const usePrompt = (): UsePromptReturn => {
 
   const generatePrompts = useCallback((formData: any) => {
     if (formData?.brand && formData?.product && formData?.standType) {
-      // Use the new creative prompt templates
-      const generatedPrompts = PromptGenerator.generateCreativePrompts(formData);
+      // Use the enhanced prompt generator
+      const enhancedGenerator = new (await import('../utils/enhancedPromptGenerator')).EnhancedPromptGenerator();
+      const generatedPrompts = enhancedGenerator.generateAllCreativePrompts(formData);
       setBasePrompts(generatedPrompts);
       // Reset enhanced prompts when base data changes
       setEnhancedPrompts(null);
