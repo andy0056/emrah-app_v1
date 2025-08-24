@@ -45,7 +45,7 @@ export class PromptOptimizer {
       // Remove capacity and quantity specifications
       .replace(/capacity:\s*\d+[^.]*\./gi, '')
       .replace(/\d+\s*across\s*×\s*\d+\s*deep\s*×\s*\d+\s*shelves?/gi, '')
-      .replace/must fit capacity exactly:\s*\d+[^.]*\./gi, '')
+      .replace(/must fit capacity exactly:\s*\d+[^.]*\./gi, '')
       
       // Remove technical terms and CAD references
       .replace(/\b(dimension|measurement|capacity|specification|tolerance|scale|CAD|blueprint|wireframe|technical drawing)\b/gi, '')
@@ -56,7 +56,7 @@ export class PromptOptimizer {
       .replace(/\d+\s*[×x]\s*\d+\s*[×x]\s*\d+/gi, '')
       
       // Remove lens and camera technical specs that are too specific
-      .replace/35\s*mm\s*full-frame\s*lens,\s*f\/8,\s*ISO\s*100/gi, 'professional camera settings')
+      .replace(/35\s*mm\s*full-frame\s*lens,\s*f\/8,\s*ISO\s*100/gi, 'professional camera settings')
       .replace(/f\/\d+,?\s*ISO\s*\d+/gi, 'optimal camera settings')
       
       // Clean up extra spaces and formatting
