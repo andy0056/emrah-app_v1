@@ -444,6 +444,7 @@ export class EnhancedPromptGenerator {
 STRUCTURE: ${data.standBaseColor} ${data.materials[0]} frame with ${heroFeature}.
 SHELVES: ${shelfSpec}.
 STYLE: ${brand.visualStyle}, photorealistic, commercial quality, white studio backdrop.`;
+  }
 
   public generateStoreView(data: FormData): string {
     const environment = this.getStoreEnvironment(data);
@@ -459,6 +460,8 @@ SHELVES: ${shelfSpec}, clearly separate from store fixtures.
     const heroFeature = this.generateHeroFeature(data);
     
     return `${creativeAngle} of ${data.brand} ${data.standType}.
+  }
+}
 DESIGN: ${data.standBaseColor} ${data.materials[0]} construction with ${heroFeature}.
 SHELVES: ${shelfSpec} clearly visible and accessible.
 LIGHTING: ${this.getLightingScenario()}, ${brand.visualStyle} aesthetic.`;
