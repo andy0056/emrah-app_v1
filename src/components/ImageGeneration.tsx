@@ -20,6 +20,12 @@ interface ImageGenerationProps {
   } | null;
   isFormValid: boolean;
   currentProjectId?: string;
+  formData?: {
+    brandLogo?: string;
+    productImage?: string;
+    keyVisual?: string;
+    exampleStands?: string[];
+  };
   initialImages?: {
     frontView?: string;
     storeView?: string;
@@ -39,6 +45,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   enhancedPrompts, 
   isFormValid, 
   currentProjectId,
+  formData,
   initialImages,
   onImagesUpdated
 }) => {
@@ -118,21 +125,27 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         {enhancedPrompts ? 'Enhanced Brand-First AI Generation' : 'Brand-First AI Image Generation'}
       const finalPrompts = enhancedPrompts || prompts;
       
+      // Determine reference image priority: product image -> key visual -> brand logo
+      const referenceImage = formData?.productImage || formData?.keyVisual || formData?.brandLogo;
+      
       const requests: ImageGenerationRequest[] = [
         {
           prompt: finalPrompts.frontView,
           aspect_ratio: "9:16",
-          num_images: 1
+          num_images: 1,
+          reference_image_url: referenceImage
         },
         {
           prompt: finalPrompts.storeView,
           aspect_ratio: "16:9",
-          num_images: 1
+          num_images: 1,
+          reference_image_url: referenceImage
         },
         {
           prompt: finalPrompts.threeQuarterView,
           aspect_ratio: "3:4",
-          num_images: 1
+          num_images: 1,
+          reference_image_url: referenceImage
         }
       ];
 

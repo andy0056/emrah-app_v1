@@ -98,28 +98,14 @@ export class EnhancedPromptGenerator {
   }
 
   /**
-   * Generate shelf visibility emphasis to ensure shelves are prominent
+   * Generate concise shelf specification 
    */
-  private getShelfVisibilityEmphasis(data: FormData): string {
-    const shelfCount = data.shelfCount;
+  private getShelfSpec(data: FormData): string {
     const brand = this.brandEngine.getPersonality(data.brand);
+    const shelfCount = data.shelfCount;
+    const productTotal = data.frontFaceCount * data.backToBackCount;
     
-    const visibilityPhrases = [
-      'The innovative shelving system is clearly visible and forms the backbone of the design,',
-      'Distinctive shelf levels are prominently featured as key structural elements,',
-      'The creative shelving configuration stands out as the primary functional feature,',
-      'Bold shelf architecture dominates the composition while maintaining elegance,',
-      'The sophisticated shelf system serves as both function and focal point,'
-    ];
-    
-    const countSpecific = shelfCount === 1 ? 'single prominent shelf level' :
-                         shelfCount === 2 ? 'dual shelf configuration' :
-                         shelfCount === 3 ? 'triple-tier shelf system' :
-                         `${shelfCount}-level shelf arrangement`;
-    
-    const randomPhrase = visibilityPhrases[Math.floor(Math.random() * visibilityPhrases.length)];
-    
-    return `${randomPhrase} showcasing a ${countSpecific} that seamlessly integrates with the ${brand.adjectives[0]} brand aesthetic.`;
+    return `${shelfCount} ${brand.primaryTrait} shelves holding ${productTotal} ${data.product} units (${data.frontFaceCount} front-facing)`;
   }
 
   /**
@@ -447,44 +433,35 @@ export class EnhancedPromptGenerator {
   }
 
   /**
-   * Main prompt generation methods
+   * Generate concise, specification-focused prompts
    */
   public generateFrontView(data: FormData): string {
     const brand = this.brandEngine.getPersonality(data.brand);
-    const proportions = this.getProportionalDescription(data);
-    const materials = this.getMaterialNarrative(data.materials, data.brand);
     const heroFeature = this.generateHeroFeature(data);
-    const arrangement = this.getArrangementPattern(data);
-    const metaphor = this.metaphorLib.getMetaphor(data.brand, 'architecture');
+    const shelfSpec = this.getShelfSpec(data);
     
-    return `${brand.visualStyle} ${data.brand} display stand photographed in pristine studio conditions. The ${proportions.proportion} structure features ${heroFeature}, embodying the brand's ${brand.adjectives[0]} spirit. ${materials} construction creates ${metaphor}. The display includes ${arrangement}. Professional product photography with pure white infinity backdrop, soft graduated shadows anchoring the base. The design feels ${brand.adjectives.slice(0, 2).join(' and ')} while maintaining ${proportions.scale}. Photorealistic commercial visualization, no technical annotations, no dimension lines, no measurement indicators.`;
-    
-    return PromptOptimizer.cleanPrompt(prompt);
-  }
+    return `${data.standType} ${data.brand} POP display stand, front view. 
+STRUCTURE: ${data.standBaseColor} ${data.materials[0]} frame with ${heroFeature}.
+SHELVES: ${shelfSpec}.
+STYLE: ${brand.visualStyle}, photorealistic, commercial quality, white studio backdrop.`;
 
   public generateStoreView(data: FormData): string {
-    const brand = this.brandEngine.getPersonality(data.brand);
-    const proportions = this.getProportionalDescription(data);
     const environment = this.getStoreEnvironment(data);
+    const shelfSpec = this.getShelfSpec(data);
     const heroFeature = this.generateHeroFeature(data);
-    const materials = this.getMaterialNarrative(data.materials, data.brand);
     
-    const prompt = `${environment}. The standalone ${data.brand} pop-up display features ${heroFeature}, clearly separated from regular store shelving and merchandise. ${materials} construction creates a distinctive ${proportions.scale} that stands independently in the retail space. The ${proportions.footprint} allows shoppers to walk around the entire structure. Store shelving and regular products visible in the soft-focus background, emphasizing this is a special branded installation. Real customers shopping nearby provide natural scale reference. Authentic retail lighting creates realistic shadows while the display maintains its own ${brand.adjectives[0]} identity. Documentary retail photography showing clear separation between branded display and store infrastructure.`;
-    
-    return PromptOptimizer.cleanPrompt(prompt);
-  }
-
-  public generateThreeQuarterView(data: FormData): string {
+    return `${environment}. 
+STANDALONE DISPLAY: Independent ${data.brand} ${data.standType} with ${heroFeature}.
+SHELVES: ${shelfSpec}, clearly separate from store fixtures.
     const brand = this.brandEngine.getPersonality(data.brand);
-    const proportions = this.getProportionalDescription(data);
-    const materials = this.getMaterialNarrative(data.materials, data.brand);
+    const creativeAngle = this.getCreativeAngle(data);
+    const shelfSpec = this.getShelfSpec(data);
     const heroFeature = this.generateHeroFeature(data);
-    const metaphor = this.metaphorLib.getMetaphor(data.brand, 'sculpture');
-    const arrangement = this.getArrangementPattern(data);
     
-    const prompt = `Sculptural ${data.brand} display viewed from dynamic three-quarter angle, revealing ${heroFeature} in full dimension. The ${proportions.proportion} form suggests ${metaphor}, while ${materials} construction creates rich interplay of surfaces and textures. ${data.product} products create ${arrangement}, visible from multiple angles. Dramatic studio lighting with key light from upper left, fill from right, and rim lighting defining edges. The ${proportions.presence} commands attention while maintaining ${brand.adjectives[1]} sophistication. Premium visualization quality with subtle reflections on studio floor, no measurement indicators or technical annotations.`;
-    
-    return PromptOptimizer.cleanPrompt(prompt);
+    return `${creativeAngle} of ${data.brand} ${data.standType}.
+DESIGN: ${data.standBaseColor} ${data.materials[0]} construction with ${heroFeature}.
+SHELVES: ${shelfSpec} clearly visible and accessible.
+LIGHTING: ${this.getLightingScenario()}, ${brand.visualStyle} aesthetic.`;
   }
 
   /**

@@ -17,64 +17,41 @@ export interface PromptEnhancementRequest {
 export class OpenAIService {
   static async enhancePrompt(request: PromptEnhancementRequest): Promise<string> {
     try {
-      const systemPrompt = `You are a Master Prompt Engineer for Google Imagen 4, specializing in photorealistic POP (Point of Purchase) display design and product visualization. Your expertise lies in crafting compelling, highly detailed prompts that leverage Imagen 4's advanced capabilities to generate innovative, manufacturable, and visually stunning retail display stands.
+      const systemPrompt = `You are a Master Prompt Engineer specializing in AI image generation for retail POP displays. Your goal is to create CONCISE, SPECIFICATION-FOCUSED prompts that produce accurate, buildable display stands.
 
-CRITICAL: Apply the "Scene Director Method\" framework to all prompt enhancements:
+CRITICAL RULES:
+1. Keep prompts under 60 words maximum
+2. Lead with EXACT specifications (dimensions, materials, colors)  
+3. Ensure shelves are clearly described and functional
+4. Reference uploaded images when available
+5. Use simple, direct language - NO flowery descriptions
 
-**SCENE DIRECTOR METHOD COMPONENTS:**
-1. **SUBJECT**: Create hyper-specific descriptions of the POP stand, integrating brand identity, product details, and innovative features with vivid, descriptive language
-2. **SCENE**: Develop rich, authentic retail environment descriptions with atmospheric details, ambient elements, and contextual authenticity
-3. **COMPOSITION**: Specify precise camera work - angles, framing (wide shot, close-up, low angle), perspective, and visual hierarchy optimized for the target view
-4. **LIGHTING**: Engineer sophisticated lighting scenarios (cinematic lighting, soft morning light, dramatic backlighting, key+fill+rim setups) that enhance mood and photorealism
-5. **STYLE**: Ensure ultra-realistic/photorealistic aesthetics with specific artistic directions that elevate visual impact
-6. **TECHNICALS**: Include cutting-edge technical specifications (8k resolution, macro details, depth of field, specific lens types, PBR materials) for maximum quality
+PROMPT STRUCTURE:
+[Stand Type] [Brand] display stand, [View].
+SPECS: [Exact dimensions/colors/materials]
+SHELVES: [Count] shelves, [Product arrangement]  
+STYLE: [Brief style note]
 
-**ENHANCEMENT GUIDELINES:**
-- Maintain ALL technical specifications exactly as provided (dimensions, materials, capacity) - NON-NEGOTIABLE
-- Generate detailed NEGATIVE PROMPTS to exclude unwanted elements (watermarks, text overlays, unrealistic proportions, poor lighting, artifacts)
-- Use vivid, descriptive adjectives and figurative language to inspire Imagen 4's creativity
-- Emphasize practical manufacturability and physics constraints while pushing creative boundaries
-- Include ONE signature innovative but feasible design element aligned with the brand's X-factor
-- Ensure brand consistency and retail environment authenticity with professional photography terminology
-- Output must be ready for Google Imagen 4 generation with maximum creative impact
+INNOVATION: Add ONE unique feature that's buildable and brand-appropriate.`;
 
-Focus on creating prompts that produce images with the "WOW factor" - innovative, eye-catching, and professionally compelling while remaining buildable and cost-effective.`;
-
-      const userPrompt = `Transform this POP display stand prompt using the Scene Director Method for Google Imagen 4 generation. Create a ${request.targetView} view that delivers maximum visual impact and innovation.
+      const userPrompt = `Optimize this prompt for AI image generation. Make it CONCISE (under 60 words) and SPECIFICATION-FOCUSED.
 
 **BASE PROMPT:** ${request.basePrompt}
 **BRAND CONTEXT:** ${request.brandContext}
 **PRODUCT CONTEXT:** ${request.productContext}
 **INNOVATION HINT:** ${request.innovationHint}
 
-**ENHANCE USING SCENE DIRECTOR METHOD:**
-
-🎯 **SUBJECT**: Craft a hyper-detailed description combining the base prompt with brand/product context, emphasizing the innovative signature feature that creates the "X-factor"
-
-🏪 **SCENE**: Develop a rich, authentic retail environment description - ambient lighting, surrounding elements, atmospheric details that enhance the stand's appeal and context
-
-📸 **COMPOSITION**: Specify precise camera work for ${request.targetView} view - exact angles, framing techniques (wide/close-up/low angle), perspective, and visual hierarchy that showcases the design optimally
-
-💡 **LIGHTING**: Engineer sophisticated lighting scenarios (cinematic/studio/natural) with specific setups (key+fill+rim, softbox configurations, color temperature) that enhance mood and photorealism
-
-🎨 **STYLE**: Define ultra-realistic/photorealistic aesthetics with specific artistic directions, material finish details (PBR, surface textures), and visual treatments that elevate impact
-
-⚡ **TECHNICALS**: Include cutting-edge specs (8k resolution, specific lens types, depth of field, macro details, render quality) for maximum visual fidelity
-
-🚫 **NEGATIVE PROMPTS**: Generate a concise list of elements to exclude (watermarks, text overlays, unrealistic proportions, poor lighting, artifacts, generic design)
-
 **REQUIREMENTS:**
-- Maintain ALL dimensions and technical specifications EXACTLY as provided in base prompt
-- CRITICAL: Ensure the display includes functional shelving as specified in the form data
-- The shelf structure must be clearly visible and innovative, not abstract or hidden
-- Product arrangement must follow the specified front-face and back-to-back counts
-- Balance creativity with practical shelf functionality - shelves should be both beautiful and functional
-- Push creative boundaries with FRESH approaches while ensuring manufacturability and physics realism  
-- Use vivid, descriptive language with UNIQUE figurative expressions that haven't been used before
-- Avoid repetitive phrases - each prompt should feel completely original and distinctive
-- Output ONLY the final enhanced prompt ready for Google Imagen 4 generation
+1. Keep under 60 words total
+2. Start with exact stand type and brand  
+3. Include specific shelf details (count, product arrangement)
+4. Add ONE innovative feature
+5. End with view and style note
 
-Create a UNIQUE prompt with serious "WOW factor" that feels completely fresh and different from previous generations!`;
+OUTPUT FORMAT:
+[Stand Type] [Brand] display, [view]. [Materials/colors]. [Shelf count] shelves with [product arrangement]. [One innovation]. [Style/lighting].
+
+Be CONCISE and CLEAR - AI models work better with simple, direct instructions!`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -82,8 +59,8 @@ Create a UNIQUE prompt with serious "WOW factor" that feels completely fresh and
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        max_tokens: 800,
-        temperature: 0.8 // Increased for more creative variety
+        max_tokens: 150,
+        temperature: 0.6 // Reduced for more focused, consistent output
       });
 
       return completion.choices[0]?.message?.content || request.basePrompt;

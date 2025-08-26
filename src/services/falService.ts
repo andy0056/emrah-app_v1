@@ -11,6 +11,7 @@ export interface ImageGenerationRequest {
   num_images?: number;
   negative_prompt?: string;
   seed?: number;
+  reference_image_url?: string;
 }
 
 export interface GeneratedImage {
@@ -45,14 +46,31 @@ export interface FluxKontextResult {
 export class FalService {
   static async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
     try {
-      const result = await fal.subscribe("fal-ai/imagen4/preview", {
-        input: {
-          prompt: request.prompt,
-          aspect_ratio: request.aspect_ratio,
-          num_images: request.num_images || 1,
-          negative_prompt: request.negative_prompt || "blurry, low quality, distorted, unrealistic proportions, poor lighting, artifacts",
-          ...(request.seed && { seed: request.seed })
-        },
+      // Use Flux Pro 1.1 if reference image is provided, otherwise use Imagen 4
+      const modelEndpoint = request.reference_image_url 
+        ? "fal-ai/flux-pro-v1.1" 
+        : "fal-ai/imagen4/preview";
+      
+      const input: any = {
+        prompt: request.prompt,
+        num_images: request.num_images || 1,
+        negative_prompt: request.negative_prompt || "blurry, low quality, distorted, unrealistic proportions"
+      };
+      
+      if (request.reference_image_url) {
+        // Flux Pro 1.1 parameters
+        input.image_url = request.reference_image_url;
+        input.guidance_scale = request.seed || 7;
+        input.num_inference_steps = 25;
+        input.aspect_ratio = request.aspect_ratio;
+      } else {
+        // Imagen 4 parameters  
+        input.aspect_ratio = request.aspect_ratio;
+        if (request.seed) input.seed = request.seed;
+      }
+
+      const result = await fal.subscribe(modelEndpoint, {
+        input,
         logs: true,
         onQueueUpdate: (update) => {
           if (update.status === "IN_PROGRESS") {

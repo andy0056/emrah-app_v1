@@ -976,6 +976,12 @@ const StandRequestForm: React.FC = () => {
           enhancedPrompts={enhancedPrompts}
           isFormValid={isFormValid} 
           currentProjectId={currentProjectId}
+          formData={{
+            brandLogo: typeof formData.brandLogo === 'string' ? formData.brandLogo : undefined,
+            productImage: typeof formData.productImage === 'string' ? formData.productImage : undefined,
+            keyVisual: typeof formData.keyVisual === 'string' ? formData.keyVisual : undefined,
+            exampleStands: formData.exampleStands.filter((item): item is string => typeof item === 'string')
+          }}
           initialImages={generatedImages}
           onImagesUpdated={setGeneratedImages}
         />
