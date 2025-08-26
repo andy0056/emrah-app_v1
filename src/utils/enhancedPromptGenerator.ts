@@ -453,18 +453,20 @@ STYLE: ${brand.visualStyle}, photorealistic, commercial quality, white studio ba
     
     return `${environment}. 
 STANDALONE DISPLAY: Independent ${data.brand} ${data.standType} with ${heroFeature}.
-SHELVES: ${shelfSpec}, clearly separate from store fixtures.
+SHELVES: ${shelfSpec}, clearly separate from store fixtures.`;
+  }
+
+  public generateThreeQuarterView(data: FormData): string {
     const brand = this.brandEngine.getPersonality(data.brand);
     const creativeAngle = this.getCreativeAngle(data);
     const shelfSpec = this.getShelfSpec(data);
     const heroFeature = this.generateHeroFeature(data);
     
     return `${creativeAngle} of ${data.brand} ${data.standType}.
-  }
-}
 DESIGN: ${data.standBaseColor} ${data.materials[0]} construction with ${heroFeature}.
 SHELVES: ${shelfSpec} clearly visible and accessible.
 LIGHTING: ${this.getLightingScenario()}, ${brand.visualStyle} aesthetic.`;
+  }
   }
 
   /**
