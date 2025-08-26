@@ -372,6 +372,7 @@ export class EnhancedPromptGenerator {
     
     return `${arrangementBase}, ${selectedStyle}`;
   }
+
   /**
    * Generate store environment based on brand and product type
    */
@@ -466,7 +467,6 @@ SHELVES: ${shelfSpec}, clearly separate from store fixtures.`;
 DESIGN: ${data.standBaseColor} ${data.materials[0]} construction with ${heroFeature}.
 SHELVES: ${shelfSpec} clearly visible and accessible.
 LIGHTING: ${this.getLightingScenario()}, ${brand.visualStyle} aesthetic.`;
-  }
   }
 
   /**
