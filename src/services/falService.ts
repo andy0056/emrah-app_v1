@@ -77,8 +77,8 @@ export class TrinityPipeline {
       return result.data.images[0].url;
     } catch (error) {
       console.error("❌ Flux Pro failed, falling back to Flux Dev...");
-      console.error("Flux Pro error details:", error instanceof Error ? error.message : error);
-      console.error("Full error object:", error);
+      console.error("Flux Pro error details:", error instanceof Error ? error.message : JSON.stringify(error));
+      console.error("Full error object:", JSON.stringify(error, null, 2));
       // FALLBACK: Use Flux Dev if PULID fails
       return await this.fallbackFluxDev(prompt);
     }
@@ -115,8 +115,8 @@ export class TrinityPipeline {
       return result.data.images[0].url;
     } catch (error) {
       console.error("⚠️ Lightning enhancement failed:");
-      console.error("Lightning error details:", error instanceof Error ? error.message : error);
-      console.error("Full error object:", error);
+      console.error("Lightning error details:", error instanceof Error ? error.message : JSON.stringify(error));
+      console.error("Full error object:", JSON.stringify(error, null, 2));
       return baseImageUrl; // Continue with original if fails
     }
   }
@@ -147,8 +147,8 @@ export class TrinityPipeline {
       return result.data.images[0].url;
     } catch (error) {
       console.error("⚠️ SDXL polish failed, using Stage 2 result:");
-      console.error("SDXL error details:", error instanceof Error ? error.message : error);
-      console.error("Full error object:", error);
+      console.error("SDXL error details:", error instanceof Error ? error.message : JSON.stringify(error));
+      console.error("Full error object:", JSON.stringify(error, null, 2));
       return enhancedImageUrl;
     }
   }
