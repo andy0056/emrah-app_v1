@@ -66,6 +66,7 @@ export class TrinityPipeline {
           height: 1024,
           num_images: 1
         },
+        {
         logs: true,
         onQueueUpdate: (update) => {
           console.log("Flux Pro Progress:", update.status);
@@ -105,11 +106,10 @@ export class TrinityPipeline {
           image_size: "landscape_16_9",
           num_inference_steps: 8, // Lightning fast!
           guidance_scale: 2,
-          guidance_scale: 2,
           num_images: 1,
           enable_safety_checker: false
         }
-      });
+      );
       
       console.log("✅ Stage 2 Complete (Lightning):", result.data.images[0].url);
       return result.data.images[0].url;
@@ -124,7 +124,7 @@ export class TrinityPipeline {
   // ============================================
   // STAGE 3: RECRAFT V3 - Final Polish
   // ============================================
-  static async polishWithRecraft(enhancedImageUrl: string, formData: any) {
+  static async polishWithRecraft(enhancedImageUrl: string, formData: any, productImageUrl?: string) {
     console.log("✨ Stage 3: Recraft V3 - Final photorealistic polish...");
     
     const prompt = `hyperrealistic ${formData.brand} ${formData.product} retail display, perfect lighting, professional photography, commercial quality, no text errors, clear product visibility`;
@@ -141,7 +141,7 @@ export class TrinityPipeline {
           height: 1024,
           num_images: 1
         }
-      });
+      );
       
       console.log("✅ Stage 3 Complete (SDXL Polish):", result.data.images[0].url);
       return result.data.images[0].url;
@@ -203,7 +203,7 @@ export class TrinityPipeline {
       const enhancedImage = await this.enhanceWithLightning(baseImage, formData, viewType);
       
       // Stage 3: Polish with Recraft
-      const finalImage = await this.polishWithRecraft(enhancedImage, formData);
+      const finalImage = await this.polishWithRecraft(enhancedImage, formData, productImageUrl);
       
       console.log("🎉 Trinity Pipeline Complete!");
       return {
