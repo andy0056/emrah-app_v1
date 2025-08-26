@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit } from 'lucide-react';
-import { FalService, ImageGenerationRequest } from '../services/falService';
+import { FalService, TrinityPipeline, ImageGenerationRequest } from '../services/falService';
 import { ProjectService } from '../services/projectService';
 import { SecurityUtils } from '../utils/security';
 import ImageModal from './ImageModal';
