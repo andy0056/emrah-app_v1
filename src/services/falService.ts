@@ -56,14 +56,15 @@ export class TrinityPipeline {
     const prompt = `${formData.standType} display stand, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')}, ${formData.standBaseColor} color, ${formData.shelfCount} shelves, ${formData.frontFaceCount} products across, ${formData.product} brand products clearly visible`;
 
     try {
-      // Try Flux Pro first (more reliable than PULID)
-      const result = await fal.subscribe("fal-ai/flux-pro-v1.1", {
+      const result = await fal.subscribe("fal-ai/flux-pulid", {
         input: {
           prompt: prompt,
-          image_url: productImageUrl,
+          reference_images: productImageUrl ? [{ url: productImageUrl }] : [],
+          num_steps: 20,
           guidance_scale: 4,
-          num_inference_steps: 25,
-          aspect_ratio: "16:9",
+          seed: Math.floor(Math.random() * 1000000),
+          width: 1024,
+          height: 1024,
           num_images: 1
         },
         logs: true,
@@ -99,13 +100,13 @@ export class TrinityPipeline {
     const prompt = `photorealistic ${formData.brand} POP display, ${viewPrompts[viewType]}, professional product photography, ultra detailed, 8K quality`;
 
     try {
-      // Use Flux Lightning instead of SDXL Lightning (more reliable)
-      const result = await fal.subscribe("fal-ai/flux/schnell", {
+      const result = await fal.subscribe("fal-ai/fast-sdxl", {
         input: {
           prompt: prompt,
           image_url: baseImageUrl,
-          aspect_ratio: "landscape_16_9",
-          num_inference_steps: 4, // Schnell is ultra-fast
+          image_size: "landscape_16_9",
+          num_inference_steps: 8, // Lightning fast!
+          guidance_scale: 2,
           num_images: 1,
           enable_safety_checker: false
         }
@@ -130,14 +131,14 @@ export class TrinityPipeline {
     const prompt = `hyperrealistic ${formData.brand} ${formData.product} retail display, perfect lighting, professional photography, commercial quality, no text errors, clear product visibility`;
 
     try {
-      // Use SDXL for final polish (more reliable than Recraft)
-      const result = await fal.subscribe("fal-ai/stable-diffusion-xl", {
+      const result = await fal.subscribe("fal-ai/recraft-v3", {
         input: {
           prompt: prompt,
           image_url: enhancedImageUrl,
-          strength: 0.3,
-          guidance_scale: 7,
-          num_inference_steps: 20,
+          style: "photographic",
+          style_id: "default",
+          subseed_strength: 0.5,
+          aspect_ratio: "16:9",
           num_images: 1
         }
       });
