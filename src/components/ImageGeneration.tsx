@@ -122,65 +122,130 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     setGeneratedImages({});
     
     try {
-        {enhancedPrompts ? 'Enhanced Brand-First AI Generation' : 'Brand-First AI Image Generation'}
-      const finalPrompts = enhancedPrompts || prompts;
+      // Get product image URL for Trinity Pipeline
+      const productImageUrl = formData?.productImage || formData?.keyVisual || formData?.brandLogo;
       
-      // Determine reference image priority: product image -> key visual -> brand logo
-      const referenceImage = formData?.productImage || formData?.keyVisual || formData?.brandLogo;
+      // Check if Trinity Pipeline is enabled
+      const useTrinity = import.meta.env.VITE_ENABLE_TRINITY === 'true';
       
-      const requests: ImageGenerationRequest[] = [
-        {
-          prompt: finalPrompts.frontView,
-          aspect_ratio: "9:16",
-          num_images: 1,
-          reference_image_url: referenceImage
-        },
-        {
-          prompt: finalPrompts.storeView,
-          aspect_ratio: "16:9",
-          num_images: 1,
-          reference_image_url: referenceImage
-        },
-        {
-          prompt: finalPrompts.threeQuarterView,
-          aspect_ratio: "3:4",
-          num_images: 1,
-          reference_image_url: referenceImage
+      if (useTrinity) {
+        console.log("🚀 Using Trinity Pipeline for superior quality...");
+        
+        // Use Trinity Pipeline for all three views
+        setProgress('🎯 Stage 1: Generating accurate base structure...');
+        
+        const results = await TrinityPipeline.generateAllViews(
+          {
+            brand: formData?.brand || 'Generic',
+            product: formData?.product || 'Product',
+            standType: formData?.standType || 'floor stand',
+            standWidth: formData?.standWidth || 40,
+            standDepth: formData?.standDepth || 30,
+            standHeight: formData?.standHeight || 160,
+            materials: formData?.materials || ['metal'],
+            standBaseColor: formData?.standBaseColor || '#ffffff',
+            shelfCount: formData?.shelfCount || 1,
+            frontFaceCount: formData?.frontFaceCount || 4,
+            backToBackCount: formData?.backToBackCount || 2
+          },
+          productImageUrl
+        );
+
+        // Update state with Trinity Pipeline results
+        setGeneratedImages({
+          frontView: results.frontView,
+          storeView: results.storeView,
+          threeQuarterView: results.threeQuarterView
+        });
+
+        // Save to Supabase
+        if (currentProjectId) {
+          await saveImageToSupabase(results.frontView, 'front_view', 'Trinity Pipeline', '9:16');
+          await saveImageToSupabase(results.storeView, 'store_view', 'Trinity Pipeline', '16:9');
+          await saveImageToSupabase(results.threeQuarterView, 'three_quarter_view', 'Trinity Pipeline', '3:4');
         }
-      ];
 
-      setProgress('Generating front view...');
-      const frontResult = await FalService.generateImage(requests[0]);
-      const frontImageUrl = frontResult.images[0]?.url;
-      if (frontImageUrl) {
-        setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
-        await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
+        setProgress('🎉 Trinity Pipeline completed - All images generated with professional quality!');
+      } else {
+        // FALLBACK: Original single-model approach
+        console.log("⚡ Using original single-model generation...");
+        await generateImagesOriginal();
       }
 
-      setProgress('Generating store view...');
-      const storeResult = await FalService.generateImage(requests[1]);
-      const storeImageUrl = storeResult.images[0]?.url;
-      if (storeImageUrl) {
-        setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
-        await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
-      }
-
-      setProgress('Generating 3/4 view...');
-      const threeQuarterResult = await FalService.generateImage(requests[2]);
-      const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
-      if (threeQuarterImageUrl) {
-        setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
-        await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
-      }
-
-      setProgress('All images generated and saved successfully!');
+      setTimeout(() => setProgress(''), 3000);
     } catch (error) {
-      console.error('Error generating images:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate images. Please try again.');
+      console.error('Trinity Pipeline Error:', error);
+      setError('Trinity Pipeline failed. Falling back to original method...');
+      
+      // FALLBACK TO ORIGINAL METHOD
+      try {
+        await generateImagesOriginal();
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        setError('All generation methods failed. Please try again or check your network connection.');
+      }
     } finally {
       setIsGenerating(false);
-      setProgress('');
     }
+  };
+
+  // Original generation method as fallback
+  const generateImagesOriginal = async () => {
+    const finalPrompts = enhancedPrompts || prompts;
+    const referenceImage = formData?.productImage || formData?.keyVisual || formData?.brandLogo;
+    
+    const requests = [
+      {
+        prompt: finalPrompts.frontView,
+        aspect_ratio: "9:16" as const,
+        num_images: 1,
+        reference_image_url: referenceImage
+      },
+      {
+        prompt: finalPrompts.storeView,
+        aspect_ratio: "16:9" as const,
+        num_images: 1,
+        reference_image_url: referenceImage
+      },
+      {
+        prompt: finalPrompts.threeQuarterView,
+        aspect_ratio: "3:4" as const,
+        num_images: 1,
+        reference_image_url: referenceImage
+      }
+    ];
+
+    setProgress('Generating front view...');
+    const frontResult = await FalService.generateImage(requests[0]);
+    const frontImageUrl = frontResult.images[0]?.url;
+    if (frontImageUrl) {
+      setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
+      if (currentProjectId) {
+        await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
+      }
+    }
+
+    setProgress('Generating store view...');
+    const storeResult = await FalService.generateImage(requests[1]);
+    const storeImageUrl = storeResult.images[0]?.url;
+    if (storeImageUrl) {
+      setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
+      if (currentProjectId) {
+        await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
+      }
+    }
+
+    setProgress('Generating 3/4 view...');
+    const threeQuarterResult = await FalService.generateImage(requests[2]);
+    const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
+    if (threeQuarterImageUrl) {
+      setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
+      if (currentProjectId) {
+        await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
+      }
+    }
+
+    setProgress('All images generated successfully!');
   };
 
   const downloadImage = async (url: string, filename: string) => {
@@ -235,7 +300,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-900 flex items-center">
           <Wand2 className="w-5 h-5 mr-2" />
-          {enhancedPrompts ? 'Enhanced Creative AI Generation' : 'Creative AI Image Generation'}
+          {import.meta.env.VITE_ENABLE_TRINITY === 'true' ? 'Trinity Pipeline Generation' : enhancedPrompts ? 'Enhanced Creative AI Generation' : 'Creative AI Image Generation'}
         </h3>
         
         <button
@@ -261,7 +326,13 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         </button>
       </div>
 
-      {enhancedPrompts && (
+      {import.meta.env.VITE_ENABLE_TRINITY === 'true' && (
+        <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200 rounded-lg">
+          <p className="text-purple-800 text-sm font-medium">🚀 Using Trinity Pipeline: PULID → Lightning → Recraft for superior accuracy and professional quality!</p>
+        </div>
+      )}
+
+      {enhancedPrompts && import.meta.env.VITE_ENABLE_TRINITY !== 'true' && (
         <div className="mb-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
           <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced Brand-First prompts with signature elements, brand metaphors, and emotional storytelling!</p>
         </div>
