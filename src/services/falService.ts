@@ -57,7 +57,6 @@ export class TrinityPipeline {
 
     try {
       const result = await fal.subscribe("fal-ai/flux-pulid", {
-        input: {
           prompt: prompt,
           reference_images: productImageUrl ? [{ url: productImageUrl }] : [],
           num_steps: 20,
@@ -101,11 +100,11 @@ export class TrinityPipeline {
 
     try {
       const result = await fal.subscribe("fal-ai/fast-sdxl", {
-        input: {
           prompt: prompt,
           image_url: baseImageUrl,
           image_size: "landscape_16_9",
           num_inference_steps: 8, // Lightning fast!
+          guidance_scale: 2,
           guidance_scale: 2,
           num_images: 1,
           enable_safety_checker: false
@@ -132,13 +131,14 @@ export class TrinityPipeline {
 
     try {
       const result = await fal.subscribe("fal-ai/recraft-v3", {
-        input: {
           prompt: prompt,
           image_url: enhancedImageUrl,
-          style: "photographic",
-          style_id: "default",
-          subseed_strength: 0.5,
-          aspect_ratio: "16:9",
+          reference_images: productImageUrl ? [{ url: productImageUrl }] : [],
+          num_steps: 20,
+          guidance_scale: 4,
+          seed: Math.floor(Math.random() * 1000000),
+          width: 1024,
+          height: 1024,
           num_images: 1
         }
       });
@@ -162,9 +162,10 @@ export class TrinityPipeline {
         input: {
           prompt: prompt,
           image_size: "landscape_16_9",
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
+          style: "photographic",
+          style_id: "default",
+          subseed_strength: 0.5,
+          aspect_ratio: "16:9",
           enable_safety_checker: false
         }
       });
