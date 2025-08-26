@@ -56,26 +56,26 @@ export class TrinityPipeline {
     const prompt = `${formData.standType} display stand, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')}, ${formData.standBaseColor} color, ${formData.shelfCount} shelves, ${formData.frontFaceCount} products across, ${formData.product} brand products clearly visible`;
 
     try {
-      const result = await fal.subscribe("fal-ai/flux-pulid", {
+      // Try Flux Pro first (more reliable than PULID)
+      const result = await fal.subscribe("fal-ai/flux-pro-v1.1", {
         input: {
           prompt: prompt,
-          reference_images: productImageUrl ? [{ url: productImageUrl }] : [],
-          num_steps: 20,
+          image_url: productImageUrl,
           guidance_scale: 4,
-          seed: Math.floor(Math.random() * 1000000),
-          width: 1024,
-          height: 1024
+          num_inference_steps: 25,
+          aspect_ratio: "16:9",
+          num_images: 1
         },
         logs: true,
         onQueueUpdate: (update) => {
-          console.log("PULID Progress:", update.status);
+          console.log("Flux Pro Progress:", update.status);
         }
       });
       
       console.log("✅ Stage 1 Complete:", result.data.images[0].url);
       return result.data.images[0].url;
     } catch (error) {
-      console.error("❌ PULID failed, falling back to Flux Dev...");
+      console.error("❌ Flux Pro failed, falling back to Flux Dev...", error.message);
       // FALLBACK: Use Flux Dev if PULID fails
       return await this.fallbackFluxDev(prompt);
     }
@@ -97,22 +97,22 @@ export class TrinityPipeline {
     const prompt = `photorealistic ${formData.brand} POP display, ${viewPrompts[viewType]}, professional product photography, ultra detailed, 8K quality`;
 
     try {
-      const result = await fal.subscribe("fal-ai/fast-sdxl", {
+      // Use Flux Lightning instead of SDXL Lightning (more reliable)
+      const result = await fal.subscribe("fal-ai/flux/schnell", {
         input: {
           prompt: prompt,
           image_url: baseImageUrl,
-          image_size: "landscape_16_9",
-          num_inference_steps: 8, // Lightning fast!
-          guidance_scale: 2,
+          aspect_ratio: "landscape_16_9",
+          num_inference_steps: 4, // Schnell is ultra-fast
           num_images: 1,
           enable_safety_checker: false
         }
       });
       
-      console.log("✅ Stage 2 Complete:", result.data.images[0].url);
+      console.log("✅ Stage 2 Complete (Lightning):", result.data.images[0].url);
       return result.data.images[0].url;
     } catch (error) {
-      console.error("⚠️ Lightning enhancement skipped:", error);
+      console.error("⚠️ Lightning enhancement failed:", error.message);
       return baseImageUrl; // Continue with original if fails
     }
   }
@@ -126,21 +126,22 @@ export class TrinityPipeline {
     const prompt = `hyperrealistic ${formData.brand} ${formData.product} retail display, perfect lighting, professional photography, commercial quality, no text errors, clear product visibility`;
 
     try {
-      const result = await fal.subscribe("fal-ai/recraft-v3", {
+      // Use SDXL for final polish (more reliable than Recraft)
+      const result = await fal.subscribe("fal-ai/stable-diffusion-xl", {
         input: {
           prompt: prompt,
           image_url: enhancedImageUrl,
-          style: "photographic",
-          style_id: "default",
-          subseed_strength: 0.5,
-          aspect_ratio: "16:9"
+          strength: 0.3,
+          guidance_scale: 7,
+          num_inference_steps: 20,
+          num_images: 1
         }
       });
       
-      console.log("✅ Stage 3 Complete:", result.data.images[0].url);
+      console.log("✅ Stage 3 Complete (SDXL Polish):", result.data.images[0].url);
       return result.data.images[0].url;
     } catch (error) {
-      console.error("⚠️ Recraft polish failed, using Stage 2 result");
+      console.error("⚠️ SDXL polish failed, using Stage 2 result:", error.message);
       return enhancedImageUrl;
     }
   }
@@ -149,17 +150,22 @@ export class TrinityPipeline {
   // FALLBACK: Flux Dev (if PULID unavailable)
   // ============================================
   static async fallbackFluxDev(prompt: string) {
-    const result = await fal.subscribe("fal-ai/flux/dev", {
-      input: {
-        prompt: prompt,
-        image_size: "landscape_16_9",
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
-        num_images: 1,
-        enable_safety_checker: false
-      }
-    });
-    return result.data.images[0].url;
+    try {
+      const result = await fal.subscribe("fal-ai/flux/dev", {
+        input: {
+          prompt: prompt,
+          image_size: "landscape_16_9",
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1,
+          enable_safety_checker: false
+        }
+      });
+      return result.data.images[0].url;
+    } catch (error) {
+      console.error("❌ Even Flux Dev failed:", error.message);
+      throw new Error(`All fallbacks failed: ${error.message}`);
+    }
   }
 
   // ============================================
