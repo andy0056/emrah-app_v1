@@ -75,7 +75,9 @@ export class TrinityPipeline {
       console.log("✅ Stage 1 Complete:", result.data.images[0].url);
       return result.data.images[0].url;
     } catch (error) {
-      console.error("❌ Flux Pro failed, falling back to Flux Dev...", error.message);
+      console.error("❌ Flux Pro failed, falling back to Flux Dev...");
+      console.error("Flux Pro error details:", error instanceof Error ? error.message : error);
+      console.error("Full error object:", error);
       // FALLBACK: Use Flux Dev if PULID fails
       return await this.fallbackFluxDev(prompt);
     }
@@ -112,7 +114,9 @@ export class TrinityPipeline {
       console.log("✅ Stage 2 Complete (Lightning):", result.data.images[0].url);
       return result.data.images[0].url;
     } catch (error) {
-      console.error("⚠️ Lightning enhancement failed:", error.message);
+      console.error("⚠️ Lightning enhancement failed:");
+      console.error("Lightning error details:", error instanceof Error ? error.message : error);
+      console.error("Full error object:", error);
       return baseImageUrl; // Continue with original if fails
     }
   }
@@ -141,7 +145,9 @@ export class TrinityPipeline {
       console.log("✅ Stage 3 Complete (SDXL Polish):", result.data.images[0].url);
       return result.data.images[0].url;
     } catch (error) {
-      console.error("⚠️ SDXL polish failed, using Stage 2 result:", error.message);
+      console.error("⚠️ SDXL polish failed, using Stage 2 result:");
+      console.error("SDXL error details:", error instanceof Error ? error.message : error);
+      console.error("Full error object:", error);
       return enhancedImageUrl;
     }
   }
@@ -163,8 +169,10 @@ export class TrinityPipeline {
       });
       return result.data.images[0].url;
     } catch (error) {
-      console.error("❌ Even Flux Dev failed:", error.message);
-      throw new Error(`All fallbacks failed: ${error.message}`);
+      console.error("❌ Even Flux Dev failed:");
+      console.error("Flux Dev error details:", error instanceof Error ? error.message : error);
+      console.error("Full error object:", error);
+      throw new Error(`All fallbacks failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
