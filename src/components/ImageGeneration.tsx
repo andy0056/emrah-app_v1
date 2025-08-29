@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit } from 'lucide-react';
-import { FalService, ImageGenerationRequest } from '../services/falService';
+import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Settings } from 'lucide-react';
+import { FalService, AIModel, AVAILABLE_MODELS, ModelConfig } from '../services/falService';
 import { ProjectService } from '../services/projectService';
 import { SecurityUtils } from '../utils/security';
 import ImageModal from './ImageModal';
@@ -65,6 +65,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     title: string;
     aspectRatio: "9:16" | "16:9" | "3:4" | "1:1";
   } | null>(null);
+  const [selectedModel, setSelectedModel] = useState<AIModel>('flux-dev');
 
   // Update generated images when initialImages prop changes
   React.useEffect(() => {
@@ -112,6 +113,13 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       return;
     }
 
+    const modelConfig = FalService.getModelById(selectedModel);
+    
+    // Check if model requires input images
+    if (modelConfig?.requiresInput && (!formData?.productImage && !formData?.keyVisual)) {
+      setError(`${modelConfig.name} requires input images. Please upload a product image or key visual first.`);
+      return;
+    }
     setIsGenerating(true);
     setError(null);
     setGeneratedImages({});
@@ -120,26 +128,38 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       // SIMPLE: Use the base prompts (no enhancement needed)
       const finalPrompts = prompts; // No enhancement - base prompts are better
       
-      const requests: ImageGenerationRequest[] = [
+      // Collect available input images for editing models
+      const inputImages: string[] = [];
+      if (formData?.productImage) inputImages.push(formData.productImage);
+      if (formData?.keyVisual) inputImages.push(formData.keyVisual);
+      if (formData?.exampleStands) inputImages.push(...formData.exampleStands);
+      
+      const requests = [
         {
           prompt: finalPrompts.frontView,
           aspect_ratio: "9:16",
-          num_images: 1
+          num_images: 1,
+          model: selectedModel,
+          inputImages: inputImages.length > 0 ? inputImages : undefined
         },
         {
           prompt: finalPrompts.storeView,
           aspect_ratio: "16:9", 
-          num_images: 1
+          num_images: 1,
+          model: selectedModel,
+          inputImages: inputImages.length > 0 ? inputImages : undefined
         },
         {
           prompt: finalPrompts.threeQuarterView,
           aspect_ratio: "3:4",
-          num_images: 1
+          num_images: 1,
+          model: selectedModel,
+          inputImages: inputImages.length > 0 ? inputImages : undefined
         }
       ];
 
       // Generate all images with simple FLUX DEV
-      setProgress('🎯 Generating front view with FLUX DEV...');
+      setProgress(`🎯 Generating front view with ${modelConfig?.name}...`);
       const frontResult = await FalService.generateImage(requests[0]);
       const frontImageUrl = frontResult.images[0]?.url;
       if (frontImageUrl) {
@@ -231,39 +251,68 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-900 flex items-center">
           <Wand2 className="w-5 h-5 mr-2" />
-          {import.meta.env.VITE_ENABLE_TRINITY === 'true' ? 'Trinity Pipeline Generation' : enhancedPrompts ? 'Enhanced Creative AI Generation' : 'Creative AI Image Generation'}
+          AI Image Generation
         </h3>
         
-        <button
-          onClick={generateImages}
-          disabled={isGenerating || !isFormValid}
-          className={`flex items-center px-6 py-3 rounded-lg font-semibold transition-all ${
-            isGenerating || !isFormValid
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl'
-          }`}
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <Wand2 className="w-5 h-5 mr-2" />
-              Generate Images
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4 text-gray-600" />
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value as AIModel)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+              disabled={isGenerating}
+            >
+              {AVAILABLE_MODELS.map(model => (
+                <option key={model.id} value={model.id}>
+                  {model.name} - {model.description}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <button
+            onClick={generateImages}
+            disabled={isGenerating || !isFormValid}
+            className={`flex items-center px-6 py-3 rounded-lg font-semibold transition-all ${
+              isGenerating || !isFormValid
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl'
+            }`}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-5 h-5 mr-2" />
+                Generate Images
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {import.meta.env.VITE_ENABLE_TRINITY === 'true' && (
-        <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200 rounded-lg">
-          <p className="text-purple-800 text-sm font-medium">🚀 Using Trinity Pipeline: PULID → Lightning → Recraft for superior accuracy and professional quality!</p>
-        </div>
-      )}
+      {/* Model Info */}
+      {(() => {
+        const modelConfig = FalService.getModelById(selectedModel);
+        return (
+          <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200 rounded-lg">
+            <p className="text-purple-800 text-sm font-medium">
+              🤖 Using {modelConfig?.name}: {modelConfig?.description}
+              {modelConfig?.requiresInput && (
+                <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                  Requires uploaded images
+                </span>
+              )}
+            </p>
+          </div>
+        );
+      })()}
 
-      {enhancedPrompts && import.meta.env.VITE_ENABLE_TRINITY !== 'true' && (
+      {enhancedPrompts && (
         <div className="mb-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
           <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced Brand-First prompts with signature elements, brand metaphors, and emotional storytelling!</p>
         </div>

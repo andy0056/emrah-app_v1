@@ -5,6 +5,44 @@ fal.config({
   credentials: import.meta.env.VITE_FAL_KEY
 });
 
+export type AIModel = 'flux-dev' | 'flux-pro' | 'nano-banana' | 'stable-diffusion';
+
+export interface ModelConfig {
+  id: AIModel;
+  name: string;
+  description: string;
+  endpoint: string;
+  type: 'text-to-image' | 'image-editing';
+  requiresInput: boolean;
+}
+
+export const AVAILABLE_MODELS: ModelConfig[] = [
+  {
+    id: 'flux-dev',
+    name: 'Flux Dev',
+    description: 'Fast, reliable text-to-image generation',
+    endpoint: 'fal-ai/flux/dev',
+    type: 'text-to-image',
+    requiresInput: false
+  },
+  {
+    id: 'flux-pro',
+    name: 'Flux Pro',
+    description: 'Higher quality, slower generation',
+    endpoint: 'fal-ai/flux-pro',
+    type: 'text-to-image',
+    requiresInput: false
+  },
+  {
+    id: 'nano-banana',
+    name: 'Nano Banana',
+    description: 'AI image editing from uploaded photos',
+    endpoint: 'fal-ai/nano-banana/edit',
+    type: 'image-editing',
+    requiresInput: true
+  }
+];
+
 export interface ImageGenerationRequest {
   prompt: string;
   aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
@@ -26,41 +64,105 @@ export interface FluxKontextRequest {
 
 export class FalService {
   
-  // SIMPLE, SINGLE MODEL APPROACH - FLUX DEV WORKS AND IT'S GOOD
-  static async generateImage(request: ImageGenerationRequest): Promise<any> {
+  // MULTI-MODEL APPROACH WITH SIMPLE INTERFACE
+  static async generateImage(request: {
+    prompt: string;
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
+    num_images?: number;
+    model?: AIModel;
+    inputImages?: string[]; // For editing models
+  }) {
     try {
-      console.log("🎯 Using FLUX DEV for reliable generation");
+      const selectedModel = AVAILABLE_MODELS.find(m => m.id === (request.model || 'flux-dev'));
+      console.log(`🎯 Using ${selectedModel?.name} (${selectedModel?.endpoint})`);
       console.log("📝 Prompt:", request.prompt);
       console.log("📐 Aspect ratio:", request.aspect_ratio);
       
-      // Use FLUX DEV - IT WORKS AND IT'S GOOD
-      const result = await fal.subscribe("fal-ai/flux/dev", {
-        input: {
-          prompt: request.prompt,
-          image_size: this.getImageSize(request.aspect_ratio),
-          num_inference_steps: 28,
-          guidance_scale: 7.5, // Higher for better prompt adherence
-          num_images: request.num_images || 1,
-          enable_safety_checker: false
-        },
-        logs: true,
-        onQueueUpdate: (update: any) => {
-          console.log("FLUX DEV Progress:", update.status);
-          if (update.logs) {
-            update.logs.forEach((log: any) => console.log("Log:", log.message));
-          }
-        }
-      });
-
-      console.log("✅ FLUX DEV generation complete");
-      return {
-        images: result.data.images,
-        seed: result.data.seed || 0
-      };
+      if (selectedModel?.type === 'image-editing') {
+        return this.generateWithEditingModel(selectedModel, request);
+      } else {
+        return this.generateWithTextToImageModel(selectedModel, request);
+      }
     } catch (error: any) {
-      console.error('❌ FLUX DEV generation failed:', error);
+      console.error(`❌ ${request.model || 'flux-dev'} generation failed:`, error);
       throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  private static async generateWithTextToImageModel(model: ModelConfig | undefined, request: any) {
+    const endpoint = model?.endpoint || 'fal-ai/flux/dev';
+    
+    let inputConfig: any = {
+      prompt: request.prompt,
+      num_images: request.num_images || 1
+    };
+
+    // Model-specific configurations
+    if (endpoint === 'fal-ai/flux/dev') {
+      inputConfig = {
+        ...inputConfig,
+        image_size: this.getImageSize(request.aspect_ratio),
+        num_inference_steps: 28,
+        guidance_scale: 7.5,
+        enable_safety_checker: false
+      };
+    } else if (endpoint === 'fal-ai/flux-pro') {
+      inputConfig = {
+        ...inputConfig,
+        aspect_ratio: request.aspect_ratio,
+        guidance_scale: 3.5,
+        num_inference_steps: 50,
+        safety_tolerance: 2
+      };
+    }
+
+    const result = await fal.subscribe(endpoint, {
+      input: inputConfig,
+      logs: true,
+      onQueueUpdate: (update) => {
+        console.log(`${model?.name} Status:`, update.status);
+        if (update.logs) {
+          update.logs.forEach(log => console.log("Log:", log.message));
+        }
+      }
+    });
+
+    return {
+      images: result.data.images,
+      seed: result.data.seed || 0
+    };
+  }
+
+  private static async generateWithEditingModel(model: ModelConfig | undefined, request: any) {
+    if (!request.inputImages || request.inputImages.length === 0) {
+      throw new Error(`${model?.name} requires input images. Please upload reference images first.`);
+    }
+
+    console.log("🖼️ Input images:", request.inputImages);
+    
+    const result = await fal.subscribe(model?.endpoint || 'fal-ai/nano-banana/edit', {
+      input: {
+        prompt: request.prompt,
+        image_urls: request.inputImages,
+        num_images: request.num_images || 1,
+        output_format: "jpeg"
+      },
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs?.map((log) => log.message).forEach(console.log);
+        }
+      }
+    });
+
+    return {
+      images: result.data.images,
+      description: result.data.description || null
+    };
+  }
+
+  static getModelById(modelId: AIModel): ModelConfig | undefined {
+    return AVAILABLE_MODELS.find(m => m.id === modelId);
   }
 
   static getImageSize(aspectRatio: string) {
