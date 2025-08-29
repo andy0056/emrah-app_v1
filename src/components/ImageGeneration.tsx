@@ -403,6 +403,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         imageTitle={imageToEdit?.title || ''}
         aspectRatio={imageToEdit?.aspectRatio || '1:1'}
         projectId={currentProjectId}
+        formData={formData}
         onClose={closeEditModal}
         onImageEdited={handleImageEdited}
       />

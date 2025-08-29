@@ -264,6 +264,45 @@ export class FalService {
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
+
+  // Apply brand assets using Nano Banana Edit
+  static async applyBrandAssetsWithNanaBanana(request: {
+    image_urls: string[];
+    prompt: string;
+    num_images?: number;
+    output_format?: 'jpeg' | 'png';
+  }): Promise<any> {
+    try {
+      console.log('🍌 Applying brand assets with Nano Banana Edit');
+      console.log('📝 Prompt:', request.prompt);
+      console.log('🖼️ Input images:', request.image_urls);
+
+      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
+        input: {
+          prompt: request.prompt,
+          image_urls: request.image_urls,
+          num_images: request.num_images || 1,
+          output_format: request.output_format || "jpeg"
+        },
+        logs: true,
+        onQueueUpdate: (update: any) => {
+          if (update.status === "IN_PROGRESS") {
+            update.logs?.map((log: any) => log.message).forEach(console.log);
+          }
+        }
+      });
+
+      console.log('✅ Brand assets applied successfully');
+      if (result.data.description) {
+        console.log('📝 AI Description:', result.data.description);
+      }
+      
+      return result.data as any;
+    } catch (error: any) {
+      console.error('❌ Error applying brand assets with Nano Banana:', error);
+      throw new Error(`Failed to apply brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 // DELETE ALL THE TRINITY PIPELINE STUFF - WE DON'T NEED IT
