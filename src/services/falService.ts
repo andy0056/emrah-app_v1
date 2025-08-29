@@ -70,6 +70,7 @@ export class FalService {
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
     num_images?: number;
     model?: AIModel;
+    inputImages?: string[]; // For editing models
   }) {
     try {
       const selectedModel = AVAILABLE_MODELS.find(m => m.id === (request.model || 'flux-dev'));
@@ -77,7 +78,11 @@ export class FalService {
       console.log("📝 Prompt:", request.prompt);
       console.log("📐 Aspect ratio:", request.aspect_ratio);
       
-      return this.generateWithTextToImageModel(selectedModel, request);
+      if (selectedModel?.type === 'image-editing') {
+        return this.generateWithEditingModel(selectedModel, request);
+      } else {
+        return this.generateWithTextToImageModel(selectedModel, request);
+      }
     } catch (error: any) {
       console.error(`❌ ${request.model || 'flux-dev'} generation failed:`, error);
       throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -112,8 +117,8 @@ export class FalService {
     } else if (endpoint === 'fal-ai/nano-banana') {
       inputConfig = {
         ...inputConfig,
-        output_format: "jpeg"
-        // Note: Nano Banana doesn't support aspect_ratio, it generates square images
+        output_format: "jpeg",
+        sync_mode: false
       };
     }
 
@@ -130,11 +135,37 @@ export class FalService {
 
     return {
       images: result.data.images,
-      seed: result.data.seed || 0,
-      description: result.data.description || null // Nano Banana provides descriptions
+      seed: result.data.seed || 0
     };
   }
 
+  private static async generateWithEditingModel(model: ModelConfig | undefined, request: any) {
+    if (!request.inputImages || request.inputImages.length === 0) {
+      throw new Error(`${model?.name} requires input images. Please upload reference images first.`);
+    }
+
+    console.log("🖼️ Input images:", request.inputImages);
+    
+    const result = await fal.subscribe(model?.endpoint || 'fal-ai/nano-banana/edit', {
+      input: {
+        prompt: request.prompt,
+        image_urls: request.inputImages,
+        num_images: request.num_images || 1,
+        output_format: "jpeg"
+      },
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs?.map((log) => log.message).forEach(console.log);
+        }
+      }
+    });
+
+    return {
+      images: result.data.images,
+      description: result.data.description || null
+    };
+  }
 
   static getModelById(modelId: AIModel): ModelConfig | undefined {
     return AVAILABLE_MODELS.find(m => m.id === modelId);
