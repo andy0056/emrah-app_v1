@@ -277,12 +277,29 @@ export class FalService {
       console.log('📝 Prompt:', request.prompt);
       console.log('🖼️ Input images:', request.image_urls);
 
-      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
+      // Validate inputs before API call
+      if (!request.image_urls || request.image_urls.length === 0) {
+        throw new Error('At least one image URL is required');
+      }
+      
+      if (!request.prompt || request.prompt.trim().length === 0) {
+        throw new Error('Prompt is required');
+      }
+      
+      // Validate image URLs are accessible
+      for (const url of request.image_urls) {
+        if (!url || !url.startsWith('http')) {
+          throw new Error(`Invalid image URL: ${url}`);
+        }
+      }
+
+      // Use the correct nano-banana endpoint without "/edit"
+      const result = await fal.subscribe("fal-ai/nano-banana", {
         input: {
           prompt: request.prompt,
           image_urls: request.image_urls,
-          num_images: request.num_images || 1,
           output_format: request.output_format || "jpeg"
+          // Note: nano-banana may not support num_images parameter
         },
         logs: true,
         onQueueUpdate: (update: any) => {
@@ -305,8 +322,24 @@ export class FalService {
       let errorMessage = 'Unknown error';
       let errorDetails = '';
       
-      if (error instanceof Error) {
+      // Handle ValidationError and other Fal.ai errors
+      if (error.name === 'ValidationError' || error.message?.includes('ValidationError')) {
+        errorMessage = 'Invalid input parameters for Nano Banana API';
+        if (error.body) {
+          try {
+            const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
+            if (errorBody.detail) {
+              errorDetails = ` Details: ${JSON.stringify(errorBody.detail)}`;
+            }
+          } catch {
+            errorDetails = ` Raw response: ${error.body}`;
+          }
+        }
+      } else if (error instanceof Error) {
         errorMessage = error.message;
+        if (error.stack) {
+          console.error('Full stack trace:', error.stack);
+        }
       } else if (typeof error === 'string') {
         errorMessage = error;
       } else if (error && typeof error === 'object') {
