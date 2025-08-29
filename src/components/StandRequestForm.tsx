@@ -303,9 +303,19 @@ const StandRequestForm: React.FC = () => {
       
     } catch (error) {
       console.error(`❌ Error uploading ${field}:`, error);
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Provide more user-friendly error messages for common issues
+        if (errorMessage.includes('User must be authenticated')) {
+          errorMessage = 'Please log in to upload files. You must be signed in to save files.';
+        } else if (errorMessage.includes('Upload permission denied')) {
+          errorMessage = 'Upload permission denied. Please contact support if this issue persists.';
+        }
+      }
       setErrors(prev => ({ 
         ...prev, 
-        [field]: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        [field]: `Upload failed: ${errorMessage}`
       }));
     } finally {
       setIsUploading(false);
@@ -326,9 +336,19 @@ const StandRequestForm: React.FC = () => {
       
     } catch (error) {
       console.error(`❌ Error uploading ${field}:`, error);
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Provide more user-friendly error messages for common issues
+        if (errorMessage.includes('User must be authenticated')) {
+          errorMessage = 'Please log in to upload files. You must be signed in to save files.';
+        } else if (errorMessage.includes('Upload permission denied')) {
+          errorMessage = 'Upload permission denied. Please contact support if this issue persists.';
+        }
+      }
       setErrors(prev => ({ 
         ...prev, 
-        [field]: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        [field]: `Upload failed: ${errorMessage}`
       }));
     } finally {
       setIsUploading(false);
