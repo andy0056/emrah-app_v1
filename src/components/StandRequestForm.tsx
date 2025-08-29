@@ -248,6 +248,9 @@ const StandRequestForm: React.FC = () => {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
 
+    // Show uploading state
+    setIsUploading(true);
+
     if (field === 'exampleStands') {
       // Validate file types and sizes
       const validFiles = Array.from(files).filter(file => {
@@ -258,31 +261,76 @@ const StandRequestForm: React.FC = () => {
 
       if (validFiles.length !== files.length) {
         setErrors(prev => ({ ...prev, [field]: 'Some files were invalid. Only images under 10MB are allowed.' }));
+        setIsUploading(false);
         return;
       }
 
-      setFormData(prev => ({ 
-        ...prev, 
-        [field]: validFiles
-      }));
+      // Upload multiple files immediately
+      uploadFiles(validFiles, field);
     } else {
       const file = files[0];
       
       // Validate single file
       if (!file.type.startsWith('image/')) {
         setErrors(prev => ({ ...prev, [field]: 'Only image files are allowed.' }));
+        setIsUploading(false);
         return;
       }
       
       if (file.size > 10 * 1024 * 1024) { // 10MB limit
         setErrors(prev => ({ ...prev, [field]: 'File size must be under 10MB.' }));
+        setIsUploading(false);
         return;
       }
 
-      setFormData(prev => ({ 
-        ...prev, 
-        [field]: file
+      // Upload single file immediately
+      uploadSingleFile(file, field);
+    }
+  };
+
+  // Upload single file and convert to URL immediately
+  const uploadSingleFile = async (file: File, field: keyof FormData) => {
+    try {
+      console.log(`📤 Uploading ${field}:`, file.name);
+      const url = await ProjectService.uploadFile(file);
+      console.log(`✅ ${field} uploaded:`, url);
+      
+      setFormData(prev => ({
+        ...prev,
+        [field]: url // Store as URL string
       }));
+      
+    } catch (error) {
+      console.error(`❌ Error uploading ${field}:`, error);
+      setErrors(prev => ({ 
+        ...prev, 
+        [field]: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Upload multiple files and convert to URLs immediately
+  const uploadFiles = async (files: File[], field: keyof FormData) => {
+    try {
+      console.log(`📤 Uploading ${files.length} files for ${field}`);
+      const urls = await ProjectService.uploadFiles(files);
+      console.log(`✅ ${field} uploaded:`, urls);
+      
+      setFormData(prev => ({
+        ...prev,
+        [field]: urls // Store as URL strings
+      }));
+      
+    } catch (error) {
+      console.error(`❌ Error uploading ${field}:`, error);
+      setErrors(prev => ({ 
+        ...prev, 
+        [field]: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -976,12 +1024,7 @@ const StandRequestForm: React.FC = () => {
           enhancedPrompts={enhancedPrompts}
           isFormValid={isFormValid} 
           currentProjectId={currentProjectId}
-          formData={{
-            brandLogo: typeof formData.brandLogo === 'string' ? formData.brandLogo : undefined,
-            productImage: typeof formData.productImage === 'string' ? formData.productImage : undefined,
-            keyVisual: typeof formData.keyVisual === 'string' ? formData.keyVisual : undefined,
-            exampleStands: formData.exampleStands.filter((item): item is string => typeof item === 'string')
-          }}
+          formData={formData} // Now all files are already URLs
           initialImages={generatedImages}
           onImagesUpdated={setGeneratedImages}
         />

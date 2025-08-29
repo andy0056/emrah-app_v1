@@ -21,9 +21,9 @@ interface ImageGenerationProps {
   isFormValid: boolean;
   currentProjectId?: string;
   formData?: {
-    brandLogo?: string;
-    productImage?: string;
-    keyVisual?: string;
+    brandLogo?: string | null;
+    productImage?: string | null;
+    keyVisual?: string | null;
     exampleStands?: string[];
   };
   initialImages?: {
