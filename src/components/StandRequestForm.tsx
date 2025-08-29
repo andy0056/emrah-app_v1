@@ -8,6 +8,7 @@ import PromptPreview from './PromptPreview';
 import LazyImageGeneration from './lazy/LazyImageGeneration';
 import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
+import { ProjectService } from '../services/projectService';
 import type { FormData as FormDataType, StandType, Material } from '../types';
 import LoadingSpinner from './atoms/LoadingSpinner';
 
