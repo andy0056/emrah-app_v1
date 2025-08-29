@@ -286,18 +286,43 @@ export class FalService {
         throw new Error('Prompt is required');
       }
       
-      // Validate image URLs are accessible
-      for (const url of request.image_urls) {
-        if (!url || !url.startsWith('http')) {
-          throw new Error(`Invalid image URL: ${url}`);
+      // Re-upload all images to Fal.ai storage to ensure accessibility
+      const accessibleImageUrls: string[] = [];
+      
+      for (let i = 0; i < request.image_urls.length; i++) {
+        const originalUrl = request.image_urls[i];
+        console.log(`📥 Processing image ${i + 1}/${request.image_urls.length}: ${originalUrl}`);
+        
+        try {
+          // Download the image
+          const response = await fetch(originalUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to download image: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
+          
+          // Upload to Fal.ai storage
+          const falUrl = await fal.storage.upload(blob);
+          console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai: ${falUrl}`);
+          
+          accessibleImageUrls.push(falUrl);
+        } catch (error) {
+          console.error(`❌ Failed to re-upload image ${i + 1}:`, error);
+          // If re-upload fails, still try with original URL as fallback
+          console.log(`⚠️ Using original URL as fallback: ${originalUrl}`);
+          accessibleImageUrls.push(originalUrl);
         }
       }
+      
+      console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
 
       // Use the correct nano-banana/edit endpoint
       const result = await fal.subscribe("fal-ai/nano-banana/edit", {
         input: {
           prompt: request.prompt,
-          image_urls: request.image_urls,
+          image_urls: accessibleImageUrls, // Use re-uploaded URLs
           num_images: request.num_images || 1,
           output_format: request.output_format || "jpeg"
         },
