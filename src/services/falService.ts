@@ -111,6 +111,7 @@ export class TrinityPipeline {
       console.warn("⚠️ Stage 2 FAILED - Schnell skipped, continuing with base image");
       console.error("❌ Stage 2 Error Details:", JSON.stringify(error, null, 2));
       console.log("📤 Stage 2 Fallback - Using base image:", baseImageUrl);
+      console.error("❌ FLUX SCHNELL Error:", {
         message: error?.message,
         body: JSON.stringify(error?.body, null, 2),
         detail: error?.detail,
@@ -151,6 +152,7 @@ export class TrinityPipeline {
       console.warn("⚠️ Stage 3 FAILED - Realism polish skipped");
       console.error("❌ Stage 3 Error Details:", JSON.stringify(error, null, 2));
       console.log("📤 Stage 3 Fallback - Using Stage 2 image:", imageUrl);
+      console.error("❌ FLUX REALISM Error:", {
         message: error?.message,
         body: JSON.stringify(error?.body, null, 2),
         detail: error?.detail,
@@ -256,6 +258,7 @@ export class TrinityPipeline {
         body: JSON.stringify(primaryError?.body, null, 2),
         detail: primaryError?.detail,
         status: primaryError?.status
+      });
       console.error("🚨 TRINITY PIPELINE COMPLETELY FAILED for", viewType);
       console.error("❌ Primary Error:", JSON.stringify(primaryError, null, 2));
       console.log("🔄 Attempting single-pass fallback...");
@@ -274,6 +277,7 @@ export class TrinityPipeline {
       } catch (fallbackError: any) {
         console.error("🚨 ALL METHODS FAILED for", viewType);
         console.error("❌ Fallback Error:", JSON.stringify(fallbackError, null, 2));
+        console.error("❌ FALLBACK Error:", {
           message: fallbackError?.message,
           body: JSON.stringify(fallbackError?.body, null, 2),
           detail: fallbackError?.detail,
