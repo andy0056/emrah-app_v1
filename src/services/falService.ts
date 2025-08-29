@@ -292,19 +292,21 @@ export class TrinityPipeline {
   // BATCH GENERATION - All 3 views
   // ============================================
   static async generateAllViews(formData: any, productImageUrl?: string) {
-    console.log("🎬 Generating all 3 views with Trinity Pipeline");
+    console.log("🧪 TESTING MODE: Generating ONLY frontView with Trinity Pipeline");
     
+    // TESTING: Only generate frontView to save credits and simplify logs
     const views: Array<'frontView' | 'storeView' | 'threeQuarterView'> = 
-      ['frontView', 'storeView', 'threeQuarterView'];
+      ['frontView']; // 'storeView', 'threeQuarterView' - commented out for testing
     
     const results = await Promise.all(
       views.map(view => this.generateTrinityImage(formData, view, productImageUrl))
     );
 
+    // Return frontView for all three slots during testing
     return {
       frontView: results[0].url,
-      storeView: results[1].url,
-      threeQuarterView: results[2].url,
+      storeView: results[0].url,  // Same image for testing
+      threeQuarterView: results[0].url,  // Same image for testing
       allStages: results.map(r => r.stages)
     };
   }
