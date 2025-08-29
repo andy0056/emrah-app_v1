@@ -225,7 +225,7 @@ export class ProjectService {
       if (error) {
         console.error('Upload error:', error);
         if (error.message.includes('Bucket not found')) {
-          throw new Error(`Storage bucket '${bucket}' not found. Please create the '${bucket}' bucket in your Supabase project dashboard under Storage section.`);
+          throw new Error(`Storage bucket '${bucket}' not found. Please create an '${bucket}' bucket in your Supabase project dashboard under Storage > Create bucket.`);
         }
         if (error.message.includes('row-level security policy') || error.message.includes('Unauthorized')) {
           throw new Error('Upload permission denied. Please ensure you are logged in and have the correct storage permissions configured in your Supabase project.');
