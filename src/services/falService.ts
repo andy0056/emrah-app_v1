@@ -31,25 +31,48 @@ export class TrinityPipeline {
   // ============================================
   static async generateAccurateBase(formData: any, productImageUrl?: string) {
     console.log("🎯 Stage 1: FLUX DEV - Generating base structure...");
+   
+   if (productImageUrl) {
+     console.log("📸 Using product image as reference:", productImageUrl);
+   } else {
+     console.log("📝 Using text-only generation (no product image provided)");
+   }
     
     // Critical details only - materials simplified
     const materials = formData.materials.map((m: string) => m.split(' ')[0]).join('/');
     
-    const prompt = `${formData.standType} display, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${materials}, ${formData.standBaseColor}, ${formData.shelfCount} shelves, ${formData.frontFaceCount}x${formData.backToBackCount} ${formData.product} products, retail environment, photorealistic`;
+   const prompt = productImageUrl 
+     ? `${formData.standType} display stand featuring the uploaded ${formData.product}, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${materials}, ${formData.standBaseColor}, ${formData.shelfCount} shelves, ${formData.frontFaceCount}x${formData.backToBackCount} products arranged, retail environment, photorealistic, match product appearance from reference image`
+     : `${formData.standType} display, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${materials}, ${formData.standBaseColor}, ${formData.shelfCount} shelves, ${formData.frontFaceCount}x${formData.backToBackCount} ${formData.product} products, retail environment, photorealistic`;
 
-    try {
-      const result = await fal.subscribe("fal-ai/flux/dev", {
-        input: {
-          prompt: prompt,
-          image_size: {
-            width: 1024,
-            height: 1024
-          },
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          seed: Math.floor(Math.random() * 1000000),
-          num_images: 1
-        },
+     const modelEndpoint = productImageUrl ? "fal-ai/flux/dev/image-to-image" : "fal-ai/flux/dev";
+     console.log("🔧 Using model:", modelEndpoint);
+     
+     const inputConfig: any = {
+       prompt: prompt,
+       num_inference_steps: 28,
+       guidance_scale: 3.5,
+       num_images: 1,
+       enable_safety_checker: false,
+       seed: Math.floor(Math.random() * 1000000)
+     };
+     
+     if (productImageUrl) {
+       // Image-to-image mode with product image reference
+       inputConfig.image_url = productImageUrl;
+       inputConfig.strength = 0.7; // Control how much to change from the original image
+       console.log("🎨 Image-to-image mode - strength: 0.7");
+     } else {
+       // Text-to-image mode
+       inputConfig.image_size = {
+         width: 1024,
+         height: 1024
+       };
+       console.log("📝 Text-to-image mode - 1024x1024");
+     }
+     
+     const result = await fal.subscribe(modelEndpoint, {
+       input: inputConfig,
         logs: true,
         onQueueUpdate: (update) => {
           console.log("FLUX DEV Status:", update.status);
