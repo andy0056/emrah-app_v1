@@ -1,26 +1,36 @@
 import React, { useState, useEffect } from 'react';
+import { Suspense } from 'react';
 import { Upload, Calendar, Palette, Package, Ruler, FileText, Send } from 'lucide-react';
 import { PromptGenerator } from '../utils/promptGenerator';
+import { SecurityUtils } from '../utils/security';
+import { PerformanceUtils } from '../utils/performance';
 import PromptPreview from './PromptPreview';
-import ImageGeneration from './ImageGeneration';
-import ProjectManager from './ProjectManager';
+import LazyImageGeneration from './lazy/LazyImageGeneration';
+import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
+import type { FormData as FormDataType, StandType, Material } from '../types';
+import LoadingSpinner from './atoms/LoadingSpinner';
 
-interface FormData {
+interface FormData extends FormDataType {
+  // FormData is now properly typed via types/index.ts
+}
+
+// Remove the old interface definition and use the one from types
+/*interface FormData {
   submissionId: string;
   respondentId: string;
   submittedAt: string;
   brand: string;
-  brandLogo: File | null;
+  brandLogo: File | string | null;
   product: string;
-  productImage: File | null;
+  productImage: File | string | null;
   productWidth: number;
   productDepth: number;
   productHeight: number;
   frontFaceCount: number;
   backToBackCount: number;
-  keyVisual: File | null;
-  exampleStands: File[];
+  keyVisual: File | string | null;
+  exampleStands: File[] | string[];
   standType: string;
   materials: string[];
   standBaseColor: string;
@@ -31,9 +41,9 @@ interface FormData {
   shelfDepth: number;
   shelfCount: number;
   description: string;
-}
+}*/
 
-const STAND_TYPES = [
+const STAND_TYPES: StandType[] = [
   'Ayaklı Stant (Floor Stand)',
   'Masa Üstü Stant (Tabletop Stand)',
   'Duvar Stantı (Wall Mount Stand)',
@@ -42,7 +52,7 @@ const STAND_TYPES = [
   'Çok Katlı Stant (Multi-tier Stand)'
 ];
 
-const MATERIALS = [
+const MATERIALS: Material[] = [
   'Metal',
   'Ahşap (Wood)',
   'Plastik (Plastic)',
@@ -83,6 +93,7 @@ const StandRequestForm: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [prompts, setPrompts] = useState({
     frontView: '',
     storeView: '',
@@ -101,8 +112,33 @@ const StandRequestForm: React.FC = () => {
      storeView?: string;
      threeQuarterView?: string;
    }>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string>('');
+  
+  // Performance optimization: debounce form validation
+  const debouncedValidation = PerformanceUtils.debounce(() => {
+    const requiredFields = [
+      'respondentId', 'brand', 'product', 'standType', 'description'
+    ];
+    
+    const numericFields = [
+      'productWidth', 'productDepth', 'productHeight',
+      'frontFaceCount', 'backToBackCount',
+      'standWidth', 'standDepth', 'standHeight',
+      'shelfWidth', 'shelfDepth', 'shelfCount'
+    ];
+
+    const hasRequiredFields = requiredFields.every(field => formData[field as keyof FormData]);
+    const hasValidNumbers = numericFields.every(field => (formData[field as keyof FormData] as number) > 0);
+    const hasMaterials = formData.materials.length > 0;
+
+    setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials);
+  }, 300);
 
   useEffect(() => {
+    // Generate CSRF token on component mount
+    SecurityUtils.generateCSRFToken().then(setCsrfToken);
+    
     // Generate submission ID and set current timestamp
     const generateSubmissionId = () => {
       // Use example ID for testing, or generate new one
@@ -129,22 +165,7 @@ const StandRequestForm: React.FC = () => {
 
   // Check form validity
   useEffect(() => {
-    const requiredFields = [
-      'respondentId', 'brand', 'product', 'standType', 'description'
-    ];
-    
-    const numericFields = [
-      'productWidth', 'productDepth', 'productHeight',
-      'frontFaceCount', 'backToBackCount',
-      'standWidth', 'standDepth', 'standHeight',
-      'shelfWidth', 'shelfDepth', 'shelfCount'
-    ];
-
-    const hasRequiredFields = requiredFields.every(field => formData[field as keyof FormData]);
-    const hasValidNumbers = numericFields.every(field => (formData[field as keyof FormData] as number) > 0);
-    const hasMaterials = formData.materials.length > 0;
-
-    setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials);
+    debouncedValidation();
   }, [formData]);
 
   const handleLoadProject = (project: SavedProject) => {
@@ -202,17 +223,65 @@ const StandRequestForm: React.FC = () => {
   };
 
   const handleFileUpload = (field: keyof FormData, files: FileList | null) => {
-    if (!files) return;
+    if (!files || files.length === 0) return;
+
+    // Security validation for file uploads
+    const invalidFiles: string[] = [];
+    
+    Array.from(files).forEach(file => {
+      const validation = SecurityUtils.validateFileUpload(file);
+      if (!validation.valid) {
+        invalidFiles.push(`${file.name}: ${validation.error}`);
+      }
+    });
+    
+    if (invalidFiles.length > 0) {
+      setErrors(prev => ({ 
+        ...prev, 
+        [field]: `Invalid files: ${invalidFiles.join(', ')}` 
+      }));
+      return;
+    }
+
+    // Clear any existing error for this field
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
 
     if (field === 'exampleStands') {
+      // Validate file types and sizes
+      const validFiles = Array.from(files).filter(file => {
+        const isValidType = file.type.startsWith('image/');
+        const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+        return isValidType && isValidSize;
+      });
+
+      if (validFiles.length !== files.length) {
+        setErrors(prev => ({ ...prev, [field]: 'Some files were invalid. Only images under 10MB are allowed.' }));
+        return;
+      }
+
       setFormData(prev => ({ 
         ...prev, 
-        [field]: Array.from(files)
+        [field]: validFiles
       }));
     } else {
+      const file = files[0];
+      
+      // Validate single file
+      if (!file.type.startsWith('image/')) {
+        setErrors(prev => ({ ...prev, [field]: 'Only image files are allowed.' }));
+        return;
+      }
+      
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        setErrors(prev => ({ ...prev, [field]: 'File size must be under 10MB.' }));
+        return;
+      }
+
       setFormData(prev => ({ 
         ...prev, 
-        [field]: files[0] || null
+        [field]: file
       }));
     }
   };
@@ -265,68 +334,149 @@ const StandRequestForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Rate limiting for form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check rate limit
+    if (!SecurityUtils.checkRateLimit('form_submission', 3, 300000)) {
+      setFormError('Too many submission attempts. Please wait 5 minutes before trying again.');
+      return;
+    }
+    
     if (!validateForm()) {
+      // Scroll to first error
+      const firstErrorField = document.querySelector('.border-red-500');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
     setIsSubmitting(true);
+    setFormError(null);
 
     try {
-      // Simulate API call
       console.log('Submitting form data:', formData);
-      
-      // Create FormData for file uploads
-      const payload = new FormData();
-      
-      // Add all form fields to payload
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value instanceof File) {
-          payload.append(key, value);
-        } else if (Array.isArray(value) && key === 'exampleStands') {
-          value.forEach((file, index) => {
-            payload.append(`exampleStands_${index}`, file);
-          });
-        } else if (Array.isArray(value)) {
-          payload.append(key, JSON.stringify(value));
-        } else {
-          payload.append(key, String(value));
-        }
-      });
 
-      // Simulate successful submission
-      setTimeout(() => {
-        alert('Stand design request submitted successfully! Our AI will process your requirements and generate innovative POP display designs.');
-        setIsSubmitting(false);
-      }, 2000);
+      // Add CSRF token to submission
+      const submissionData = {
+        ...formData,
+        csrf_token: csrfToken
+      };
+
+      alert('Stand design request submitted successfully! Use the form below to generate AI-powered designs.');
 
     } catch (error) {
       console.error('Submission error:', error);
-      alert('Error submitting form. Please try again.');
+      setFormError('Error submitting form. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
   };
 
+  const renderFilePreview = (file: File | string | null, alt: string) => {
+    if (!file) return null;
+    
+    if (typeof file === 'string') {
+      // It's a URL
+      return (
+        <div className="mt-2 relative inline-block">
+          <img 
+            src={file} 
+            alt={alt}
+            className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+          />
+          <span className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+            ✓
+          </span>
+        </div>
+      );
+    } else {
+      // It's a File object
+      const url = URL.createObjectURL(file);
+      return (
+        <div className="mt-2 relative inline-block">
+          <img 
+            src={url} 
+            alt={alt}
+            className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+            onLoad={() => URL.revokeObjectURL(url)}
+          />
+          <span className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+            📁
+          </span>
+        </div>
+      );
+    }
+  };
+
+  const renderMultipleFilePreview = (files: File[] | string[]) => {
+    if (!files || files.length === 0) return null;
+    
+    return (
+      <div className="mt-2 flex flex-wrap gap-2">
+        {files.map((file, index) => {
+          if (typeof file === 'string') {
+            return (
+              <div key={index} className="relative">
+                <img 
+                  src={file} 
+                  alt={`Example ${index + 1}`}
+                  className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                />
+                <span className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                  ✓
+                </span>
+              </div>
+            );
+          } else {
+            const url = URL.createObjectURL(file);
+            return (
+              <div key={index} className="relative">
+                <img 
+                  src={url} 
+                  alt={`Example ${index + 1}`}
+                  className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                  onLoad={() => URL.revokeObjectURL(url)}
+                />
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                  📁
+                </span>
+              </div>
+            );
+          }
+        })}
+      </div>
+    );
+  };
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-4 sm:p-8">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">POP Stand Design Request</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">POP Stand Design Request</h2>
+        <p className="text-gray-600 text-sm sm:text-base">
           Fill out this comprehensive form to generate AI-powered 2D renderings of your POP display stand designs.
         </p>
       </div>
 
+      {/* Loading/Error States */}
+      {isUploading && (
+        <div className="mb-6 p-4 bg-blue-100 border border-blue-200 rounded-lg">
+          <div className="flex items-center">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600 mr-2" />
+            <p className="text-blue-800 text-sm font-medium">Uploading files...</p>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Information Section */}
-        <div className="bg-gray-50 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+        <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <FileText className="w-5 h-5 mr-2" />
             Basic Information
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Submission ID (Başvuru Kimliği)
@@ -405,6 +555,8 @@ const StandRequestForm: React.FC = () => {
                 onChange={(e) => handleFileUpload('brandLogo', e.target.files)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              {errors.brandLogo && <p className="text-red-500 text-sm mt-1">{errors.brandLogo}</p>}
+              {renderFilePreview(formData.brandLogo, "Brand Logo")}
             </div>
 
             <div>
@@ -434,6 +586,8 @@ const StandRequestForm: React.FC = () => {
                 onChange={(e) => handleFileUpload('productImage', e.target.files)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              {errors.productImage && <p className="text-red-500 text-sm mt-1">{errors.productImage}</p>}
+              {renderFilePreview(formData.productImage, "Product Image")}
             </div>
           </div>
         </div>
@@ -554,6 +708,8 @@ const StandRequestForm: React.FC = () => {
                 onChange={(e) => handleFileUpload('keyVisual', e.target.files)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              {errors.keyVisual && <p className="text-red-500 text-sm mt-1">{errors.keyVisual}</p>}
+              {renderFilePreview(formData.keyVisual, "Key Visual")}
             </div>
 
             <div>
@@ -568,6 +724,8 @@ const StandRequestForm: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">You can upload multiple reference images</p>
+              {errors.exampleStands && <p className="text-red-500 text-sm mt-1">{errors.exampleStands}</p>}
+              {renderMultipleFilePreview(formData.exampleStands)}
             </div>
           </div>
         </div>
@@ -793,13 +951,15 @@ const StandRequestForm: React.FC = () => {
       </form>
 
       {/* Project Management */}
-      <ProjectManager
-        formData={formData}
-        prompts={prompts}
-        enhancedPrompts={enhancedPrompts}
-        onLoadProject={handleLoadProject}
-        currentProjectId={currentProjectId || undefined}
-      />
+      <Suspense fallback={<LoadingSpinner size="lg" text="Loading project manager..." />}>
+        <LazyProjectManager
+          formData={formData}
+          prompts={prompts}
+          enhancedPrompts={enhancedPrompts}
+          onLoadProject={handleLoadProject}
+          currentProjectId={currentProjectId || undefined}
+        />
+      </Suspense>
 
       {/* Dynamic Prompt Preview */}
       <PromptPreview 
@@ -810,14 +970,22 @@ const StandRequestForm: React.FC = () => {
       />
 
       {/* Image Generation Section */}
-      <ImageGeneration 
-        prompts={prompts} 
-        enhancedPrompts={enhancedPrompts}
-        isFormValid={isFormValid} 
-        currentProjectId={currentProjectId}
-        initialImages={generatedImages}
-        onImagesUpdated={setGeneratedImages}
-      />
+      <Suspense fallback={<LoadingSpinner size="lg" text="Loading image generation..." />}>
+        <LazyImageGeneration 
+          prompts={prompts} 
+          enhancedPrompts={enhancedPrompts}
+          isFormValid={isFormValid} 
+          currentProjectId={currentProjectId}
+          formData={{
+            brandLogo: typeof formData.brandLogo === 'string' ? formData.brandLogo : undefined,
+            productImage: typeof formData.productImage === 'string' ? formData.productImage : undefined,
+            keyVisual: typeof formData.keyVisual === 'string' ? formData.keyVisual : undefined,
+            exampleStands: formData.exampleStands.filter((item): item is string => typeof item === 'string')
+          }}
+          initialImages={generatedImages}
+          onImagesUpdated={setGeneratedImages}
+        />
+      </Suspense>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, FolderOpen, History, Download, Search, Plus, Copy, Trash2, Eye, Edit3 } from 'lucide-react';
+import { Save, FolderOpen, History, Download, Search, Plus, Copy, Trash2, Eye, Edit3, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { ProjectService, SavedProject, FormData } from '../services/projectService';
 import { supabase } from '../services/supabaseClient';
 
@@ -34,6 +34,8 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Check authentication status
   useEffect(() => {
@@ -59,10 +61,12 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const loadProjects = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const userProjects = await ProjectService.getUserProjects();
       setProjects(userProjects);
     } catch (error) {
       console.error('Error loading projects:', error);
+      setError('Failed to load projects. Please refresh the page.');
     } finally {
       setIsLoading(false);
     }
@@ -70,12 +74,13 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
   const saveProject = async (isNewVersion = false) => {
     if (!isAuthenticated) {
-      alert('Please sign in to save projects.');
+      setError('Please sign in to save projects.');
       return;
     }
 
     try {
       setIsLoading(true);
+      setError(null);
       const name = projectName || `${formData.brand} - ${formData.product}`;
       const description = projectDescription || formData.description;
 
@@ -106,10 +111,11 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       setProjectDescription('');
       loadProjects();
       
-      alert(`Project ${isNewVersion ? 'version' : ''} saved successfully!`);
+      setSuccessMessage(`Project ${isNewVersion ? 'version' : ''} saved successfully!`);
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error saving project:', error);
-      alert(`Failed to save project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to save project: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -118,13 +124,15 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const loadProject = async (project: SavedProject) => {
     try {
       setIsLoading(true);
+      setError(null);
       const fullProject = await ProjectService.loadProject(project.id);
       onLoadProject(fullProject);
       setShowProjectList(false);
-      alert(`Project "${fullProject.name}" loaded successfully!`);
+      setSuccessMessage(`Project "${fullProject.name}" loaded successfully!`);
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error loading project:', error);
-      alert(`Failed to load project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to load project: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -133,30 +141,34 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const duplicateProject = async (projectId: string) => {
     try {
       setIsLoading(true);
+      setError(null);
       await ProjectService.duplicateProject(projectId);
       loadProjects();
-      alert('Project duplicated successfully!');
+      setSuccessMessage('Project duplicated successfully!');
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error duplicating project:', error);
-      alert(`Failed to duplicate project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to duplicate project: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const deleteProject = async (projectId: string, projectName: string) => {
-    if (!confirm(`Are you sure you want to delete "${projectName}"? This action cannot be undone.`)) {
+    if (!window.confirm(`Are you sure you want to delete "${projectName}"? This action cannot be undone.`)) {
       return;
     }
 
     try {
       setIsLoading(true);
+      setError(null);
       await ProjectService.deleteProject(projectId);
       loadProjects();
-      alert('Project deleted successfully!');
+      setSuccessMessage('Project deleted successfully!');
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error deleting project:', error);
-      alert(`Failed to delete project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to delete project: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +177,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const exportProject = async (projectId: string, projectName: string) => {
     try {
       setIsLoading(true);
+      setError(null);
       const exportData = await ProjectService.exportProject(projectId);
       
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -177,10 +190,11 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert('Project exported successfully!');
+      setSuccessMessage('Project exported successfully!');
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error('Error exporting project:', error);
-      alert(`Failed to export project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to export project: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -196,24 +210,35 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       setIsLoading(true);
       const results = await ProjectService.searchProjects(query);
       setProjects(results);
+      setError(null);
     } catch (error) {
       console.error('Error searching projects:', error);
+      setError('Search failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const signIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
-    });
+    try {
+      console.log('🚀 Starting Google sign-in from ProjectManager...');
+      setError(null);
+      setIsLoading(true);
 
-    if (error) {
-      console.error('Error signing in:', error);
-      alert('Failed to sign in. Please try again.');
+      // Use the improved auth hook method
+      const { signInWithGoogle } = useAuth();
+      const { error } = await signInWithGoogle();
+      
+      if (error) {
+        setError(`Google sign-in failed: ${error.message || 'Unknown error'}`);
+      } else {
+        console.log('✅ Google OAuth initiated successfully');
+      }
+    } catch (err) {
+      console.error('💥 Sign-in error:', err);
+      setError(`Failed to initiate Google sign-in: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -227,12 +252,12 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-blue-50 rounded-lg p-6 mt-8">
+      <div className="bg-blue-50 rounded-lg p-4 sm:p-6 mt-8">
         <div className="text-center">
           <div className="flex items-center justify-center mb-4">
             <Save className="w-8 h-8 text-blue-600" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Save Your Projects</h3>
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Save Your Projects</h3>
           <p className="text-gray-600 mb-6">
             Sign in to save, load, and manage your POP stand design projects with full version history.
           </p>
@@ -248,51 +273,71 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   }
 
   return (
-    <div className="bg-gray-50 rounded-lg p-6 mt-8">
+    <div className="bg-gray-50 rounded-lg p-4 sm:p-6 mt-8">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center">
           <Save className="w-5 h-5 mr-2" />
           Project Management
         </h3>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <button
             onClick={() => setShowSaveDialog(true)}
             disabled={isLoading}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center px-2 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
           >
-            <Save className="w-4 h-4 mr-2" />
-            Save
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Save</span>
+              </>
+            )}
           </button>
           
           {currentProjectId && (
             <button
               onClick={() => saveProject(true)}
               disabled={isLoading}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center px-2 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
             >
-              <History className="w-4 h-4 mr-2" />
-              New Version
+              <History className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">New Version</span>
             </button>
           )}
           
           <button
             onClick={() => setShowProjectList(true)}
             disabled={isLoading}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex items-center px-2 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
           >
-            <FolderOpen className="w-4 h-4 mr-2" />
-            Load
+            <FolderOpen className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Load</span>
           </button>
 
           <button
             onClick={signOut}
-            className="text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            className="text-xs sm:text-sm text-gray-600 hover:text-gray-800 transition-colors px-2 py-1"
           >
             Sign Out
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-200 rounded-lg flex items-center">
+          <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+          <p className="text-red-800 text-sm">{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-100 border border-green-200 rounded-lg flex items-center">
+          <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+          <p className="text-green-800 text-sm">{successMessage}</p>
+        </div>
+      )}
 
       {/* Save Dialog */}
       {showSaveDialog && (
@@ -453,7 +498,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       {currentProjectId && (
         <div className="mt-4 p-4 bg-green-100 border border-green-200 rounded-lg">
           <p className="text-green-800 text-sm font-medium">
-            ✅ Project is saved and synced to the cloud. All changes are automatically backed up.
+            ✅ Project is saved and synced to the cloud.
           </p>
         </div>
       )}

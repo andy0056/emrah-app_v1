@@ -1,0 +1,14 @@
+# Security Headers for Production Deployment
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://bolt.new; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://*.fal.ai https://queue.fal.run https://gateway.fal.run https://*.openai.com https://api.openai.com; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Additional Trinity Pipeline specific headers
+/*
+  # Enable Trinity Pipeline debugging in dev
+  X-Trinity-Pipeline: enabled</parameter>
