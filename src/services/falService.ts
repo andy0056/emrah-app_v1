@@ -71,6 +71,7 @@ export class TrinityPipeline {
        console.log("📝 Text-to-image mode - 1024x1024");
      }
      
+     try {
      const result = await fal.subscribe(modelEndpoint, {
        input: inputConfig,
         logs: true,
