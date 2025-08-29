@@ -302,8 +302,18 @@ export class FalService {
           });
           
           if (!response.ok) {
+            const errorText = await response.text();
             console.error(`❌ Failed to download image ${i + 1}: HTTP ${response.status} - ${response.statusText}`);
-            throw new Error(`Failed to download image: ${response.status}`);
+            console.error(`Response body:`, errorText);
+            
+            // Check for specific Supabase bucket not found error
+            if (errorText.includes('Bucket not found')) {
+              console.warn(`⚠️ Skipping image ${i + 1}: Supabase 'uploads' bucket not found. Please create the bucket in your Supabase project.`);
+              continue; // Skip this image but continue with others
+            }
+            
+            console.warn(`⚠️ Skipping image ${i + 1} due to download error: ${response.status}`);
+            continue; // Skip this image but continue with others
           }
           
           if (!response.ok) {
@@ -315,7 +325,8 @@ export class FalService {
           // Verify we got actual image data
           if (!blob.type.startsWith('image/')) {
             console.error(`❌ Image ${i + 1} returned invalid content type: ${blob.type}`);
-            throw new Error(`Invalid image content type: ${blob.type}`);
+            console.warn(`⚠️ Skipping image ${i + 1}: Invalid content type: ${blob.type}`);
+            continue; // Skip this image but continue with others
           }
           
           console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
@@ -332,15 +343,17 @@ export class FalService {
           accessibleImageUrls.push(falUrl);
         } catch (error) {
           console.error(`❌ Failed to re-upload image ${i + 1}:`, error);
-          // Skip this image instead of trying fallbacks that might fail
-          throw new Error(`Could not process image ${i + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          // Skip this image but continue with others
+          console.warn(`⚠️ Skipping image ${i + 1} due to processing error`);
+          continue;
         }
       }
       
       if (accessibleImageUrls.length === 0) {
-        throw new Error('No valid images could be processed. Please check that your uploaded images are accessible and try again.');
+        throw new Error(`No valid images could be processed from ${request.image_urls.length} provided images. This may be because:\n\n1. The Supabase 'uploads' bucket doesn't exist - please create it in your Supabase project dashboard under Storage\n2. The images are not publicly accessible\n3. The image URLs are invalid\n\nPlease check your Supabase storage configuration and try again.`);
       }
       
+      console.log(`✅ Successfully processed ${accessibleImageUrls.length} out of ${request.image_urls.length} images`);
       console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
 
       // Use the correct nano-banana/edit endpoint

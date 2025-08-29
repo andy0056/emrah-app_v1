@@ -116,7 +116,17 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       }
     } catch (error) {
       console.error('Error applying brand assets:', error);
-      setError(error instanceof Error ? error.message : 'Failed to apply brand assets. Please try again.');
+      
+      let errorMessage = 'Failed to apply brand assets. Please try again.';
+      if (error instanceof Error) {
+        if (error.message.includes('uploads\' bucket doesn\'t exist')) {
+          errorMessage = '⚠️ Supabase Storage Error: The \'uploads\' bucket doesn\'t exist in your Supabase project.\n\nTo fix this:\n1. Go to your Supabase project dashboard\n2. Navigate to Storage\n3. Create a new bucket named \'uploads\'\n4. Make sure it\'s publicly accessible\n\nThen try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsEditing(false);
     }
