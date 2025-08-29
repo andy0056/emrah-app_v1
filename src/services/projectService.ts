@@ -210,7 +210,7 @@ export class ProjectService {
       // Generate unique file path
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
+      const filePath = fileName; // Don't add 'uploads/' prefix since bucket is already 'uploads'
 
       console.log('Uploading file:', { name: file.name, size: file.size, type: file.type });
 

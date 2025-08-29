@@ -295,7 +295,11 @@ export class FalService {
         
         try {
           // Download the image
-          const response = await fetch(originalUrl);
+          const response = await fetch(originalUrl, {
+            headers: {
+              'User-Agent': 'FalAI-Client/1.0'
+            }
+          });
           if (!response.ok) {
             throw new Error(`Failed to download image: ${response.status}`);
           }
@@ -303,16 +307,33 @@ export class FalService {
           const blob = await response.blob();
           console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
           
-          // Upload to Fal.ai storage
-          const falUrl = await fal.storage.upload(blob);
+          // Create a File object for Fal.ai upload
+          const file = new File([blob], `image-${i + 1}.${blob.type.split('/')[1] || 'jpg'}`, {
+            type: blob.type
+          });
+          
+          // Upload to Fal.ai storage  
+          const falUrl = await fal.storage.upload(file);
           console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai: ${falUrl}`);
           
           accessibleImageUrls.push(falUrl);
         } catch (error) {
           console.error(`❌ Failed to re-upload image ${i + 1}:`, error);
-          // If re-upload fails, still try with original URL as fallback
-          console.log(`⚠️ Using original URL as fallback: ${originalUrl}`);
-          accessibleImageUrls.push(originalUrl);
+          // If re-upload fails, try converting to data URI as fallback
+          try {
+            const response = await fetch(originalUrl);
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            console.log(`✅ Converted image ${i + 1} to data URI as fallback`);
+            accessibleImageUrls.push(base64);
+          } catch (dataUriError) {
+            console.error(`❌ Failed to convert to data URI:`, dataUriError);
+            throw new Error(`Could not process image ${i + 1}: both re-upload and data URI conversion failed`);
+          }
         }
       }
       
