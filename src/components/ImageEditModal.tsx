@@ -94,7 +94,7 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       if (formData.keyVisual) imageUrls.push(formData.keyVisual);
 
       // Create smart prompt for asset integration
-      const assetPrompt = `Apply the ${formData.brand || 'brand'} logo and ${formData.product || 'product'} assets to this display stand. Integrate the branding naturally into the stand design while maintaining the structure. Make the products clearly visible on the shelves and ensure the brand logo is prominently displayed.`;
+      const assetPrompt = `PRESERVE THE EXACT DISPLAY STAND STRUCTURE AND LAYOUT. Only replace the blank/generic branding areas with ${formData.brand || 'brand'} branding. Keep the same stand dimensions, shelf positions, frame structure, and overall design. Apply ${formData.brand || 'brand'} logo to header panels and replace generic products on shelves with ${formData.product || 'product'} products. Maintain the same lighting, perspective, and background environment. DO NOT change the stand's physical structure, colors of the frame, or shelf arrangement - only add branding elements to existing blank spaces.`;
 
       console.log('📝 Asset integration prompt:', assetPrompt);
       console.log('🖼️ Using images:', imageUrls);
