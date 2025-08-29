@@ -300,7 +300,31 @@ export class FalService {
       return result.data as any;
     } catch (error: any) {
       console.error('❌ Error applying brand assets with Nano Banana:', error);
-      throw new Error(`Failed to apply brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Extract detailed error information
+      let errorMessage = 'Unknown error';
+      let errorDetails = '';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        // Handle API response errors
+        if (error.body) {
+          errorDetails += ` API Response: ${error.body}`;
+        }
+        if (error.status) {
+          errorDetails += ` Status: ${error.status}`;
+        }
+        if (error.detail || error.message) {
+          errorMessage = error.detail || error.message;
+        }
+      }
+      
+      const fullErrorMessage = `Failed to apply brand assets: ${errorMessage}${errorDetails}`;
+      console.error('Full error details:', fullErrorMessage);
+      throw new Error(fullErrorMessage);
     }
   }
 }
