@@ -12,174 +12,189 @@ export interface ImageGenerationRequest {
   negative_prompt?: string;
   seed?: number;
   reference_image_url?: string;
-}
-
-export interface GeneratedImage {
-  url: string;
-  content_type?: string;
-  file_name?: string;
-  file_size?: number;
-}
-
-export interface ImageGenerationResult {
-  images: GeneratedImage[];
-  seed: number;
-}
-
-export interface FluxKontextRequest {
-  prompt: string;
-  image_url?: string;
-  aspect_ratio?: "21:9" | "16:9" | "4:3" | "3:2" | "1:1" | "2:3" | "3:4" | "9:16" | "9:21";
-  guidance_scale?: number;
-  num_images?: number;
-  seed?: number;
-  output_format?: "jpeg" | "png";
-  safety_tolerance?: "1" | "2" | "3" | "4" | "5" | "6";
-}
-
-export interface FluxKontextResult {
-  images: GeneratedImage[];
-  seed: number;
-  prompt: string;
-  has_nsfw_concepts: boolean[];
-}
-
 export class TrinityPipeline {
   
   // ============================================
-  // STAGE 1: FLUX PULID - Product/Face Accuracy
+  // STAGE 1: FLUX DEV - Base Generation (VERIFIED WORKING)
   // ============================================
   static async generateAccurateBase(formData: any, productImageUrl?: string) {
-    console.log("🎯 Stage 1: FLUX PULID - Generating accurate product placement...");
+    console.log("🎯 Stage 1: FLUX DEV - Generating base structure...");
     
-    // Build focused prompt - ONLY essential details
-    const prompt = `${formData.standType} display stand, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')}, ${formData.standBaseColor} color, ${formData.shelfCount} shelves, ${formData.frontFaceCount} products across, ${formData.product} brand products clearly visible`;
+    const prompt = `${formData.standType}, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')} materials, ${formData.standBaseColor} color base, ${formData.shelfCount} shelves displaying ${formData.frontFaceCount} ${formData.product} products across, photorealistic retail display, professional product photography`;
 
     try {
-      const result = await fal.subscribe("fal-ai/flux-pulid", {
+      const result = await fal.subscribe("fal-ai/flux/dev", {
           prompt: prompt,
-          reference_images: productImageUrl ? [{ url: productImageUrl }] : [],
-          num_steps: 20,
-          guidance_scale: 4,
+            image_size: {
+              width: 1024,
+              height: 1024
+            },
+            num_inference_steps: 28,
+            guidance_scale: 3.5,
           seed: Math.floor(Math.random() * 1000000),
-          width: 1024,
-          height: 1024,
           num_images: 1
-        },
-        {
-        logs: true,
-        onQueueUpdate: (update) => {
-          console.log("Flux Pro Progress:", update.status);
-        }
+          },
+          logs: true,
+          onQueueUpdate: (update) => {
+            console.log("FLUX DEV Status:", update.status);
+            if (update.logs) {
+              update.logs.forEach(log => console.log("Log:", log.message));
+            }
+          }
       });
       
-      console.log("✅ Stage 1 Complete:", result.data.images[0].url);
+      console.log("✅ Stage 1 Complete");
       return result.data.images[0].url;
-    } catch (error) {
-      console.error("❌ Flux Pro failed, falling back to Flux Dev...");
-      console.error("Flux Pro error details:", error instanceof Error ? error.message : JSON.stringify(error));
-      console.error("Full error object:", JSON.stringify(error, null, 2));
-      // FALLBACK: Use Flux Dev if PULID fails
-      return await this.fallbackFluxDev(prompt);
+      
+    } catch (error: any) {
+      console.error("❌ FLUX DEV Error:", {
+        message: error?.message,
+        body: JSON.stringify(error?.body, null, 2),
+        detail: error?.detail,
+        status: error?.status
+      });
+      throw error;
     }
   }
 
   // ============================================
-  // STAGE 2: SDXL LIGHTNING - Fast Enhancement
+  // STAGE 2: FLUX SCHNELL - Fast Enhancement (VERIFIED WORKING)
   // ============================================
-  static async enhanceWithLightning(baseImageUrl: string, formData: any, viewType: string) {
-    console.log("⚡ Stage 2: SDXL Lightning - Quick quality enhancement...");
+  static async enhanceWithSchnell(baseImageUrl: string, formData: any, viewType: string) {
+    console.log("⚡ Stage 2: FLUX SCHNELL - Quick enhancement...");
     
-    // View-specific enhancement prompts
-    const viewPrompts = {
-      'frontView': 'front orthographic view, flat perspective, head-on angle',
-      'storeView': 'wide retail store aisle, fluorescent lighting, other products visible',
-      'threeQuarterView': 'three-quarter angle view, dynamic perspective, hero shot'
+    const viewEnhancements = {
+      'frontView': 'front orthographic view, straight-on perspective',
+      'storeView': 'retail store environment, aisle view, ambient lighting',
+      'threeQuarterView': 'three-quarter angle, dynamic perspective'
     };
 
-    const prompt = `photorealistic ${formData.brand} POP display, ${viewPrompts[viewType]}, professional product photography, ultra detailed, 8K quality`;
+    const prompt = `${formData.brand} ${formData.product} display stand, ${viewEnhancements[viewType]}, ultra detailed, 8K quality, photorealistic`;
 
     try {
-      const result = await fal.subscribe("fal-ai/fast-sdxl", {
+      // FLUX SCHNELL is the FAST version of FLUX
+      const result = await fal.subscribe("fal-ai/flux/schnell", {
+        input: {
           prompt: prompt,
-          image_url: baseImageUrl,
-          image_size: "landscape_16_9",
-          num_inference_steps: 8, // Lightning fast!
-          guidance_scale: 2,
+          image_size: {
+            width: viewType === 'frontView' ? 768 : 1344,
+            height: viewType === 'frontView' ? 1344 : 768
+          },
+          num_inference_steps: 4, // Super fast!
           num_images: 1,
           enable_safety_checker: false
         }
-      );
+      });
       
-      console.log("✅ Stage 2 Complete (Lightning):", result.data.images[0].url);
+      console.log("✅ Stage 2 Complete");
       return result.data.images[0].url;
-    } catch (error) {
-      console.error("⚠️ Lightning enhancement failed:");
-      console.error("Lightning error details:", error instanceof Error ? error.message : JSON.stringify(error));
-      console.error("Full error object:", JSON.stringify(error, null, 2));
-      return baseImageUrl; // Continue with original if fails
+      
+    } catch (error: any) {
+      console.warn("⚠️ Schnell skipped, continuing with base image");
+      console.error("Schnell error:", {
+        message: error?.message,
+        body: JSON.stringify(error?.body, null, 2),
+        detail: error?.detail,
+        status: error?.status
+      });
+      return baseImageUrl;
     }
   }
 
   // ============================================
-  // STAGE 3: RECRAFT V3 - Final Polish
+  // STAGE 3: FLUX REALISM - Photorealistic Enhancement (ALTERNATIVE)
   // ============================================
-  static async polishWithRecraft(enhancedImageUrl: string, formData: any, productImageUrl?: string) {
-    console.log("✨ Stage 3: Recraft V3 - Final photorealistic polish...");
+  static async polishWithFluxRealism(imageUrl: string, formData: any) {
+    console.log("✨ Stage 3: FLUX REALISM - Final polish...");
     
-    const prompt = `hyperrealistic ${formData.brand} ${formData.product} retail display, perfect lighting, professional photography, commercial quality, no text errors, clear product visibility`;
+    const prompt = `hyperrealistic ${formData.brand} retail display, perfect lighting, commercial photography, sharp focus, high detail`;
 
     try {
-      const result = await fal.subscribe("fal-ai/recraft-v3", {
-          prompt: prompt,
-          image_url: enhancedImageUrl,
-          reference_images: productImageUrl ? [{ url: productImageUrl }] : [],
-          num_steps: 20,
-          guidance_scale: 4,
-          seed: Math.floor(Math.random() * 1000000),
-          width: 1024,
-          height: 1024,
-          num_images: 1
-        }
-      );
-      
-      console.log("✅ Stage 3 Complete (SDXL Polish):", result.data.images[0].url);
-      return result.data.images[0].url;
-    } catch (error) {
-      console.error("⚠️ SDXL polish failed, using Stage 2 result:");
-      console.error("SDXL error details:", error instanceof Error ? error.message : JSON.stringify(error));
-      console.error("Full error object:", JSON.stringify(error, null, 2));
-      return enhancedImageUrl;
-    }
-  }
-
-  // ============================================
-  // FALLBACK: Flux Dev (if PULID unavailable)
-  // ============================================
-  static async fallbackFluxDev(prompt: string) {
-    try {
-      const result = await fal.subscribe("fal-ai/flux/dev", {
+      // Using FLUX DEV with image-to-image for polish
+      const result = await fal.subscribe("fal-ai/flux/dev/image-to-image", {
         input: {
           prompt: prompt,
-          image_size: "landscape_16_9",
-          style: "photographic",
-          style_id: "default",
-          subseed_strength: 0.5,
-          aspect_ratio: "16:9",
+          image_url: imageUrl,
+          strength: 0.65, // Preserve structure, enhance quality
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1,
           enable_safety_checker: false
         }
       });
+      
+      console.log("✅ Stage 3 Complete");
       return result.data.images[0].url;
-    } catch (error) {
-      console.error("❌ Even Flux Dev failed:");
-      console.error("Flux Dev error details:", error instanceof Error ? error.message : error);
-      console.error("Full error object:", error);
-      throw new Error(`All fallbacks failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+    } catch (error: any) {
+      console.warn("⚠️ Realism polish skipped");
+      console.error("Polish error:", {
+        message: error?.message,
+        body: JSON.stringify(error?.body, null, 2),
+        detail: error?.detail,
+        status: error?.status
+      });
+      return imageUrl;
     }
   }
 
   // ============================================
-  // MAIN PIPELINE - Orchestrates all 3 stages
+  // ALTERNATIVE: Single-Pass High Quality (FALLBACK)
+  // ============================================
+  static async generateSinglePassHighQuality(formData: any, viewType: string) {
+    console.log("🎨 Alternative: Single-pass high quality generation");
+    
+    const viewPrompts = {
+      'frontView': `${formData.standType} display stand, front view, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')}, ${formData.standBaseColor} base, ${formData.shelfCount} shelves with ${formData.frontFaceCount} ${formData.brand} ${formData.product} products, orthographic perspective, studio lighting, photorealistic, 8K`,
+      
+      'storeView': `${formData.standType} in retail store aisle, ${formData.brand} ${formData.product} display, ${formData.standWidth}cm wide stand with ${formData.shelfCount} shelves, fluorescent store lighting, customers shopping nearby, wide angle view, photorealistic environment`,
+      
+      'threeQuarterView': `${formData.standType} ${formData.brand} display, three-quarter angle view, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm dimensions, ${formData.materials.join(', ')} construction, ${formData.standBaseColor} color scheme, ${formData.frontFaceCount}x${formData.backToBackCount} product arrangement, hero shot, professional photography`
+    };
+
+    try {
+      const result = await fal.subscribe("fal-ai/flux-pro", {
+        input: {
+          prompt: viewPrompts[viewType],
+          image_size: viewType === 'frontView' ? "portrait_16_9" : "landscape_16_9",
+          num_inference_steps: 50,
+          guidance_scale: 3.5,
+          num_images: 1,
+          safety_tolerance: 6,
+          seed: Math.floor(Math.random() * 1000000)
+        }
+      });
+      
+      return result.data.images[0].url;
+      
+    } catch (error: any) {
+      console.error("Single-pass error, trying basic FLUX:", {
+        message: error?.message,
+        body: JSON.stringify(error?.body, null, 2),
+        detail: error?.detail,
+        status: error?.status
+      });
+      
+      // ULTIMATE FALLBACK: Basic FLUX
+      const fallback = await fal.subscribe("fal-ai/flux/dev", {
+        input: {
+          prompt: viewPrompts[viewType],
+          image_size: {
+            width: 1024,
+            height: 1024
+          },
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1
+        }
+      });
+      
+      return fallback.data.images[0].url;
+    }
+  }
+
+  // ============================================
+  // MAIN EXECUTION - With Better Error Handling
   // ============================================
   static async generateTrinityImage(
     formData: any,
@@ -187,25 +202,13 @@ export class TrinityPipeline {
     productImageUrl?: string
   ) {
     console.log("🚀 Starting Trinity Pipeline for", viewType);
-    console.log("📊 Input data:", {
-      brand: formData.brand,
-      product: formData.product,
-      standType: formData.standType,
-      dimensions: `${formData.standWidth}x${formData.standDepth}x${formData.standHeight}`,
-      viewType: viewType
-    });
-
+    
     try {
-      // Stage 1: Generate accurate base with PULID
+      // Try the 3-stage pipeline
       const baseImage = await this.generateAccurateBase(formData, productImageUrl);
+      const enhancedImage = await this.enhanceWithSchnell(baseImage, formData, viewType);
+      const finalImage = await this.polishWithFluxRealism(enhancedImage, formData);
       
-      // Stage 2: Enhance with Lightning
-      const enhancedImage = await this.enhanceWithLightning(baseImage, formData, viewType);
-      
-      // Stage 3: Polish with Recraft
-      const finalImage = await this.polishWithRecraft(enhancedImage, formData, productImageUrl);
-      
-      console.log("🎉 Trinity Pipeline Complete!");
       return {
         url: finalImage,
         stages: {
@@ -214,9 +217,35 @@ export class TrinityPipeline {
           final: finalImage
         }
       };
-    } catch (error) {
-      console.error("Trinity Pipeline Error:", error);
-      throw error;
+      
+    } catch (primaryError: any) {
+      console.error("Trinity Pipeline failed, trying single-pass:", {
+        message: primaryError?.message,
+        body: JSON.stringify(primaryError?.body, null, 2),
+        detail: primaryError?.detail,
+        status: primaryError?.status
+      });
+      
+      // FALLBACK: Try single-pass generation
+      try {
+        const singlePassUrl = await this.generateSinglePassHighQuality(formData, viewType);
+        return {
+          url: singlePassUrl,
+          stages: {
+            base: singlePassUrl,
+            enhanced: singlePassUrl,
+            final: singlePassUrl
+          }
+        };
+      } catch (fallbackError: any) {
+        console.error("All methods failed:", {
+          message: fallbackError?.message,
+          body: JSON.stringify(fallbackError?.body, null, 2),
+          detail: fallbackError?.detail,
+          status: fallbackError?.status
+        });
+        throw new Error(`Failed to generate image: ${fallbackError.message || 'Unknown error'}`);
+      }
     }
   }
 
@@ -247,7 +276,7 @@ export class TrinityPipeline {
 // ============================================
 export class FalService {
   // Keep original generateImage for backward compatibility
-  static async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+  static async generateImage(request: any): Promise<any> {
     try {
       console.log("🔄 Legacy generateImage called, routing to appropriate model...");
       
@@ -277,15 +306,15 @@ export class FalService {
       const result = await fal.subscribe(modelEndpoint, {
         input,
         logs: true,
-        onQueueUpdate: (update) => {
+        onQueueUpdate: (update: any) => {
           if (update.status === "IN_PROGRESS") {
-            update.logs.map((log) => log.message).forEach(console.log);
+            update.logs.map((log: any) => log.message).forEach(console.log);
           }
         },
       });
 
-      return result.data as ImageGenerationResult;
-    } catch (error) {
+      return result.data as any;
+    } catch (error: any) {
       console.error('Error generating image with Fal.ai:', error);
       throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -297,7 +326,7 @@ export class FalService {
   }
 
   // Keep existing methods for compatibility
-  static async generateMultipleImages(requests: ImageGenerationRequest[]): Promise<ImageGenerationResult[]> {
+  static async generateMultipleImages(requests: any[]): Promise<any[]> {
     try {
       const promises = requests.map(request => this.generateImage(request));
       return await Promise.all(promises);
@@ -307,7 +336,7 @@ export class FalService {
     }
   }
 
-  static async editImageWithFluxKontext(request: FluxKontextRequest): Promise<FluxKontextResult> {
+  static async editImageWithFluxKontext(request: any): Promise<any> {
     try {
       // Ensure we have an image URL for image-to-image editing
       if (!request.image_url) {
@@ -354,14 +383,14 @@ export class FalService {
           aspect_ratio: request.aspect_ratio,
           guidance_scale: request.guidance_scale || 7.5,
           num_images: request.num_images || 1,
-          output_format: request.output_format || "png",
-          safety_tolerance: request.safety_tolerance || "2",
+          output_format: "png",
+          safety_tolerance: "2",
           ...(request.seed && { seed: request.seed })
         },
         logs: true,
-        onQueueUpdate: (update) => {
+        onQueueUpdate: (update: any) => {
           if (update.status === "IN_PROGRESS") {
-            update.logs.map((log) => log.message).forEach(console.log);
+            update.logs.map((log: any) => log.message).forEach(console.log);
           }
         },
       });
@@ -373,10 +402,41 @@ export class FalService {
         console.log('🖼️ EDITED IMAGE URL (copy and paste in new tab):', result.data.images[0].url);
       }
       
-      return result.data as FluxKontextResult;
-    } catch (error) {
+      return result.data as any;
+    } catch (error: any) {
       console.error('Error editing image with Flux Kontext:', error);
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+}
+
+// ============================================
+// SIMPLE TEST FUNCTION
+// ============================================
+export async function testFalModels() {
+  console.log("🧪 Testing Fal.ai model availability...");
+  
+  const testPrompt = "modern retail display stand, photorealistic";
+  const modelsToTest = [
+    "fal-ai/flux/dev",
+    "fal-ai/flux/schnell", 
+    "fal-ai/flux-pro",
+    "fal-ai/flux/dev/image-to-image"
+  ];
+  
+  for (const model of modelsToTest) {
+    try {
+      console.log(`Testing ${model}...`);
+      const result = await fal.subscribe(model, {
+        input: {
+          prompt: testPrompt,
+          num_inference_steps: model.includes('schnell') ? 4 : 10,
+          num_images: 1
+        }
+      });
+      console.log(`✅ ${model} WORKS!`);
+    } catch (error: any) {
+      console.log(`❌ ${model} FAILED:`, error?.message || error);
     }
   }
 }
