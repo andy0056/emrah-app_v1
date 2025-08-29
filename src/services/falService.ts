@@ -14,6 +14,16 @@ export interface ImageGenerationRequest {
   reference_image_url?: string;
 }
 
+export interface FluxKontextRequest {
+  prompt: string;
+  image_url: string;
+  aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
+  guidance_scale?: number;
+  num_images?: number;
+  output_format?: string;
+  safety_tolerance?: string;
+}
+
 export class TrinityPipeline {
   
   // ============================================
@@ -22,28 +32,31 @@ export class TrinityPipeline {
   static async generateAccurateBase(formData: any, productImageUrl?: string) {
     console.log("🎯 Stage 1: FLUX DEV - Generating base structure...");
     
-    const prompt = `${formData.standType}, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')} materials, ${formData.standBaseColor} color base, ${formData.shelfCount} shelves displaying ${formData.frontFaceCount} ${formData.product} products across, photorealistic retail display, professional product photography`;
+    // Critical details only - materials simplified
+    const materials = formData.materials.map((m: string) => m.split(' ')[0]).join('/');
+    
+    const prompt = `${formData.standType} display, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${materials}, ${formData.standBaseColor}, ${formData.shelfCount} shelves, ${formData.frontFaceCount}x${formData.backToBackCount} ${formData.product} products, retail environment, photorealistic`;
 
     try {
       const result = await fal.subscribe("fal-ai/flux/dev", {
         input: {
           prompt: prompt,
-            image_size: {
-              width: 1024,
-              height: 1024
-            },
-            num_inference_steps: 28,
-            guidance_scale: 3.5,
+          image_size: {
+            width: 1024,
+            height: 1024
+          },
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
           seed: Math.floor(Math.random() * 1000000),
           num_images: 1
-          },
-          logs: true,
-          onQueueUpdate: (update) => {
-            console.log("FLUX DEV Status:", update.status);
-            if (update.logs) {
-              update.logs.forEach(log => console.log("Log:", log.message));
-            }
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          console.log("FLUX DEV Status:", update.status);
+          if (update.logs) {
+            update.logs.forEach((log: any) => console.log("Log:", log.message));
           }
+        }
       });
       
       console.log("✅ Stage 1 Complete");
@@ -279,14 +292,14 @@ export class TrinityPipeline {
 // ============================================
 export class FalService {
   // Keep original generateImage for backward compatibility
-  static async generateImage(request: any): Promise<any> {
+  static async generateImage(request: ImageGenerationRequest): Promise<any> {
     try {
       console.log("🔄 Legacy generateImage called, routing to appropriate model...");
       
-      // Use Flux Pro 1.1 if reference image is provided, otherwise use Imagen 4
+      // Use Flux Pro if reference image is provided, otherwise use Imagen 4
       const modelEndpoint = request.reference_image_url 
-        ? "fal-ai/flux-pro-v1.1" 
-        : "fal-ai/imagen4/preview";
+        ? "fal-ai/flux-pro" 
+        : "fal-ai/imagen4";
       
       const input: any = {
         prompt: request.prompt,
@@ -295,11 +308,11 @@ export class FalService {
       };
       
       if (request.reference_image_url) {
-        // Flux Pro 1.1 parameters
+        // Flux Pro parameters
         input.image_url = request.reference_image_url;
-        input.guidance_scale = request.seed || 7;
+        input.guidance_scale = 7;
         input.num_inference_steps = 25;
-        input.aspect_ratio = request.aspect_ratio;
+        input.image_size = request.aspect_ratio;
       } else {
         // Imagen 4 parameters  
         input.aspect_ratio = request.aspect_ratio;
@@ -329,7 +342,7 @@ export class FalService {
   }
 
   // Keep existing methods for compatibility
-  static async generateMultipleImages(requests: any[]): Promise<any[]> {
+  static async generateMultipleImages(requests: ImageGenerationRequest[]): Promise<any[]> {
     try {
       const promises = requests.map(request => this.generateImage(request));
       return await Promise.all(promises);
@@ -339,7 +352,7 @@ export class FalService {
     }
   }
 
-  static async editImageWithFluxKontext(request: any): Promise<any> {
+  static async editImageWithFluxKontext(request: FluxKontextRequest): Promise<any> {
     try {
       // Ensure we have an image URL for image-to-image editing
       if (!request.image_url) {
