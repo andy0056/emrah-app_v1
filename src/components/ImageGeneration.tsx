@@ -128,33 +128,24 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       // SIMPLE: Use the base prompts (no enhancement needed)
       const finalPrompts = prompts; // No enhancement - base prompts are better
       
-      // Collect available input images for editing models
-      const inputImages: string[] = [];
-      if (formData?.productImage) inputImages.push(formData.productImage);
-      if (formData?.keyVisual) inputImages.push(formData.keyVisual);
-      if (formData?.exampleStands) inputImages.push(...formData.exampleStands);
-      
       const requests = [
         {
           prompt: finalPrompts.frontView,
           aspect_ratio: "9:16",
           num_images: 1,
-          model: selectedModel,
-          inputImages: inputImages.length > 0 ? inputImages : undefined
+          model: selectedModel
         },
         {
           prompt: finalPrompts.storeView,
           aspect_ratio: "16:9", 
           num_images: 1,
-          model: selectedModel,
-          inputImages: inputImages.length > 0 ? inputImages : undefined
+          model: selectedModel
         },
         {
           prompt: finalPrompts.threeQuarterView,
           aspect_ratio: "3:4",
           num_images: 1,
-          model: selectedModel,
-          inputImages: inputImages.length > 0 ? inputImages : undefined
+          model: selectedModel
         }
       ];
 
