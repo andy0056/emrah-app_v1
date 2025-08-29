@@ -232,6 +232,43 @@ export class FalService {
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
+  
+  // NEW: Nano Banana Edit for applying logos and product images
+  static async editImageWithNanoBanana(request: {
+    prompt: string;
+    image_urls: string[]; // Generated image + uploaded assets (logo, product, etc.)
+    num_images?: number;
+  }): Promise<any> {
+    try {
+      console.log('🍌 Editing image with Nano Banana Edit');
+      console.log('📥 Input images:', request.image_urls);
+      console.log('✨ Edit prompt:', request.prompt);
+      
+      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
+        input: {
+          prompt: request.prompt,
+          image_urls: request.image_urls,
+          num_images: request.num_images || 1,
+          output_format: "jpeg"
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            update.logs?.map((log) => log.message).forEach(console.log);
+          }
+        }
+      });
+      
+      console.log('✅ Nano Banana Edit complete');
+      return {
+        images: result.data.images,
+        description: result.data.description || null
+      };
+    } catch (error: any) {
+      console.error('❌ Error editing with Nano Banana:', error);
+      throw new Error(`Failed to edit with Nano Banana: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 // DELETE ALL THE TRINITY PIPELINE STUFF - WE DON'T NEED IT
