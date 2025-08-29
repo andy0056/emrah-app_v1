@@ -218,6 +218,9 @@ export class ProjectService {
 
       if (error) {
         console.error('Upload error:', error);
+        if (error.message.includes('Bucket not found')) {
+          throw new Error(`Storage bucket '${bucket}' not found. Please create the '${bucket}' bucket in your Supabase project dashboard under Storage section.`);
+        }
         throw new Error(`Failed to upload file: ${error.message}`);
       }
 
