@@ -12,6 +12,8 @@ export interface ImageGenerationRequest {
   negative_prompt?: string;
   seed?: number;
   reference_image_url?: string;
+}
+
 export class TrinityPipeline {
   
   // ============================================
@@ -24,6 +26,7 @@ export class TrinityPipeline {
 
     try {
       const result = await fal.subscribe("fal-ai/flux/dev", {
+        input: {
           prompt: prompt,
             image_size: {
               width: 1024,
