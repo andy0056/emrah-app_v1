@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Suspense } from 'react';
-import { Upload, Calendar, Palette, Package, Ruler, FileText, Send } from 'lucide-react';
+import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Loader2 } from 'lucide-react';
 import { PromptGenerator } from '../utils/promptGenerator';
 import { SecurityUtils } from '../utils/security';
 import { PerformanceUtils } from '../utils/performance';

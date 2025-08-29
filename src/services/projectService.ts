@@ -199,7 +199,7 @@ export class ProjectService {
   }
 
   // Upload file to Supabase Storage
-  static async uploadFile(file: File, bucket = 'project-files'): Promise<string> {
+  static async uploadFile(file: File, bucket = 'uploads'): Promise<string> {
     try {
       // Generate unique file path
       const fileExt = file.name.split('.').pop();
