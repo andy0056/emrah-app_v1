@@ -34,12 +34,12 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     requiresInput: false
   },
   {
-    id: 'nano-banana',
+    id: 'nano-banana-t2i',
     name: 'Nano Banana',
-    description: 'AI image editing from uploaded photos',
-    endpoint: 'fal-ai/nano-banana/edit',
-    type: 'image-editing',
-    requiresInput: true
+    description: 'Creative text-to-image with natural language understanding',
+    endpoint: 'fal-ai/nano-banana',
+    type: 'text-to-image',
+    requiresInput: false
   }
 ];
 
@@ -113,6 +113,12 @@ export class FalService {
         guidance_scale: 3.5,
         num_inference_steps: 50,
         safety_tolerance: 2
+      };
+    } else if (endpoint === 'fal-ai/nano-banana') {
+      inputConfig = {
+        ...inputConfig,
+        output_format: "jpeg",
+        sync_mode: false
       };
     }
 
