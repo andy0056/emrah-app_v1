@@ -77,7 +77,8 @@ export class TrinityPipeline {
   // STAGE 2: FLUX SCHNELL - Fast Enhancement (VERIFIED WORKING)
   // ============================================
   static async enhanceWithSchnell(baseImageUrl: string, formData: any, viewType: string) {
-    console.log("⚡ Stage 2: FLUX SCHNELL - Quick enhancement...");
+    console.log("⚡ Stage 2: FLUX SCHNELL - Starting enhancement...");
+    console.log("📥 Stage 2 Input Image URL:", baseImageUrl);
     
     const viewEnhancements = {
       'frontView': 'front orthographic view, straight-on perspective',
@@ -102,12 +103,14 @@ export class TrinityPipeline {
         }
       });
       
-      console.log("✅ Stage 2 Complete");
+      console.log("✅ Stage 2 Complete - Enhanced image generated");
+      console.log("📤 Stage 2 Output Image URL:", result.data.images[0].url);
       return result.data.images[0].url;
       
     } catch (error: any) {
-      console.warn("⚠️ Schnell skipped, continuing with base image");
-      console.error("Schnell error:", {
+      console.warn("⚠️ Stage 2 FAILED - Schnell skipped, continuing with base image");
+      console.error("❌ Stage 2 Error Details:", JSON.stringify(error, null, 2));
+      console.log("📤 Stage 2 Fallback - Using base image:", baseImageUrl);
         message: error?.message,
         body: JSON.stringify(error?.body, null, 2),
         detail: error?.detail,
@@ -121,7 +124,8 @@ export class TrinityPipeline {
   // STAGE 3: FLUX REALISM - Photorealistic Enhancement (ALTERNATIVE)
   // ============================================
   static async polishWithFluxRealism(imageUrl: string, formData: any) {
-    console.log("✨ Stage 3: FLUX REALISM - Final polish...");
+    console.log("✨ Stage 3: FLUX DEV Image-to-Image - Starting final polish...");
+    console.log("📥 Stage 3 Input Image URL:", imageUrl);
     
     const prompt = `hyperrealistic ${formData.brand} retail display, perfect lighting, commercial photography, sharp focus, high detail`;
 
@@ -139,12 +143,14 @@ export class TrinityPipeline {
         }
       });
       
-      console.log("✅ Stage 3 Complete");
+      console.log("✅ Stage 3 Complete - Final polished image generated");
+      console.log("📤 Stage 3 Output Image URL:", result.data.images[0].url);
       return result.data.images[0].url;
       
     } catch (error: any) {
-      console.warn("⚠️ Realism polish skipped");
-      console.error("Polish error:", {
+      console.warn("⚠️ Stage 3 FAILED - Realism polish skipped");
+      console.error("❌ Stage 3 Error Details:", JSON.stringify(error, null, 2));
+      console.log("📤 Stage 3 Fallback - Using Stage 2 image:", imageUrl);
         message: error?.message,
         body: JSON.stringify(error?.body, null, 2),
         detail: error?.detail,
@@ -217,13 +223,23 @@ export class TrinityPipeline {
     viewType: 'frontView' | 'storeView' | 'threeQuarterView',
     productImageUrl?: string
   ) {
-    console.log("🚀 Starting Trinity Pipeline for", viewType);
+    console.log("🚀 TRINITY PIPELINE START:", viewType);
+    console.log("═══════════════════════════════════════");
     
     try {
       // Try the 3-stage pipeline
+      console.log("🎯 Beginning Stage 1...");
       const baseImage = await this.generateAccurateBase(formData, productImageUrl);
+      
+      console.log("⚡ Beginning Stage 2...");
       const enhancedImage = await this.enhanceWithSchnell(baseImage, formData, viewType);
+      
+      console.log("✨ Beginning Stage 3...");
       const finalImage = await this.polishWithFluxRealism(enhancedImage, formData);
+      
+      console.log("🎉 TRINITY PIPELINE COMPLETE for", viewType);
+      console.log("📊 Final Result URL:", finalImage);
+      console.log("═══════════════════════════════════════");
       
       return {
         url: finalImage,
@@ -240,7 +256,9 @@ export class TrinityPipeline {
         body: JSON.stringify(primaryError?.body, null, 2),
         detail: primaryError?.detail,
         status: primaryError?.status
-      });
+      console.error("🚨 TRINITY PIPELINE COMPLETELY FAILED for", viewType);
+      console.error("❌ Primary Error:", JSON.stringify(primaryError, null, 2));
+      console.log("🔄 Attempting single-pass fallback...");
       
       // FALLBACK: Try single-pass generation
       try {
@@ -254,7 +272,8 @@ export class TrinityPipeline {
           }
         };
       } catch (fallbackError: any) {
-        console.error("All methods failed:", {
+        console.error("🚨 ALL METHODS FAILED for", viewType);
+        console.error("❌ Fallback Error:", JSON.stringify(fallbackError, null, 2));
           message: fallbackError?.message,
           body: JSON.stringify(fallbackError?.body, null, 2),
           detail: fallbackError?.detail,
