@@ -35,8 +35,8 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
   },
   {
     id: 'nano-banana-t2i',
-    name: 'Nano Banana',
-    description: 'Creative text-to-image with natural language understanding',
+    name: 'Nano Banana T2I',
+    description: 'AI text-to-image with natural language understanding',
     endpoint: 'fal-ai/nano-banana',
     type: 'text-to-image',
     requiresInput: false
@@ -70,7 +70,6 @@ export class FalService {
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
     num_images?: number;
     model?: AIModel;
-    inputImages?: string[]; // For editing models
   }) {
     try {
       const selectedModel = AVAILABLE_MODELS.find(m => m.id === (request.model || 'flux-dev'));
@@ -78,11 +77,7 @@ export class FalService {
       console.log("📝 Prompt:", request.prompt);
       console.log("📐 Aspect ratio:", request.aspect_ratio);
       
-      if (selectedModel?.type === 'image-editing') {
-        return this.generateWithEditingModel(selectedModel, request);
-      } else {
-        return this.generateWithTextToImageModel(selectedModel, request);
-      }
+      return this.generateWithTextToImageModel(selectedModel, request);
     } catch (error: any) {
       console.error(`❌ ${request.model || 'flux-dev'} generation failed:`, error);
       throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -117,8 +112,8 @@ export class FalService {
     } else if (endpoint === 'fal-ai/nano-banana') {
       inputConfig = {
         ...inputConfig,
-        output_format: "jpeg",
-        sync_mode: false
+        output_format: "jpeg"
+        // Note: Nano Banana doesn't support aspect_ratio, it generates square images
       };
     }
 
@@ -135,37 +130,11 @@ export class FalService {
 
     return {
       images: result.data.images,
-      seed: result.data.seed || 0
+      seed: result.data.seed || 0,
+      description: result.data.description || null // Nano Banana provides descriptions
     };
   }
 
-  private static async generateWithEditingModel(model: ModelConfig | undefined, request: any) {
-    if (!request.inputImages || request.inputImages.length === 0) {
-      throw new Error(`${model?.name} requires input images. Please upload reference images first.`);
-    }
-
-    console.log("🖼️ Input images:", request.inputImages);
-    
-    const result = await fal.subscribe(model?.endpoint || 'fal-ai/nano-banana/edit', {
-      input: {
-        prompt: request.prompt,
-        image_urls: request.inputImages,
-        num_images: request.num_images || 1,
-        output_format: "jpeg"
-      },
-      logs: true,
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS") {
-          update.logs?.map((log) => log.message).forEach(console.log);
-        }
-      }
-    });
-
-    return {
-      images: result.data.images,
-      description: result.data.description || null
-    };
-  }
 
   static getModelById(modelId: AIModel): ModelConfig | undefined {
     return AVAILABLE_MODELS.find(m => m.id === modelId);
@@ -207,7 +176,7 @@ export class FalService {
       // Upload the original image to Fal.ai storage to ensure accessibility
       let accessibleImageUrl = request.image_url;
       
-      try {
+    id: 'nano-banana-t2i',
         // Download the original image
         console.log('📥 Downloading original image...');
         const imageResponse = await fetch(request.image_url);
