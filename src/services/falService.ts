@@ -267,7 +267,7 @@ export class FalService {
 
   // Apply brand assets using Nano Banana Edit
   static async applyBrandAssetsWithNanaBanana(request: {
-    image_urls: string[];
+    image_urls: string[]; 
     prompt: string;
     num_images?: number;
     output_format?: 'jpeg' | 'png';
@@ -293,13 +293,13 @@ export class FalService {
         }
       }
 
-      // Use the correct nano-banana endpoint without "/edit"
-      const result = await fal.subscribe("fal-ai/nano-banana", {
+      // Use the correct nano-banana/edit endpoint
+      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
         input: {
           prompt: request.prompt,
           image_urls: request.image_urls,
+          num_images: request.num_images || 1,
           output_format: request.output_format || "jpeg"
-          // Note: nano-banana may not support num_images parameter
         },
         logs: true,
         onQueueUpdate: (update: any) => {
@@ -324,7 +324,7 @@ export class FalService {
       
       // Handle ValidationError and other Fal.ai errors
       if (error.name === 'ValidationError' || error.message?.includes('ValidationError')) {
-        errorMessage = 'Invalid input parameters for Nano Banana API';
+        errorMessage = 'Invalid input parameters for Nano Banana Edit API';
         if (error.body) {
           try {
             const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
