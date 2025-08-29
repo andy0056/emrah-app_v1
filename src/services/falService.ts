@@ -300,11 +300,24 @@ export class FalService {
               'User-Agent': 'FalAI-Client/1.0'
             }
           });
+          
+          if (!response.ok) {
+            console.error(`❌ Failed to download image ${i + 1}: HTTP ${response.status} - ${response.statusText}`);
+            throw new Error(`Failed to download image: ${response.status}`);
+          }
+          
           if (!response.ok) {
             throw new Error(`Failed to download image: ${response.status}`);
           }
           
           const blob = await response.blob();
+          
+          // Verify we got actual image data
+          if (!blob.type.startsWith('image/')) {
+            console.error(`❌ Image ${i + 1} returned invalid content type: ${blob.type}`);
+            throw new Error(`Invalid image content type: ${blob.type}`);
+          }
+          
           console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
           
           // Create a File object for Fal.ai upload
@@ -319,22 +332,13 @@ export class FalService {
           accessibleImageUrls.push(falUrl);
         } catch (error) {
           console.error(`❌ Failed to re-upload image ${i + 1}:`, error);
-          // If re-upload fails, try converting to data URI as fallback
-          try {
-            const response = await fetch(originalUrl);
-            const blob = await response.blob();
-            const base64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-            console.log(`✅ Converted image ${i + 1} to data URI as fallback`);
-            accessibleImageUrls.push(base64);
-          } catch (dataUriError) {
-            console.error(`❌ Failed to convert to data URI:`, dataUriError);
-            throw new Error(`Could not process image ${i + 1}: both re-upload and data URI conversion failed`);
-          }
+          // Skip this image instead of trying fallbacks that might fail
+          throw new Error(`Could not process image ${i + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+      }
+      
+      if (accessibleImageUrls.length === 0) {
+        throw new Error('No valid images could be processed. Please check that your uploaded images are accessible and try again.');
       }
       
       console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
