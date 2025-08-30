@@ -5,6 +5,44 @@ fal.config({
   credentials: import.meta.env.VITE_FAL_KEY
 });
 
+export type AIModel = 'flux-dev' | 'flux-pro' | 'nano-banana' | 'stable-diffusion';
+
+export interface ModelConfig {
+  id: AIModel;
+  name: string;
+  description: string;
+  endpoint: string;
+  type: 'text-to-image' | 'image-editing';
+  requiresInput: boolean;
+}
+
+export const AVAILABLE_MODELS: ModelConfig[] = [
+  {
+    id: 'flux-dev',
+    name: 'Flux Dev',
+    description: 'Fast, reliable text-to-image generation',
+    endpoint: 'fal-ai/flux/dev',
+    type: 'text-to-image',
+    requiresInput: false
+  },
+  {
+    id: 'flux-pro',
+    name: 'Flux Pro',
+    description: 'Higher quality, slower generation',
+    endpoint: 'fal-ai/flux-pro',
+    type: 'text-to-image',
+    requiresInput: false
+  },
+  {
+    id: 'nano-banana-t2i',
+    name: 'Nano Banana T2I',
+    description: 'AI text-to-image with natural language understanding',
+    endpoint: 'fal-ai/nano-banana',
+    type: 'text-to-image',
+    requiresInput: false
+  }
+];
+
 export interface ImageGenerationRequest {
   prompt: string;
   aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
@@ -24,373 +62,128 @@ export interface FluxKontextRequest {
   safety_tolerance?: string;
 }
 
-export class TrinityPipeline {
-  
-  // ============================================
-  // STAGE 1: FLUX DEV - Base Generation (VERIFIED WORKING)
-  // ============================================
-  static async generateAccurateBase(formData: any, productImageUrl?: string) {
-    console.log("🎯 Stage 1: FLUX DEV - Generating base structure...");
-   
-   if (productImageUrl) {
-     console.log("📸 Using product image as reference:", productImageUrl);
-   } else {
-     console.log("📝 Using text-only generation (no product image provided)");
-   }
-    
-    // Critical details only - materials simplified
-    const materials = formData.materials.map((m: string) => m.split(' ')[0]).join('/');
-    
-   const prompt = productImageUrl 
-     ? `${formData.standType} display stand featuring the uploaded ${formData.product}, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${materials}, ${formData.standBaseColor}, ${formData.shelfCount} shelves, ${formData.frontFaceCount}x${formData.backToBackCount} products arranged, retail environment, photorealistic, match product appearance from reference image`
-     : `${formData.standType} display, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${materials}, ${formData.standBaseColor}, ${formData.shelfCount} shelves, ${formData.frontFaceCount}x${formData.backToBackCount} ${formData.product} products, retail environment, photorealistic`;
-
-     const modelEndpoint = productImageUrl ? "fal-ai/flux/dev/image-to-image" : "fal-ai/flux/dev";
-     console.log("🔧 Using model:", modelEndpoint);
-     
-     const inputConfig: any = {
-       prompt: prompt,
-       num_inference_steps: 28,
-       guidance_scale: 3.5,
-       num_images: 1,
-       enable_safety_checker: false,
-       seed: Math.floor(Math.random() * 1000000)
-     };
-     
-     if (productImageUrl) {
-       // Image-to-image mode with product image reference
-       inputConfig.image_url = productImageUrl;
-       inputConfig.strength = 0.7; // Control how much to change from the original image
-       console.log("🎨 Image-to-image mode - strength: 0.7");
-     } else {
-       // Text-to-image mode
-       inputConfig.image_size = {
-         width: 1024,
-         height: 1024
-       };
-       console.log("📝 Text-to-image mode - 1024x1024");
-     }
-     
-     try {
-     const result = await fal.subscribe(modelEndpoint, {
-       input: inputConfig,
-        logs: true,
-        onQueueUpdate: (update) => {
-          console.log("FLUX DEV Status:", update.status);
-          if (update.logs) {
-            update.logs.forEach((log: any) => console.log("Log:", log.message));
-          }
-        }
-      });
-      
-      console.log("✅ Stage 1 Complete");
-      return result.data.images[0].url;
-      
-    } catch (error: any) {
-      console.error("❌ FLUX DEV Error:", {
-        message: error?.message,
-        body: JSON.stringify(error?.body, null, 2),
-        detail: error?.detail,
-        status: error?.status
-      });
-      throw error;
-    }
-  }
-
-  // ============================================
-  // STAGE 2: FLUX SCHNELL - Fast Enhancement (VERIFIED WORKING)
-  // ============================================
-  static async enhanceWithSchnell(baseImageUrl: string, formData: any, viewType: string) {
-    console.log("⚡ Stage 2: FLUX SCHNELL - Starting enhancement...");
-    console.log("📥 Stage 2 Input Image URL:", baseImageUrl);
-    
-    const viewEnhancements = {
-      'frontView': 'front orthographic view, straight-on perspective',
-      'storeView': 'retail store environment, aisle view, ambient lighting',
-      'threeQuarterView': 'three-quarter angle, dynamic perspective'
-    };
-
-    const prompt = `${formData.brand} ${formData.product} display stand, ${viewEnhancements[viewType]}, ultra detailed, 8K quality, photorealistic`;
-
-    try {
-      // FLUX SCHNELL is the FAST version of FLUX
-      const result = await fal.subscribe("fal-ai/flux/schnell", {
-        input: {
-          prompt: prompt,
-          image_size: {
-            width: viewType === 'frontView' ? 768 : 1344,
-            height: viewType === 'frontView' ? 1344 : 768
-          },
-          num_inference_steps: 4, // Super fast!
-          num_images: 1,
-          enable_safety_checker: false
-        }
-      });
-      
-      console.log("✅ Stage 2 Complete - Enhanced image generated");
-      console.log("📤 Stage 2 Output Image URL:", result.data.images[0].url);
-      return result.data.images[0].url;
-      
-    } catch (error: any) {
-      console.warn("⚠️ Stage 2 FAILED - Schnell skipped, continuing with base image");
-      console.error("❌ Stage 2 Error Details:", JSON.stringify(error, null, 2));
-      console.log("📤 Stage 2 Fallback - Using base image:", baseImageUrl);
-      console.error("❌ FLUX SCHNELL Error:", {
-        message: error?.message,
-        body: JSON.stringify(error?.body, null, 2),
-        detail: error?.detail,
-        status: error?.status
-      });
-      return baseImageUrl;
-    }
-  }
-
-  // ============================================
-  // STAGE 3: FLUX REALISM - Photorealistic Enhancement (ALTERNATIVE)
-  // ============================================
-  static async polishWithFluxRealism(imageUrl: string, formData: any) {
-    console.log("✨ Stage 3: FLUX DEV Image-to-Image - Starting final polish...");
-    console.log("📥 Stage 3 Input Image URL:", imageUrl);
-    
-    const prompt = `hyperrealistic ${formData.brand} retail display, perfect lighting, commercial photography, sharp focus, high detail`;
-
-    try {
-      // Using FLUX DEV with image-to-image for polish
-      const result = await fal.subscribe("fal-ai/flux/dev/image-to-image", {
-        input: {
-          prompt: prompt,
-          image_url: imageUrl,
-          strength: 0.65, // Preserve structure, enhance quality
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
-          enable_safety_checker: false
-        }
-      });
-      
-      console.log("✅ Stage 3 Complete - Final polished image generated");
-      console.log("📤 Stage 3 Output Image URL:", result.data.images[0].url);
-      return result.data.images[0].url;
-      
-    } catch (error: any) {
-      console.warn("⚠️ Stage 3 FAILED - Realism polish skipped");
-      console.error("❌ Stage 3 Error Details:", JSON.stringify(error, null, 2));
-      console.log("📤 Stage 3 Fallback - Using Stage 2 image:", imageUrl);
-      console.error("❌ FLUX REALISM Error:", {
-        message: error?.message,
-        body: JSON.stringify(error?.body, null, 2),
-        detail: error?.detail,
-        status: error?.status
-      });
-      return imageUrl;
-    }
-  }
-
-  // ============================================
-  // ALTERNATIVE: Single-Pass High Quality (FALLBACK)
-  // ============================================
-  static async generateSinglePassHighQuality(formData: any, viewType: string) {
-    console.log("🎨 Alternative: Single-pass high quality generation");
-    
-    const viewPrompts = {
-      'frontView': `${formData.standType} display stand, front view, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm, ${formData.materials.join(', ')}, ${formData.standBaseColor} base, ${formData.shelfCount} shelves with ${formData.frontFaceCount} ${formData.brand} ${formData.product} products, orthographic perspective, studio lighting, photorealistic, 8K`,
-      
-      'storeView': `${formData.standType} in retail store aisle, ${formData.brand} ${formData.product} display, ${formData.standWidth}cm wide stand with ${formData.shelfCount} shelves, fluorescent store lighting, customers shopping nearby, wide angle view, photorealistic environment`,
-      
-      'threeQuarterView': `${formData.standType} ${formData.brand} display, three-quarter angle view, ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm dimensions, ${formData.materials.join(', ')} construction, ${formData.standBaseColor} color scheme, ${formData.frontFaceCount}x${formData.backToBackCount} product arrangement, hero shot, professional photography`
-    };
-
-    try {
-      const result = await fal.subscribe("fal-ai/flux-pro", {
-        input: {
-          prompt: viewPrompts[viewType],
-          image_size: viewType === 'frontView' ? "portrait_16_9" : "landscape_16_9",
-          num_inference_steps: 50,
-          guidance_scale: 3.5,
-          num_images: 1,
-          safety_tolerance: 6,
-          seed: Math.floor(Math.random() * 1000000)
-        }
-      });
-      
-      return result.data.images[0].url;
-      
-    } catch (error: any) {
-      console.error("Single-pass error, trying basic FLUX:", {
-        message: error?.message,
-        body: JSON.stringify(error?.body, null, 2),
-        detail: error?.detail,
-        status: error?.status
-      });
-      
-      // ULTIMATE FALLBACK: Basic FLUX
-      const fallback = await fal.subscribe("fal-ai/flux/dev", {
-        input: {
-          prompt: viewPrompts[viewType],
-          image_size: {
-            width: 1024,
-            height: 1024
-          },
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1
-        }
-      });
-      
-      return fallback.data.images[0].url;
-    }
-  }
-
-  // ============================================
-  // MAIN EXECUTION - With Better Error Handling
-  // ============================================
-  static async generateTrinityImage(
-    formData: any,
-    viewType: 'frontView' | 'storeView' | 'threeQuarterView',
-    productImageUrl?: string
-  ) {
-    console.log("🚀 TRINITY PIPELINE START:", viewType);
-    console.log("═══════════════════════════════════════");
-    
-    try {
-      // Try the 3-stage pipeline
-      console.log("🎯 Beginning Stage 1...");
-      const baseImage = await this.generateAccurateBase(formData, productImageUrl);
-      
-      console.log("⚡ Beginning Stage 2...");
-      const enhancedImage = await this.enhanceWithSchnell(baseImage, formData, viewType);
-      
-      console.log("✨ Beginning Stage 3...");
-      const finalImage = await this.polishWithFluxRealism(enhancedImage, formData);
-      
-      console.log("🎉 TRINITY PIPELINE COMPLETE for", viewType);
-      console.log("📊 Final Result URL:", finalImage);
-      console.log("═══════════════════════════════════════");
-      
-      return {
-        url: finalImage,
-        stages: {
-          base: baseImage,
-          enhanced: enhancedImage,
-          final: finalImage
-        }
-      };
-      
-    } catch (primaryError: any) {
-      console.error("Trinity Pipeline failed, trying single-pass:", {
-        message: primaryError?.message,
-        body: JSON.stringify(primaryError?.body, null, 2),
-        detail: primaryError?.detail,
-        status: primaryError?.status
-      });
-      console.error("🚨 TRINITY PIPELINE COMPLETELY FAILED for", viewType);
-      console.error("❌ Primary Error:", JSON.stringify(primaryError, null, 2));
-      console.log("🔄 Attempting single-pass fallback...");
-      
-      // FALLBACK: Try single-pass generation
-      try {
-        const singlePassUrl = await this.generateSinglePassHighQuality(formData, viewType);
-        return {
-          url: singlePassUrl,
-          stages: {
-            base: singlePassUrl,
-            enhanced: singlePassUrl,
-            final: singlePassUrl
-          }
-        };
-      } catch (fallbackError: any) {
-        console.error("🚨 ALL METHODS FAILED for", viewType);
-        console.error("❌ Fallback Error:", JSON.stringify(fallbackError, null, 2));
-        console.error("❌ FALLBACK Error:", {
-          message: fallbackError?.message,
-          body: JSON.stringify(fallbackError?.body, null, 2),
-          detail: fallbackError?.detail,
-          status: fallbackError?.status
-        });
-        throw new Error(`Failed to generate image: ${fallbackError.message || 'Unknown error'}`);
-      }
-    }
-  }
-
-  // ============================================
-  // BATCH GENERATION - All 3 views
-  // ============================================
-  static async generateAllViews(formData: any, productImageUrl?: string) {
-    console.log("🧪 TESTING MODE: Generating ONLY frontView with Trinity Pipeline");
-    
-    // TESTING: Only generate frontView to save credits and simplify logs
-    const views: Array<'frontView' | 'storeView' | 'threeQuarterView'> = 
-      ['frontView']; // 'storeView', 'threeQuarterView' - commented out for testing
-    
-    const results = await Promise.all(
-      views.map(view => this.generateTrinityImage(formData, view, productImageUrl))
-    );
-
-    // Return frontView for all three slots during testing
-    return {
-      frontView: results[0].url,
-      storeView: results[0].url,  // Same image for testing
-      threeQuarterView: results[0].url,  // Same image for testing
-      allStages: results.map(r => r.stages)
-    };
-  }
-}
-
-// ============================================
-// ORIGINAL FALSERVICE - Updated to use Trinity
-// ============================================
 export class FalService {
-  // Keep original generateImage for backward compatibility
-  static async generateImage(request: ImageGenerationRequest): Promise<any> {
+  
+  // MULTI-MODEL APPROACH WITH SIMPLE INTERFACE
+  static async generateImage(request: {
+    prompt: string;
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
+    num_images?: number;
+    model?: AIModel;
+    inputImages?: string[]; // For editing models
+  }) {
     try {
-      console.log("🔄 Legacy generateImage called, routing to appropriate model...");
+      const selectedModel = AVAILABLE_MODELS.find(m => m.id === (request.model || 'flux-dev'));
+      console.log(`🎯 Using ${selectedModel?.name} (${selectedModel?.endpoint})`);
+      console.log("📝 Prompt:", request.prompt);
+      console.log("📐 Aspect ratio:", request.aspect_ratio);
       
-      // Use Flux Pro if reference image is provided, otherwise use Imagen 4
-      const modelEndpoint = request.reference_image_url 
-        ? "fal-ai/flux-pro" 
-        : "fal-ai/imagen4";
-      
-      const input: any = {
-        prompt: request.prompt,
-        num_images: request.num_images || 1,
-        negative_prompt: request.negative_prompt || "blurry, low quality, distorted, unrealistic proportions"
-      };
-      
-      if (request.reference_image_url) {
-        // Flux Pro parameters
-        input.image_url = request.reference_image_url;
-        input.guidance_scale = 7;
-        input.num_inference_steps = 25;
-        input.image_size = request.aspect_ratio;
+      if (selectedModel?.type === 'image-editing') {
+        return this.generateWithEditingModel(selectedModel, request);
       } else {
-        // Imagen 4 parameters  
-        input.aspect_ratio = request.aspect_ratio;
-        if (request.seed) input.seed = request.seed;
+        return this.generateWithTextToImageModel(selectedModel, request);
       }
-
-      const result = await fal.subscribe(modelEndpoint, {
-        input,
-        logs: true,
-        onQueueUpdate: (update: any) => {
-          if (update.status === "IN_PROGRESS") {
-            update.logs.map((log: any) => log.message).forEach(console.log);
-          }
-        },
-      });
-
-      return result.data as any;
     } catch (error: any) {
-      console.error('Error generating image with Fal.ai:', error);
+      console.error(`❌ ${request.model || 'flux-dev'} generation failed:`, error);
       throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // NEW: Use Trinity Pipeline
-  static async generateWithTrinity(formData: any, viewType: string, productImage?: string) {
-    return await TrinityPipeline.generateTrinityImage(formData, viewType as any, productImage);
+  private static async generateWithTextToImageModel(model: ModelConfig | undefined, request: any) {
+    const endpoint = model?.endpoint || 'fal-ai/flux/dev';
+    
+    let inputConfig: any = {
+      prompt: request.prompt,
+      num_images: request.num_images || 1
+    };
+
+    // Model-specific configurations
+    if (endpoint === 'fal-ai/flux/dev') {
+      inputConfig = {
+        ...inputConfig,
+        image_size: this.getImageSize(request.aspect_ratio),
+        num_inference_steps: 28,
+        guidance_scale: 7.5,
+        enable_safety_checker: false
+      };
+    } else if (endpoint === 'fal-ai/flux-pro') {
+      inputConfig = {
+        ...inputConfig,
+        aspect_ratio: request.aspect_ratio,
+        guidance_scale: 3.5,
+        num_inference_steps: 50,
+        safety_tolerance: 2
+      };
+    } else if (endpoint === 'fal-ai/nano-banana') {
+      inputConfig = {
+        ...inputConfig,
+        output_format: "jpeg"
+        // Note: Nano Banana doesn't support aspect_ratio, it generates square images
+      };
+    }
+
+    const result = await fal.subscribe(endpoint, {
+      input: inputConfig,
+      logs: true,
+      onQueueUpdate: (update) => {
+        console.log(`${model?.name} Status:`, update.status);
+        if (update.logs) {
+          update.logs.forEach(log => console.log("Log:", log.message));
+        }
+      }
+    });
+
+    return {
+      images: result.data.images,
+      seed: result.data.seed || 0,
+      description: result.data.description || null // Nano Banana provides descriptions
+    };
   }
 
-  // Keep existing methods for compatibility
+  private static async generateWithEditingModel(model: ModelConfig | undefined, request: any) {
+    if (!request.inputImages || request.inputImages.length === 0) {
+      throw new Error(`${model?.name} requires input images. Please upload reference images first.`);
+    }
+
+    console.log("🖼️ Input images:", request.inputImages);
+    
+    const result = await fal.subscribe(model?.endpoint || 'fal-ai/nano-banana/edit', {
+      input: {
+        prompt: request.prompt,
+        image_urls: request.inputImages,
+        num_images: request.num_images || 1,
+        output_format: "jpeg"
+      },
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs?.map((log) => log.message).forEach(console.log);
+        }
+      }
+    });
+
+    return {
+      images: result.data.images,
+      description: result.data.description || null
+    };
+  }
+
+  static getModelById(modelId: AIModel): ModelConfig | undefined {
+    return AVAILABLE_MODELS.find(m => m.id === modelId);
+  }
+
+  static getImageSize(aspectRatio: string) {
+    const sizes = {
+      "9:16": { width: 768, height: 1344 },
+      "16:9": { width: 1344, height: 768 },
+      "3:4": { width: 896, height: 1152 },
+      "4:3": { width: 1152, height: 896 },
+      "1:1": { width: 1024, height: 1024 }
+    };
+    return sizes[aspectRatio as keyof typeof sizes] || sizes["1:1"];
+  }
+
+  // Keep existing methods for backward compatibility
   static async generateMultipleImages(requests: ImageGenerationRequest[]): Promise<any[]> {
     try {
       const promises = requests.map(request => this.generateImage(request));
@@ -401,6 +194,7 @@ export class FalService {
     }
   }
 
+  // For image editing - keep it simple but working
   static async editImageWithFluxKontext(request: FluxKontextRequest): Promise<any> {
     try {
       // Ensure we have an image URL for image-to-image editing
@@ -408,6 +202,7 @@ export class FalService {
         throw new Error('Image URL is required for image editing');
       }
 
+      console.log('🎨 Editing image with Flux Kontext');
       console.log('Original image URL:', request.image_url);
       
       // Upload the original image to Fal.ai storage to ensure accessibility
@@ -415,7 +210,7 @@ export class FalService {
       
       try {
         // Download the original image
-        console.log('Downloading original image...');
+        console.log('📥 Downloading original image...');
         const imageResponse = await fetch(request.image_url);
         
         if (!imageResponse.ok) {
@@ -423,23 +218,19 @@ export class FalService {
         }
         
         const imageBlob = await imageResponse.blob();
-        console.log('Image downloaded, size:', imageBlob.size, 'bytes');
+        console.log('✅ Image downloaded, size:', imageBlob.size, 'bytes');
         
         // Upload to Fal.ai storage
-        console.log('Uploading to Fal.ai storage...');
+        console.log('📤 Uploading to Fal.ai storage...');
         accessibleImageUrl = await fal.storage.upload(imageBlob);
-        console.log('Uploaded to Fal.ai storage:', accessibleImageUrl);
+        console.log('✅ Uploaded to Fal.ai storage:', accessibleImageUrl);
         
       } catch (uploadError) {
-        console.warn('Failed to upload image to Fal.ai storage, trying original URL:', uploadError);
+        console.warn('⚠️ Failed to upload image to Fal.ai storage, trying original URL:', uploadError);
         // If upload fails, we'll try with the original URL
       }
       
-      console.log('Editing image with Flux Kontext:', {
-        prompt: request.prompt,
-        image_url: accessibleImageUrl,
-        aspect_ratio: request.aspect_ratio
-      });
+      console.log('🎯 Editing with prompt:', request.prompt);
 
       const result = await fal.subscribe("fal-ai/flux-pro/kontext/max", {
         input: {
@@ -460,48 +251,202 @@ export class FalService {
         },
       });
 
-      console.log('Flux Kontext result:', result.data);
+      console.log('✅ Image editing complete');
       
       // Debug: Log the actual edited image URL for direct inspection
       if (result.data.images && result.data.images.length > 0) {
-        console.log('🖼️ EDITED IMAGE URL (copy and paste in new tab):', result.data.images[0].url);
+        console.log('🖼️ EDITED IMAGE URL:', result.data.images[0].url);
       }
       
       return result.data as any;
     } catch (error: any) {
-      console.error('Error editing image with Flux Kontext:', error);
+      console.error('❌ Error editing image with Flux Kontext:', error);
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Apply brand assets using Nano Banana Edit
+  static async applyBrandAssetsWithNanaBanana(request: {
+    image_urls: string[]; 
+    prompt: string;
+    num_images?: number;
+    output_format?: 'jpeg' | 'png';
+  }): Promise<any> {
+    try {
+      console.log('🍌 Applying brand assets with Nano Banana Edit');
+      console.log('📝 Prompt:', request.prompt);
+      console.log('🖼️ Input images:', request.image_urls);
+
+      // Validate inputs before API call
+      if (!request.image_urls || request.image_urls.length === 0) {
+        throw new Error('At least one image URL is required');
+      }
+      
+      if (!request.prompt || request.prompt.trim().length === 0) {
+        throw new Error('Prompt is required');
+      }
+      
+      // Re-upload all images to Fal.ai storage to ensure accessibility
+      const accessibleImageUrls: string[] = [];
+      
+      for (let i = 0; i < request.image_urls.length; i++) {
+        const originalUrl = request.image_urls[i];
+        console.log(`📥 Processing image ${i + 1}/${request.image_urls.length}: ${originalUrl}`);
+        
+        try {
+          // Download the image
+          const response = await fetch(originalUrl, {
+            headers: {
+              'User-Agent': 'FalAI-Client/1.0'
+            }
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Failed to download image ${i + 1}: HTTP ${response.status} - ${response.statusText}`);
+            console.error(`Response body:`, errorText);
+            
+            // Check for specific Supabase bucket not found error
+            if (errorText.includes('Bucket not found')) {
+              console.warn(`⚠️ Skipping image ${i + 1}: Supabase 'uploads' bucket not found. Please create the bucket in your Supabase project.`);
+              continue; // Skip this image but continue with others
+            }
+            
+            console.warn(`⚠️ Skipping image ${i + 1} due to download error: ${response.status}`);
+            continue; // Skip this image but continue with others
+          }
+          
+          if (!response.ok) {
+            throw new Error(`Failed to download image: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          
+          // Verify we got actual image data
+          if (!blob.type.startsWith('image/')) {
+            console.error(`❌ Image ${i + 1} returned invalid content type: ${blob.type}`);
+            console.warn(`⚠️ Skipping image ${i + 1}: Invalid content type: ${blob.type}`);
+            continue; // Skip this image but continue with others
+          }
+          
+          console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
+          
+          // Create a File object for Fal.ai upload
+          const file = new File([blob], `image-${i + 1}.${blob.type.split('/')[1] || 'jpg'}`, {
+            type: blob.type
+          });
+          
+          // Upload to Fal.ai storage  
+          const falUrl = await fal.storage.upload(file);
+          console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai: ${falUrl}`);
+          
+          accessibleImageUrls.push(falUrl);
+        } catch (error) {
+          console.error(`❌ Failed to re-upload image ${i + 1}:`, error);
+          // Skip this image but continue with others
+          console.warn(`⚠️ Skipping image ${i + 1} due to processing error`);
+          continue;
+        }
+      }
+      
+      if (accessibleImageUrls.length === 0) {
+        throw new Error(`No valid images could be processed from ${request.image_urls.length} provided images. This may be because:\n\n1. The Supabase 'uploads' bucket doesn't exist - please create it in your Supabase project dashboard under Storage\n2. The images are not publicly accessible\n3. The image URLs are invalid\n\nPlease check your Supabase storage configuration and try again.`);
+      }
+      
+      console.log(`✅ Successfully processed ${accessibleImageUrls.length} out of ${request.image_urls.length} images`);
+      console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
+
+      // Use the correct nano-banana/edit endpoint
+      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
+        input: {
+          prompt: request.prompt,
+          image_urls: accessibleImageUrls, // Use re-uploaded URLs
+          num_images: request.num_images || 1,
+          output_format: request.output_format || "jpeg"
+        },
+        logs: true,
+        onQueueUpdate: (update: any) => {
+          if (update.status === "IN_PROGRESS") {
+            update.logs?.map((log: any) => log.message).forEach(console.log);
+          }
+        }
+      });
+
+      console.log('✅ Brand assets applied successfully');
+      if (result.data.description) {
+        console.log('📝 AI Description:', result.data.description);
+      }
+      
+      return result.data as any;
+    } catch (error: any) {
+      console.error('❌ Error applying brand assets with Nano Banana:', error);
+      
+      // Extract detailed error information
+      let errorMessage = 'Unknown error';
+      let errorDetails = '';
+      
+      // Handle ValidationError and other Fal.ai errors
+      if (error.name === 'ValidationError' || error.message?.includes('ValidationError')) {
+        errorMessage = 'Invalid input parameters for Nano Banana Edit API';
+        if (error.body) {
+          try {
+            const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
+            if (errorBody.detail) {
+              errorDetails = ` Details: ${JSON.stringify(errorBody.detail)}`;
+            }
+          } catch {
+            errorDetails = ` Raw response: ${error.body}`;
+          }
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        if (error.stack) {
+          console.error('Full stack trace:', error.stack);
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        // Handle API response errors
+        if (error.body) {
+          errorDetails += ` API Response: ${error.body}`;
+        }
+        if (error.status) {
+          errorDetails += ` Status: ${error.status}`;
+        }
+        if (error.detail || error.message) {
+          errorMessage = error.detail || error.message;
+        }
+      }
+      
+      const fullErrorMessage = `Failed to apply brand assets: ${errorMessage}${errorDetails}`;
+      console.error('Full error details:', fullErrorMessage);
+      throw new Error(fullErrorMessage);
     }
   }
 }
 
-// ============================================
-// SIMPLE TEST FUNCTION
-// ============================================
+// DELETE ALL THE TRINITY PIPELINE STUFF - WE DON'T NEED IT
+// Simple test function for model verification
 export async function testFalModels() {
-  console.log("🧪 Testing Fal.ai model availability...");
+  console.log("🧪 Testing Fal.ai FLUX DEV model...");
   
   const testPrompt = "modern retail display stand, photorealistic";
-  const modelsToTest = [
-    "fal-ai/flux/dev",
-    "fal-ai/flux/schnell", 
-    "fal-ai/flux-pro",
-    "fal-ai/flux/dev/image-to-image"
-  ];
   
-  for (const model of modelsToTest) {
-    try {
-      console.log(`Testing ${model}...`);
-      const result = await fal.subscribe(model, {
-        input: {
-          prompt: testPrompt,
-          num_inference_steps: model.includes('schnell') ? 4 : 10,
-          num_images: 1
-        }
-      });
-      console.log(`✅ ${model} WORKS!`);
-    } catch (error: any) {
-      console.log(`❌ ${model} FAILED:`, error?.message || error);
-    }
+  try {
+    console.log("Testing fal-ai/flux/dev...");
+    const result = await fal.subscribe("fal-ai/flux/dev", {
+      input: {
+        prompt: testPrompt,
+        image_size: { width: 1024, height: 1024 },
+        num_inference_steps: 28,
+        guidance_scale: 7.5,
+        num_images: 1
+      }
+    });
+    console.log("✅ fal-ai/flux/dev WORKS!");
+    return result;
+  } catch (error: any) {
+    console.log("❌ fal-ai/flux/dev FAILED:", error?.message || error);
+    throw error;
   }
 }

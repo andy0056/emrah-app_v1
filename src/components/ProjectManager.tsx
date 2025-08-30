@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, FolderOpen, History, Download, Search, Plus, Copy, Trash2, Eye, Edit3, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { ProjectService, SavedProject, FormData } from '../services/projectService';
 import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../hooks/useAuth';
 
 interface ProjectManagerProps {
   formData: FormData;
@@ -36,6 +37,9 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Get auth functions at component level
+  const { signInWithGoogle } = useAuth();
 
   // Check authentication status
   useEffect(() => {
@@ -225,8 +229,6 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       setError(null);
       setIsLoading(true);
 
-      // Use the improved auth hook method
-      const { signInWithGoogle } = useAuth();
       const { error } = await signInWithGoogle();
       
       if (error) {

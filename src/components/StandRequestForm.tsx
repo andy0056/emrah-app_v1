@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Suspense } from 'react';
-import { Upload, Calendar, Palette, Package, Ruler, FileText, Send } from 'lucide-react';
+import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Loader2 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import { PromptGenerator } from '../utils/promptGenerator';
 import { SecurityUtils } from '../utils/security';
 import { PerformanceUtils } from '../utils/performance';
@@ -8,6 +9,7 @@ import PromptPreview from './PromptPreview';
 import LazyImageGeneration from './lazy/LazyImageGeneration';
 import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
+import { ProjectService } from '../services/projectService';
 import type { FormData as FormDataType, StandType, Material } from '../types';
 import LoadingSpinner from './atoms/LoadingSpinner';
 
@@ -64,6 +66,7 @@ const MATERIALS: Material[] = [
 ];
 
 const StandRequestForm: React.FC = () => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     submissionId: '',
     respondentId: '',
@@ -248,6 +251,9 @@ const StandRequestForm: React.FC = () => {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
 
+    // Show uploading state
+    setIsUploading(true);
+
     if (field === 'exampleStands') {
       // Validate file types and sizes
       const validFiles = Array.from(files).filter(file => {
@@ -258,31 +264,96 @@ const StandRequestForm: React.FC = () => {
 
       if (validFiles.length !== files.length) {
         setErrors(prev => ({ ...prev, [field]: 'Some files were invalid. Only images under 10MB are allowed.' }));
+        setIsUploading(false);
         return;
       }
 
-      setFormData(prev => ({ 
-        ...prev, 
-        [field]: validFiles
-      }));
+      // Upload multiple files immediately
+      uploadFiles(validFiles, field);
     } else {
       const file = files[0];
       
       // Validate single file
       if (!file.type.startsWith('image/')) {
         setErrors(prev => ({ ...prev, [field]: 'Only image files are allowed.' }));
+        setIsUploading(false);
         return;
       }
       
       if (file.size > 10 * 1024 * 1024) { // 10MB limit
         setErrors(prev => ({ ...prev, [field]: 'File size must be under 10MB.' }));
+        setIsUploading(false);
         return;
       }
 
-      setFormData(prev => ({ 
-        ...prev, 
-        [field]: file
+      // Upload single file immediately
+      uploadSingleFile(file, field);
+    }
+  };
+
+  // Upload single file and convert to URL immediately
+  const uploadSingleFile = async (file: File, field: keyof FormData) => {
+    try {
+      console.log(`📤 Uploading ${field}:`, file.name);
+      const url = await ProjectService.uploadFile(file);
+      console.log(`✅ ${field} uploaded:`, url);
+      
+      setFormData(prev => ({
+        ...prev,
+        [field]: url // Store as URL string
       }));
+      
+    } catch (error) {
+      console.error(`❌ Error uploading ${field}:`, error);
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Provide more user-friendly error messages for common issues
+        if (errorMessage.includes('User must be authenticated')) {
+          errorMessage = 'Please log in to upload files. You must be signed in to save files.';
+        } else if (errorMessage.includes('Upload permission denied')) {
+          errorMessage = 'Upload permission denied. Please contact support if this issue persists.';
+        }
+      }
+      setErrors(prev => ({ 
+        ...prev, 
+        [field]: `Upload failed: ${errorMessage}`
+      }));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Upload multiple files and convert to URLs immediately
+  const uploadFiles = async (files: File[], field: keyof FormData) => {
+    try {
+      console.log(`📤 Uploading ${files.length} files for ${field}`);
+      const urls = await ProjectService.uploadFiles(files);
+      console.log(`✅ ${field} uploaded:`, urls);
+      
+      setFormData(prev => ({
+        ...prev,
+        [field]: urls // Store as URL strings
+      }));
+      
+    } catch (error) {
+      console.error(`❌ Error uploading ${field}:`, error);
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Provide more user-friendly error messages for common issues
+        if (errorMessage.includes('User must be authenticated')) {
+          errorMessage = 'Please log in to upload files. You must be signed in to save files.';
+        } else if (errorMessage.includes('Upload permission denied')) {
+          errorMessage = 'Upload permission denied. Please contact support if this issue persists.';
+        }
+      }
+      setErrors(prev => ({ 
+        ...prev, 
+        [field]: `Upload failed: ${errorMessage}`
+      }));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -552,9 +623,17 @@ const StandRequestForm: React.FC = () => {
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/jpg"
+                disabled={!user}
                 onChange={(e) => handleFileUpload('brandLogo', e.target.files)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  !user ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300'
+                }`}
               />
+              {!user && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Please sign in to upload files
+                </p>
+              )}
               {errors.brandLogo && <p className="text-red-500 text-sm mt-1">{errors.brandLogo}</p>}
               {renderFilePreview(formData.brandLogo, "Brand Logo")}
             </div>
@@ -583,9 +662,17 @@ const StandRequestForm: React.FC = () => {
               <input
                 type="file"
                 accept="image/*"
+                disabled={!user}
                 onChange={(e) => handleFileUpload('productImage', e.target.files)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  !user ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300'
+                }`}
               />
+              {!user && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Please sign in to upload files
+                </p>
+              )}
               {errors.productImage && <p className="text-red-500 text-sm mt-1">{errors.productImage}</p>}
               {renderFilePreview(formData.productImage, "Product Image")}
             </div>
@@ -705,9 +792,17 @@ const StandRequestForm: React.FC = () => {
               <input
                 type="file"
                 accept="image/*"
+                disabled={!user}
                 onChange={(e) => handleFileUpload('keyVisual', e.target.files)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  !user ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300'
+                }`}
               />
+              {!user && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Please sign in to upload files
+                </p>
+              )}
               {errors.keyVisual && <p className="text-red-500 text-sm mt-1">{errors.keyVisual}</p>}
               {renderFilePreview(formData.keyVisual, "Key Visual")}
             </div>
@@ -720,10 +815,18 @@ const StandRequestForm: React.FC = () => {
                 type="file"
                 accept="image/*"
                 multiple
+                disabled={!user}
                 onChange={(e) => handleFileUpload('exampleStands', e.target.files)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  !user ? 'border-gray-300 bg-gray-100 cursor-not-allowed' : 'border-gray-300'
+                }`}
               />
               <p className="text-xs text-gray-500 mt-1">You can upload multiple reference images</p>
+              {!user && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Please sign in to upload files
+                </p>
+              )}
               {errors.exampleStands && <p className="text-red-500 text-sm mt-1">{errors.exampleStands}</p>}
               {renderMultipleFilePreview(formData.exampleStands)}
             </div>
@@ -976,12 +1079,7 @@ const StandRequestForm: React.FC = () => {
           enhancedPrompts={enhancedPrompts}
           isFormValid={isFormValid} 
           currentProjectId={currentProjectId}
-          formData={{
-            brandLogo: typeof formData.brandLogo === 'string' ? formData.brandLogo : undefined,
-            productImage: typeof formData.productImage === 'string' ? formData.productImage : undefined,
-            keyVisual: typeof formData.keyVisual === 'string' ? formData.keyVisual : undefined,
-            exampleStands: formData.exampleStands.filter((item): item is string => typeof item === 'string')
-          }}
+          formData={formData} // Now all files are already URLs
           initialImages={generatedImages}
           onImagesUpdated={setGeneratedImages}
         />

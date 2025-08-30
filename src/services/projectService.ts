@@ -199,12 +199,18 @@ export class ProjectService {
   }
 
   // Upload file to Supabase Storage
-  static async uploadFile(file: File, bucket = 'project-files'): Promise<string> {
+  static async uploadFile(file: File, bucket = 'uploads'): Promise<string> {
     try {
+      // Check if user is authenticated before attempting upload
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User must be authenticated to upload files. Please log in first.');
+      }
+
       // Generate unique file path
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `uploads/${fileName}`;
+      const filePath = fileName; // Don't add 'uploads/' prefix since bucket is already 'uploads'
 
       console.log('Uploading file:', { name: file.name, size: file.size, type: file.type });
 
@@ -218,6 +224,12 @@ export class ProjectService {
 
       if (error) {
         console.error('Upload error:', error);
+        if (error.message.includes('Bucket not found')) {
+          throw new Error(`Storage bucket '${bucket}' not found. Please create an '${bucket}' bucket in your Supabase project dashboard under Storage > Create bucket.`);
+        }
+        if (error.message.includes('row-level security policy') || error.message.includes('Unauthorized')) {
+          throw new Error('Upload permission denied. Please ensure you are logged in and have the correct storage permissions configured in your Supabase project.');
+        }
         throw new Error(`Failed to upload file: ${error.message}`);
       }
 
