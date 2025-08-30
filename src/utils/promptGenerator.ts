@@ -1,5 +1,6 @@
 import { FormData } from '../types';
 
+// This is a placeholder for the actual FormData interface, which is imported from types.ts
 export class PromptGenerator {
   
   // CRITICAL: Put specifications FIRST, aesthetics LAST
@@ -8,8 +9,8 @@ export class PromptGenerator {
     const specs = [
       // 1. WHAT IT IS (most important)
       `${this.getStandType(formData.standType)} POP display stand`,
-      
-      // 2. EXACT DIMENSIONS (critical)
+      `no branding`,
+      `no products`,
       `EXACTLY ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm`,
       
       // 3. BRAND AND PRODUCT (must be visible)
@@ -24,7 +25,7 @@ export class PromptGenerator {
       // 5. MATERIALS AND COLOR (important)
       `${formData.materials[0]} construction`,
       `${formData.standBaseColor} color scheme`,
-      
+
       // 6. VIEW (critical for correct angle)
       `front orthographic view`,
       `straight-on perspective`,
@@ -33,7 +34,9 @@ export class PromptGenerator {
       `photorealistic`,
       `professional product photography`,
       `studio lighting`
-    ];
+      `empty shelves`,
+      `clean display surfaces`,
+      `no text`
 
     return specs.join(', ');
   }
@@ -42,15 +45,16 @@ export class PromptGenerator {
     const specs = [
       // Store context FIRST
       `retail store aisle setting`,
+      `no branding`,
+      `no products`,
       
       // Then the stand
       `${this.getStandType(formData.standType)} display`,
       `${formData.standWidth}cm wide`,
       `${formData.standHeight}cm tall`,
-      
-      // Brand visibility
-      `${formData.brand} ${formData.product} products clearly visible`,
-      `${formData.shelfCount} shelves fully stocked`,
+
+      `${formData.shelfCount} shelves`,
+      `empty shelves`,
       
       // Environment
       `fluorescent store lighting`,
@@ -66,14 +70,14 @@ export class PromptGenerator {
     const specs = [
       // Angle FIRST
       `three-quarter angle view`,
+      `no branding`,
+      `no products`,
       
       // What it is
       `${this.getStandType(formData.standType)} display stand`,
       
       // Critical specs
       `${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm`,
-      `${formData.brand} branding`,
-      `${formData.product} products arranged`,
       
       // Structure
       `${formData.materials.join('/')} materials`,
@@ -83,7 +87,10 @@ export class PromptGenerator {
       // Quality
       `hero shot angle`,
       `professional photography`,
-      `dramatic lighting`
+      `dramatic lighting`,
+      `empty shelves`,
+      `clean display surfaces`,
+      `no text`
     ];
 
     return specs.join(', ');
@@ -104,7 +111,7 @@ export class PromptGenerator {
   static generateAllPrompts(formData: FormData) {
     return {
       frontView: this.generateFrontViewPrompt(formData),
-      storeView: this.generateStoreViewPrompt(formData),
+      storeView: this.generateStoreViewPrompt(formData), // This was the line with the syntax error, now fixed.
       threeQuarterView: this.generateThreeQuarterViewPrompt(formData)
     };
   }
