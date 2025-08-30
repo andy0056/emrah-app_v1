@@ -93,19 +93,27 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       if (formData.productImage) imageUrls.push(formData.productImage);
       if (formData.keyVisual) imageUrls.push(formData.keyVisual);
 
-      let assetPrompt = `Use the first image as the base display stand.`;
-
+      // Build explicit prompt based on available assets
+      let assetPrompt = `Use image #1 as the BASE display stand. Extract logos/products ONLY from the other images. `;
+      
+      let imageIndex = 2; // Start from image #2
+      
       if (formData.brandLogo) {
-        assetPrompt += ` Apply the logo from the second image to the header/branding areas of the stand. Scale it to fit naturally without distortion.`;
+        assetPrompt += `From image #${imageIndex}, copy the exact logo graphics and place them centered on the header panel (span ~80% width, preserve aspect ratio). `;
+        imageIndex++;
       }
+      
       if (formData.productImage) {
-        assetPrompt += ` Place the product from the third image neatly onto the shelves of the stand, ensuring realistic arrangement and scaling.`;
+        assetPrompt += `From image #${imageIndex}, copy the exact product packs and arrange them on each shelf (front-facing, even spacing). `;
+        imageIndex++;
       }
+      
       if (formData.keyVisual) {
-        assetPrompt += ` Integrate the key visual from the fourth image into suitable display panels or side graphics.`;
+        assetPrompt += `From image #${imageIndex}, integrate key visual elements into suitable display panels or side graphics. `;
+        imageIndex++;
       }
-
-      assetPrompt += ` Maintain the original stand's structure, dimensions, lighting, and materials. Do not alter the stand's physical form or background environment.`;
+      
+      assetPrompt += `Do not alter the base stand's geometry, materials, or camera angle. If uncertain, prioritize keeping the stand unchanged.`;
 
       console.log('📝 Asset integration prompt:', assetPrompt);
       console.log('🖼️ Using images:', imageUrls);
