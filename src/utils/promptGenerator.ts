@@ -1,6 +1,5 @@
 import { FormData } from '../types';
 
-// This is a placeholder for the actual FormData interface, which is imported from types.ts
 export class PromptGenerator {
   
   // CRITICAL: Put specifications FIRST, aesthetics LAST
@@ -11,33 +10,29 @@ export class PromptGenerator {
       `${this.getStandType(formData.standType)} POP display stand`,
       `no branding`,
       `no products`,
+      
+      // 2. EXACT DIMENSIONS (critical)
       `EXACTLY ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm`,
       
-      // 3. BRAND AND PRODUCT (must be visible)
-      `${formData.brand} brand`,
-      `displaying ${formData.product} products`,
-      
-      // 4. STRUCTURE (important)
+      // 3. STRUCTURE (important)
       `${formData.shelfCount} shelves`,
-      `${formData.frontFaceCount} products across front`,
-      `${formData.backToBackCount} products deep`,
+      `empty shelves`,
       
-      // 5. MATERIALS AND COLOR (important)
+      // 4. MATERIALS AND COLOR (important)
       `${formData.materials[0]} construction`,
       `${formData.standBaseColor} color scheme`,
 
-      // 6. VIEW (critical for correct angle)
+      // 5. VIEW (critical for correct angle)
       `front orthographic view`,
       `straight-on perspective`,
       
-      // 7. QUALITY (nice to have)
+      // 6. QUALITY (nice to have)
       `photorealistic`,
       `professional product photography`,
       `studio lighting`,
-      `empty shelves`,
       `clean display surfaces`,
       `no text`
-    ]
+    ];
 
     return specs.join(', ');
   }
@@ -112,11 +107,12 @@ export class PromptGenerator {
   static generateAllPrompts(formData: FormData) {
     return {
       frontView: this.generateFrontViewPrompt(formData),
-      storeView: this.generateStoreViewPrompt(formData), // This was the line with the syntax error, now fixed.
+      storeView: this.generateStoreViewPrompt(formData),
       threeQuarterView: this.generateThreeQuarterViewPrompt(formData)
     };
   }
 
+  // Legacy method aliases for backward compatibility
   static generateAdvancedThreeQuarterViewPrompt = PromptGenerator.generateThreeQuarterViewPrompt;
   static generateAllAdvancedPrompts = PromptGenerator.generateAllPrompts;
 }
