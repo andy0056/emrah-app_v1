@@ -121,7 +121,8 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       const result = await FalService.applyBrandAssetsWithNanaBanana({
         image_urls: imageUrls,
         prompt: assetPrompt
-      });
+      },
+      aspectRatio); // Pass the aspectRatio here
 
       if (result.images && result.images.length > 0) {
         setEditedImageUrl(result.images[0].url);
