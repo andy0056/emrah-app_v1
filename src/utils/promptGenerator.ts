@@ -33,7 +33,7 @@ export class PromptGenerator {
       // 7. QUALITY (nice to have)
       `photorealistic`,
       `professional product photography`,
-      `studio lighting`
+      `studio lighting`,
       `empty shelves`,
       `clean display surfaces`,
       `no text`
