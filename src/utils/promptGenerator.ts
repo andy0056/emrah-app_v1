@@ -1,29 +1,4 @@
-interface FormData {
-  brand: string;
-    `no branding or logos`,
-    `no products placed`,
-  product: string;
-    // 5. VIEW (critical for correct angle)
-  productDepth: number;
-  productHeight: number;
-    `clean unbranded structure`,
-    `empty shelves ready for products`,
-    `clean display stand ready for merchandising`,
-    `${formData.materials[0]} construction`,
-    `${formData.standBaseColor} color`,
-    `no branding or products`,
-  materials: string[];
-    `no logos or branding`,
-    `no products placed`,
-  standBaseColor: string;
-  standWidth: number;
-  standDepth: number;
-  standHeight: number;
-  shelfWidth: number;
-  shelfDepth: number;
-  shelfCount: number;
-  description: string;
-}
+import { FormData } from '../types';
 
 export class PromptGenerator {
   
