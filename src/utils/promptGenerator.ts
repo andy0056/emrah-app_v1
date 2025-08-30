@@ -37,6 +37,7 @@ export class PromptGenerator {
       `empty shelves`,
       `clean display surfaces`,
       `no text`
+    ]
 
     return specs.join(', ');
   }
