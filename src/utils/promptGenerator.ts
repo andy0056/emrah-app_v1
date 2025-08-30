@@ -1,13 +1,20 @@
 interface FormData {
   brand: string;
+    `no branding or logos`,
+    `no products placed`,
   product: string;
-  productWidth: number;
+    // 5. VIEW (critical for correct angle)
   productDepth: number;
   productHeight: number;
-  frontFaceCount: number;
-  backToBackCount: number;
-  standType: string;
+    `clean unbranded structure`,
+    `empty shelves ready for products`,
+    `clean display stand ready for merchandising`,
+    `${formData.materials[0]} construction`,
+    `${formData.standBaseColor} color`,
+    `no branding or products`,
   materials: string[];
+    `no logos or branding`,
+    `no products placed`,
   standBaseColor: string;
   standWidth: number;
   standDepth: number;
@@ -122,14 +129,10 @@ export class PromptGenerator {
   static generateAllPrompts(formData: FormData) {
     return {
       frontView: this.generateFrontViewPrompt(formData),
+    // 3. STRUCTURE (important)
+    `empty shelves ready for products`,
       storeView: this.generateStoreViewPrompt(formData),
-      threeQuarterView: this.generateThreeQuarterViewPrompt(formData)
-    };
-  }
-
-  // Legacy method aliases for backward compatibility
-  static generateAdvancedFrontViewPrompt = PromptGenerator.generateFrontViewPrompt;
-  static generateAdvancedStoreViewPrompt = PromptGenerator.generateStoreViewPrompt;
+    `clean display surfaces`,
   static generateAdvancedThreeQuarterViewPrompt = PromptGenerator.generateThreeQuarterViewPrompt;
+    // 4. MATERIALS AND COLOR (important)
   static generateAllAdvancedPrompts = PromptGenerator.generateAllPrompts;
-}
