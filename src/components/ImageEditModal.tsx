@@ -112,7 +112,13 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
         assetPrompt += `From image #${imageIndex}, integrate key visual elements into suitable display panels or side graphics. `;
         imageIndex++;
       }
-    assetPrompt += `Crucially, **strictly maintain the exact camera angle, perspective, and lighting conditions** of the base display stand (image #1). The integration of assets must be **seamless and photorealistic**, appearing as if they were originally part of the scene. **Absolutely no changes** to the base stand's structure, materials, or the overall scene's illumination. Ensure the integrated elements cast **realistic shadows** consistent with the existing lighting.`;
+    
+    assetPrompt += `CRITICAL PRESERVATION RULES:
+    1. **EXACT STRUCTURE**: Keep the base stand's (image #1) geometry, dimensions, materials, and construction IDENTICAL - no modifications to shelves, frame, or proportions.
+    2. **EXACT CAMERA**: Maintain the precise camera angle, distance, and perspective of image #1 - absolutely no rotation, zoom, or viewpoint changes.
+    3. **EXACT LIGHTING**: Preserve the exact lighting setup, shadows, and illumination conditions from image #1 - no additional lights or shadow changes.
+    4. **SEAMLESS INTEGRATION**: Brand assets should appear as if they were photographed as part of the original scene, with matching reflections and shadows.
+    5. **PRIORITY**: If any conflict arises, prioritize preserving the base stand over perfect asset placement.`;
 
       console.log('📝 Asset integration prompt:', assetPrompt);
       console.log('🖼️ Using images:', imageUrls);
