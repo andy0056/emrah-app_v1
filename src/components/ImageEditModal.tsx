@@ -95,6 +95,7 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
 
       // Create smart prompt for asset integration
       const assetPrompt = `Add ${formData.brand || 'brand'} logo to the display stand header and place ${formData.product || 'product'} products on the shelves. Keep the stand structure unchanged.`;
+      const assetPrompt = `Apply the brand assets from the uploaded images to this display stand. Add any logos to appropriate header/branding areas and place the product items on the shelves. Maintain the original stand structure, dimensions, and layout. Use the visual elements from the provided brand images intelligently.`;
 
       console.log('📝 Asset integration prompt:', assetPrompt);
       console.log('🖼️ Using images:', imageUrls);
