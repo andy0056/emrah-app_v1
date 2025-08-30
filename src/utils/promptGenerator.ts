@@ -104,13 +104,11 @@ export class PromptGenerator {
   static generateAllPrompts(formData: FormData) {
     return {
       frontView: this.generateFrontViewPrompt(formData),
-    }
-    // 3. STRUCTURE (important)
-    `empty shelves ready for products`,
       storeView: this.generateStoreViewPrompt(formData),
-    `clean display surfaces`,
+      threeQuarterView: this.generateThreeQuarterViewPrompt(formData)
+    };
   }
+
   static generateAdvancedThreeQuarterViewPrompt = PromptGenerator.generateThreeQuarterViewPrompt;
-    // 4. MATERIALS AND COLOR (important)
   static generateAllAdvancedPrompts = PromptGenerator.generateAllPrompts;
 }
