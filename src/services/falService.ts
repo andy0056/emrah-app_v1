@@ -269,11 +269,13 @@ export class FalService {
   static async applyBrandAssetsWithNanaBanana(request: {
     image_urls: string[]; 
     prompt: string;
+    aspect_ratio?: "9:16" | "16:9" | "3:4" | "1:1";
     num_images?: number;
     output_format?: 'jpeg' | 'png';
   }): Promise<any> {
     try {
       console.log('🍌 Applying brand assets with Nano Banana Edit');
+      const { image_urls, prompt, num_images, output_format, aspect_ratio } = request; // Destructure aspect_ratio
       console.log('📝 Prompt:', request.prompt);
       console.log('🖼️ Input images:', request.image_urls);
 
@@ -362,7 +364,8 @@ export class FalService {
           prompt: request.prompt,
           image_urls: accessibleImageUrls, // Use re-uploaded URLs
           num_images: request.num_images || 1,
-          output_format: request.output_format || "jpeg"
+          output_format: request.output_format || "jpeg",
+          ...(request.aspect_ratio && { aspect_ratio: request.aspect_ratio })
         },
         logs: true,
         onQueueUpdate: (update: any) => {

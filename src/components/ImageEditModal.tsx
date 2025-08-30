@@ -93,15 +93,40 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       if (formData.productImage) imageUrls.push(formData.productImage);
       if (formData.keyVisual) imageUrls.push(formData.keyVisual);
 
-      // Create smart prompt for asset integration
-      const assetPrompt = `Add ${formData.brand || 'brand'} logo to the display stand header and place ${formData.product || 'product'} products on the shelves. Keep the stand structure unchanged.`;
+      // Build explicit prompt based on available assets
+      let assetPrompt = `Use image #1 as the BASE display stand. Extract logos/products ONLY from the other images. `;
+      
+      let imageIndex = 2; // Start from image #2
+      
+      if (formData.brandLogo) {
+        assetPrompt += `From image #${imageIndex}, copy the exact logo graphics and place them centered on the header panel (span ~80% width, preserve aspect ratio). `;
+        imageIndex++;
+      }
+      
+      if (formData.productImage) {
+        assetPrompt += `From image #${imageIndex}, copy the exact product packs and arrange them on each shelf (front-facing, even spacing). `;
+        imageIndex++;
+      }
+      
+      if (formData.keyVisual) {
+        assetPrompt += `From image #${imageIndex}, integrate key visual elements into suitable display panels or side graphics. `;
+        imageIndex++;
+      }
+    
+    assetPrompt += `CRITICAL PRESERVATION RULES:
+    1. **EXACT STRUCTURE**: Keep the base stand's (image #1) geometry, dimensions, materials, and construction IDENTICAL - no modifications to shelves, frame, or proportions.
+    2. **EXACT CAMERA**: Maintain the precise camera angle, distance, and perspective of image #1 - absolutely no rotation, zoom, or viewpoint changes.
+    3. **EXACT LIGHTING**: Preserve the exact lighting setup, shadows, and illumination conditions from image #1 - no additional lights or shadow changes.
+    4. **SEAMLESS INTEGRATION**: Brand assets should appear as if they were photographed as part of the original scene, with matching reflections and shadows.
+    5. **PRIORITY**: If any conflict arises, prioritize preserving the base stand over perfect asset placement.`;
 
       console.log('📝 Asset integration prompt:', assetPrompt);
       console.log('🖼️ Using images:', imageUrls);
 
       const result = await FalService.applyBrandAssetsWithNanaBanana({
         image_urls: imageUrls,
-        prompt: assetPrompt
+        prompt: assetPrompt,
+        aspect_ratio: aspectRatio
       });
 
       if (result.images && result.images.length > 0) {

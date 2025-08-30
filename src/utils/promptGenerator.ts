@@ -1,22 +1,4 @@
-interface FormData {
-  brand: string;
-  product: string;
-  productWidth: number;
-  productDepth: number;
-  productHeight: number;
-  frontFaceCount: number;
-  backToBackCount: number;
-  standType: string;
-  materials: string[];
-  standBaseColor: string;
-  standWidth: number;
-  standDepth: number;
-  standHeight: number;
-  shelfWidth: number;
-  shelfDepth: number;
-  shelfCount: number;
-  description: string;
-}
+import { FormData } from '../types';
 
 export class PromptGenerator {
   
@@ -26,31 +8,30 @@ export class PromptGenerator {
     const specs = [
       // 1. WHAT IT IS (most important)
       `${this.getStandType(formData.standType)} POP display stand`,
+      `no branding`,
+      `no products`,
       
       // 2. EXACT DIMENSIONS (critical)
       `EXACTLY ${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm`,
       
-      // 3. BRAND AND PRODUCT (must be visible)
-      `${formData.brand} brand`,
-      `displaying ${formData.product} products`,
-      
-      // 4. STRUCTURE (important)
+      // 3. STRUCTURE (important)
       `${formData.shelfCount} shelves`,
-      `${formData.frontFaceCount} products across front`,
-      `${formData.backToBackCount} products deep`,
+      `empty shelves`,
       
-      // 5. MATERIALS AND COLOR (important)
+      // 4. MATERIALS AND COLOR (important)
       `${formData.materials[0]} construction`,
       `${formData.standBaseColor} color scheme`,
-      
-      // 6. VIEW (critical for correct angle)
+
+      // 5. VIEW (critical for correct angle)
       `front orthographic view`,
       `straight-on perspective`,
       
-      // 7. QUALITY (nice to have)
+      // 6. QUALITY (nice to have)
       `photorealistic`,
       `professional product photography`,
-      `studio lighting`
+      `studio lighting`,
+      `clean display surfaces`,
+      `no text`
     ];
 
     return specs.join(', ');
@@ -60,15 +41,16 @@ export class PromptGenerator {
     const specs = [
       // Store context FIRST
       `retail store aisle setting`,
+      `no branding`,
+      `no products`,
       
       // Then the stand
       `${this.getStandType(formData.standType)} display`,
       `${formData.standWidth}cm wide`,
       `${formData.standHeight}cm tall`,
-      
-      // Brand visibility
-      `${formData.brand} ${formData.product} products clearly visible`,
-      `${formData.shelfCount} shelves fully stocked`,
+
+      `${formData.shelfCount} shelves`,
+      `empty shelves`,
       
       // Environment
       `fluorescent store lighting`,
@@ -84,14 +66,14 @@ export class PromptGenerator {
     const specs = [
       // Angle FIRST
       `three-quarter angle view`,
+      `no branding`,
+      `no products`,
       
       // What it is
       `${this.getStandType(formData.standType)} display stand`,
       
       // Critical specs
       `${formData.standWidth}x${formData.standDepth}x${formData.standHeight}cm`,
-      `${formData.brand} branding`,
-      `${formData.product} products arranged`,
       
       // Structure
       `${formData.materials.join('/')} materials`,
@@ -101,7 +83,10 @@ export class PromptGenerator {
       // Quality
       `hero shot angle`,
       `professional photography`,
-      `dramatic lighting`
+      `dramatic lighting`,
+      `empty shelves`,
+      `clean display surfaces`,
+      `no text`
     ];
 
     return specs.join(', ');
@@ -128,8 +113,6 @@ export class PromptGenerator {
   }
 
   // Legacy method aliases for backward compatibility
-  static generateAdvancedFrontViewPrompt = PromptGenerator.generateFrontViewPrompt;
-  static generateAdvancedStoreViewPrompt = PromptGenerator.generateStoreViewPrompt;
   static generateAdvancedThreeQuarterViewPrompt = PromptGenerator.generateThreeQuarterViewPrompt;
   static generateAllAdvancedPrompts = PromptGenerator.generateAllPrompts;
 }
