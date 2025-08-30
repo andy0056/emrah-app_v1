@@ -93,8 +93,19 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({
       if (formData.productImage) imageUrls.push(formData.productImage);
       if (formData.keyVisual) imageUrls.push(formData.keyVisual);
 
-      // Create smart prompt for asset integration
-      const assetPrompt = `Apply the brand assets from the uploaded images to this display stand. Add any logos to appropriate header/branding areas and place the product items on the shelves. Maintain the original stand structure, dimensions, and layout. Use the visual elements from the provided brand images intelligently.`;
+      let assetPrompt = `Use the first image as the base display stand.`;
+
+      if (formData.brandLogo) {
+        assetPrompt += ` Apply the logo from the second image to the header/branding areas of the stand. Scale it to fit naturally without distortion.`;
+      }
+      if (formData.productImage) {
+        assetPrompt += ` Place the product from the third image neatly onto the shelves of the stand, ensuring realistic arrangement and scaling.`;
+      }
+      if (formData.keyVisual) {
+        assetPrompt += ` Integrate the key visual from the fourth image into suitable display panels or side graphics.`;
+      }
+
+      assetPrompt += ` Maintain the original stand's structure, dimensions, lighting, and materials. Do not alter the stand's physical form or background environment.`;
 
       console.log('📝 Asset integration prompt:', assetPrompt);
       console.log('🖼️ Using images:', imageUrls);
