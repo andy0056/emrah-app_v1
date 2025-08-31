@@ -33,66 +33,6 @@ export interface SavedProject extends Project {
 }
 
 export class ProjectService {
-  // Save a new project
-  static async saveProject(
-    formData: FormData,
-    basePrompts: any,
-    enhancedPrompts: any = null,
-    name?: string,
-    description?: string
-  ): Promise<SavedProject> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const projectData: ProjectInsert = {
-      user_id: user.id,
-      name: name || `${formData.brand} - ${formData.product}`,
-      description: description || formData.description,
-      form_data: formData,
-      base_prompts: basePrompts,
-      enhanced_prompts: enhancedPrompts,
-      brand: formData.brand,
-      product: formData.product,
-      stand_type: formData.standType,
-      status: 'draft'
-    };
-
-    const { data, error } = await supabase
-      .from('projects')
-      .insert(projectData)
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to save project: ${error.message}`);
-    return data;
-  }
-
-  // Update existing project
-  static async updateProject(
-    projectId: string,
-    formData: FormData,
-    basePrompts: any,
-    enhancedPrompts: any = null
-  ): Promise<SavedProject> {
-    const updateData: ProjectUpdate = {
-      form_data: formData,
-      base_prompts: basePrompts,
-      enhanced_prompts: enhancedPrompts,
-      brand: formData.brand,
-      product: formData.product,
-      stand_type: formData.standType
-    };
-
-    const { data, error } = await supabase
-      .from('projects')
-      .update(updateData)
-      .eq('id', projectId)
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to update project: ${error.message}`);
-    return data;
-  }
 
   // Create a new version of a project
   static async saveProjectVersion(

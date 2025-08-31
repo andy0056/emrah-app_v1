@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { PromptGenerator } from '../utils/promptGenerator';
 import { SecurityUtils } from '../utils/security';
 import { PerformanceUtils } from '../utils/performance';
-import PromptPreview from './PromptPreview';
+
 import LazyImageGeneration from './lazy/LazyImageGeneration';
 import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
@@ -1064,13 +1064,7 @@ const StandRequestForm: React.FC = () => {
         />
       </Suspense>
 
-      {/* Dynamic Prompt Preview */}
-      <PromptPreview 
-        prompts={prompts} 
-        brandContext={`${formData.brand} - ${formData.product}`}
-        productContext={`${formData.productWidth}×${formData.productDepth}×${formData.productHeight} cm product for ${formData.standType}`}
-        innovationHint={formData.description}
-      />
+
 
       {/* Image Generation Section */}
       <Suspense fallback={<LoadingSpinner size="lg" text="Loading image generation..." />}>

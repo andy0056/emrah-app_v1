@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Settings } from 'lucide-react';
-import { FalService, AIModel, AVAILABLE_MODELS, ModelConfig } from '../services/falService';
+import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Sparkles } from 'lucide-react';
+import { FalService } from '../services/falService';
 import { ProjectService } from '../services/projectService';
-import { SecurityUtils } from '../utils/security';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
-import LazyImage from './atoms/LazyImage';
 
 interface ImageGenerationProps {
   prompts: {
@@ -65,7 +63,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     title: string;
     aspectRatio: "9:16" | "16:9" | "3:4" | "1:1";
   } | null>(null);
-  const [selectedModel, setSelectedModel] = useState<AIModel>('flux-dev');
+  // Removed selectedModel since we automatically choose the best model based on assets
 
   // Update generated images when initialImages prop changes
   React.useEffect(() => {
@@ -113,74 +111,138 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       return;
     }
 
-    const modelConfig = FalService.getModelById(selectedModel);
-    
-    // Check if model requires input images
-    if (modelConfig?.requiresInput && (!formData?.productImage && !formData?.keyVisual)) {
-      setError(`${modelConfig.name} requires input images. Please upload a product image or key visual first.`);
-      return;
-    }
+    // Check if brand assets are available for integrated generation
+    const hasBrandAssets = formData && (
+      formData.brandLogo || 
+      formData.productImage || 
+      formData.keyVisual
+    );
+
+    // Removed model configuration logic since we automatically select the best approach
+
     setIsGenerating(true);
     setError(null);
     setGeneratedImages({});
     
     try {
-      // SIMPLE: Use the base prompts (no enhancement needed)
-      const finalPrompts = prompts; // No enhancement - base prompts are better
-      
-      const requests = [
-        {
+      // Use the base prompts (no enhancement needed)
+      const finalPrompts = prompts;
+
+      if (hasBrandAssets) {
+        // NEW STRATEGY: Use Nano Banana Edit for brand-integrated primary generation
+        console.log('🍌 Brand assets detected - using integrated generation approach');
+        
+        // Collect brand asset URLs
+        const brandAssetUrls: string[] = [];
+        if (formData.brandLogo) brandAssetUrls.push(formData.brandLogo);
+        if (formData.productImage) brandAssetUrls.push(formData.productImage);
+        if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual);
+
+        setProgress('🍌 Generating front view with integrated brand assets...');
+        const frontResult = await FalService.generateWithBrandAssets({
           prompt: finalPrompts.frontView,
-          aspect_ratio: "9:16",
-          num_images: 1,
-          model: selectedModel
-        },
-        {
+          brand_asset_urls: brandAssetUrls,
+          aspect_ratio: '9:16',
+          num_images: 1
+        });
+        const frontImageUrl = frontResult.images[0]?.url;
+        if (frontImageUrl) {
+          setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
+          if (currentProjectId) {
+            await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
+          }
+        }
+
+        setProgress('🍌 Generating store view with integrated brand assets...');
+        const storeResult = await FalService.generateWithBrandAssets({
           prompt: finalPrompts.storeView,
-          aspect_ratio: "16:9", 
-          num_images: 1,
-          model: selectedModel
-        },
-        {
+          brand_asset_urls: brandAssetUrls,
+          aspect_ratio: '16:9',
+          num_images: 1
+        });
+        const storeImageUrl = storeResult.images[0]?.url;
+        if (storeImageUrl) {
+          setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
+          if (currentProjectId) {
+            await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
+          }
+        }
+
+        setProgress('🍌 Generating 3/4 view with integrated brand assets...');
+        const threeQuarterResult = await FalService.generateWithBrandAssets({
           prompt: finalPrompts.threeQuarterView,
-          aspect_ratio: "3:4",
-          num_images: 1,
-          model: selectedModel
+          brand_asset_urls: brandAssetUrls,
+          aspect_ratio: '3:4',
+          num_images: 1
+        });
+        const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
+        if (threeQuarterImageUrl) {
+          setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
+          if (currentProjectId) {
+            await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
+          }
         }
-      ];
 
-      // Generate all images with simple FLUX DEV
-      setProgress(`🎯 Generating front view with ${modelConfig?.name}...`);
-      const frontResult = await FalService.generateImage(requests[0]);
-      const frontImageUrl = frontResult.images[0]?.url;
-      if (frontImageUrl) {
-        setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
-        if (currentProjectId) {
-          await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
+        setProgress('✅ All brand-integrated images generated successfully!');
+        
+      } else {
+        // FALLBACK: Use traditional Flux Dev generation when no brand assets
+        console.log('🎯 No brand assets - using traditional Flux Dev generation');
+        
+        const requests = [
+          {
+            prompt: finalPrompts.frontView,
+            aspect_ratio: "9:16",
+            num_images: 1,
+            model: 'flux-dev' as const
+          },
+          {
+            prompt: finalPrompts.storeView,
+            aspect_ratio: "16:9", 
+            num_images: 1,
+            model: 'flux-dev' as const
+          },
+          {
+            prompt: finalPrompts.threeQuarterView,
+            aspect_ratio: "3:4",
+            num_images: 1,
+            model: 'flux-dev' as const
+          }
+        ];
+
+        setProgress('🎯 Generating front view with Flux Dev...');
+        const frontResult = await FalService.generateImage(requests[0]);
+        const frontImageUrl = frontResult.images[0]?.url;
+        if (frontImageUrl) {
+          setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
+          if (currentProjectId) {
+            await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
+          }
         }
+
+        setProgress('🎯 Generating store view with Flux Dev...');
+        const storeResult = await FalService.generateImage(requests[1]);
+        const storeImageUrl = storeResult.images[0]?.url;
+        if (storeImageUrl) {
+          setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
+          if (currentProjectId) {
+            await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
+          }
+        }
+
+        setProgress('🎯 Generating 3/4 view with Flux Dev...');
+        const threeQuarterResult = await FalService.generateImage(requests[2]);
+        const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
+        if (threeQuarterImageUrl) {
+          setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
+          if (currentProjectId) {
+            await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
+          }
+        }
+
+        setProgress('✅ All images generated successfully!');
       }
-
-      setProgress('🎯 Generating store view with FLUX DEV...');
-      const storeResult = await FalService.generateImage(requests[1]);
-      const storeImageUrl = storeResult.images[0]?.url;
-      if (storeImageUrl) {
-        setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
-        if (currentProjectId) {
-          await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
-        }
-      }
-
-      setProgress('🎯 Generating 3/4 view with FLUX DEV...');
-      const threeQuarterResult = await FalService.generateImage(requests[2]);
-      const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
-      if (threeQuarterImageUrl) {
-        setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
-        if (currentProjectId) {
-          await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
-        }
-      }
-
-      setProgress('✅ All images generated successfully with FLUX DEV!');
+      
       setTimeout(() => setProgress(''), 3000);
     } catch (error) {
       console.error('Image generation error:', error);
@@ -240,28 +302,20 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   return (
     <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 mt-8">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-          <Wand2 className="w-5 h-5 mr-2" />
-          AI Image Generation
-        </h3>
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+            <Wand2 className="w-5 h-5 mr-2" />
+            AI Image Generation
+          </h3>
+          {formData && (formData.brandLogo || formData.productImage || formData.keyVisual) && (
+            <p className="text-sm text-purple-600 mt-1 flex items-center">
+              <Sparkles className="w-4 h-4 mr-1" />
+              Brand assets detected - using integrated generation approach
+            </p>
+          )}
+        </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Settings className="w-4 h-4 text-gray-600" />
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value as AIModel)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
-              disabled={isGenerating}
-            >
-              {AVAILABLE_MODELS.map(model => (
-                <option key={model.id} value={model.id}>
-                  {model.name} - {model.description}
-                </option>
-              ))}
-            </select>
-          </div>
-          
+        <div className="flex items-center">
           <button
             onClick={generateImages}
             disabled={isGenerating || !isFormValid}
@@ -288,14 +342,19 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
 
       {/* Model Info */}
       {(() => {
-        const modelConfig = FalService.getModelById(selectedModel);
+        const hasBrandAssets = formData && (formData.brandLogo || formData.productImage || formData.keyVisual);
+        const modelName = hasBrandAssets ? "Nano Banana Edit" : "Flux Dev";
+        const modelDescription = hasBrandAssets 
+          ? "AI image editing with brand asset integration" 
+          : "Fast, reliable text-to-image generation";
+        
         return (
           <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200 rounded-lg">
             <p className="text-purple-800 text-sm font-medium">
-              🤖 Using {modelConfig?.name}: {modelConfig?.description}
-              {modelConfig?.requiresInput && (
+              🤖 Using {modelName}: {modelDescription}
+              {hasBrandAssets && (
                 <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                  Requires uploaded images
+                  Brand assets integrated
                 </span>
               )}
             </p>

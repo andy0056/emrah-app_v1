@@ -240,7 +240,8 @@ export class FalService {
           guidance_scale: request.guidance_scale || 7.5,
           num_images: request.num_images || 1,
           output_format: "png",
-          safety_tolerance: "2",
+          safety_tolerance: "6", // Increased from 2 to 6 for better brand name tolerance
+          enable_safety_checker: false, // Disable safety checker to prevent false positives
           ...(request.seed && { seed: request.seed })
         },
         logs: true,
@@ -252,6 +253,26 @@ export class FalService {
       });
 
       console.log('✅ Image editing complete');
+      
+      // Check for NSFW false positives
+      if (result.data.has_nsfw_concepts && result.data.has_nsfw_concepts[0] === true) {
+        console.warn('⚠️ NSFW filter triggered (likely false positive for brand names)');
+        console.warn('📝 Original prompt:', request.prompt);
+        
+        // Log additional debugging info
+        if (result.data.images && result.data.images.length > 0) {
+          console.warn('🖼️ Result image URL (may be black due to filter):', result.data.images[0].url);
+        }
+        
+        // Throw a more descriptive error for brand-related false positives
+        if (request.prompt.toLowerCase().includes('coca-cola') || 
+            request.prompt.toLowerCase().includes('brand') ||
+            request.prompt.toLowerCase().includes('logo')) {
+          throw new Error('The safety filter incorrectly flagged your brand-related prompt as inappropriate. This is a known issue with brand names. Try rephrasing your prompt without specific brand names (e.g., use "cola drink" instead of "Coca-Cola").');
+        } else {
+          throw new Error('The content safety filter flagged this request. Please try rephrasing your prompt or contact support if this seems incorrect.');
+        }
+      }
       
       // Debug: Log the actual edited image URL for direct inspection
       if (result.data.images && result.data.images.length > 0) {
@@ -265,7 +286,64 @@ export class FalService {
     }
   }
 
-  // Apply brand assets using Nano Banana Edit
+  // Generate images with brand assets integrated from the start using Nano Banana Edit
+  static async generateWithBrandAssets(request: {
+    prompt: string;
+    brand_asset_urls: string[];
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
+    num_images?: number;
+    output_format?: 'jpeg' | 'png';
+  }): Promise<any> {
+    try {
+      console.log('🍌 Primary generation with integrated brand assets using Nano Banana Edit');
+      
+      // Transform the prompt to be brand-friendly by removing negative branding instructions
+      let brandFriendlyPrompt = request.prompt
+        .replace(/no branding/gi, 'with strong branding')
+        .replace(/no products/gi, 'with featured products')
+        .replace(/no text/gi, 'with clear branding text and logos')
+        .replace(/no logos/gi, 'with prominent brand logos')
+        .replace(/no brand elements/gi, 'with integrated brand elements')
+        .replace(/without branding/gi, 'with comprehensive branding')
+        .replace(/empty shelves/gi, 'shelves stocked with products')
+        .replace(/clean display surfaces/gi, 'branded display surfaces')
+        .replace(/minimal branding/gi, 'prominent branding')
+        .replace(/subtle branding/gi, 'bold brand presence')
+        .replace(/plain/gi, 'branded')
+        .replace(/generic/gi, 'brand-specific');
+
+      // Create a comprehensive prompt that encourages brand integration
+      const integratedPrompt = `${brandFriendlyPrompt}
+
+BRAND INTEGRATION REQUIREMENTS:
+- Prominently display the brand logo from the provided images in multiple locations
+- Fill shelves with the specific product items shown in the brand assets
+- Use brand colors, typography, and visual elements throughout the entire display
+- Create a bold, eye-catching retail display that maximizes brand recognition and impact
+- Seamlessly integrate ALL provided brand assets (logos, products, key visuals) as focal points
+- Design for maximum brand visibility and customer engagement in retail environments
+- Ensure brand consistency across all display elements and surfaces
+- Make the brand the hero of the display design with strong visual hierarchy`;
+
+      console.log('📝 Integrated Prompt:', integratedPrompt);
+      console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
+      console.log('🎯 Aspect Ratio:', request.aspect_ratio);
+
+      // Use Nano Banana Edit with brand assets for initial generation
+      return await this.applyBrandAssetsWithNanaBanana({
+        image_urls: request.brand_asset_urls,
+        prompt: integratedPrompt,
+        aspect_ratio: request.aspect_ratio,
+        num_images: request.num_images || 1,
+        output_format: request.output_format || "jpeg"
+      });
+    } catch (error: any) {
+      console.error('❌ Error generating with brand assets:', error);
+      throw new Error(`Failed to generate with brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Apply brand assets using Nano Banana Edit (legacy method for secondary editing)
   static async applyBrandAssetsWithNanaBanana(request: {
     image_urls: string[]; 
     prompt: string;
@@ -358,17 +436,21 @@ export class FalService {
       console.log(`✅ Successfully processed ${accessibleImageUrls.length} out of ${request.image_urls.length} images`);
       console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
 
-      // Use the correct nano-banana/edit endpoint
+      // Use the correct nano-banana/edit endpoint with enhanced configuration
       const result = await fal.subscribe("fal-ai/nano-banana/edit", {
         input: {
           prompt: request.prompt,
           image_urls: accessibleImageUrls, // Use re-uploaded URLs
           num_images: request.num_images || 1,
           output_format: request.output_format || "jpeg",
+          // Enhanced settings for better structure preservation
+          guidance_scale: 7.0, // Higher guidance for better prompt adherence
+          num_inference_steps: 50, // More steps for better quality and precision
           ...(request.aspect_ratio && { aspect_ratio: request.aspect_ratio })
         },
         logs: true,
         onQueueUpdate: (update: any) => {
+          console.log('🍌 Nano Banana Status:', update.status);
           if (update.status === "IN_PROGRESS") {
             update.logs?.map((log: any) => log.message).forEach(console.log);
           }
