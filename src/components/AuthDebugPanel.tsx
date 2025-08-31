@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 
 const AuthDebugPanel: React.FC = () => {
   const { user, session, loading } = useAuth();
-  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown>>({});
   const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
