@@ -134,8 +134,9 @@ const StandRequestForm: React.FC = () => {
     const hasRequiredFields = requiredFields.every(field => formData[field as keyof FormData]);
     const hasValidNumbers = numericFields.every(field => (formData[field as keyof FormData] as number) > 0);
     const hasMaterials = formData.materials.length > 0;
+    const hasMandatoryBrandAssets = formData.brandLogo && formData.productImage; // Logo and Product are mandatory
 
-    setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials);
+    setIsFormValid(hasRequiredFields && hasValidNumbers && hasMaterials && hasMandatoryBrandAssets);
   }, 300);
 
   useEffect(() => {

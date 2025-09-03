@@ -155,6 +155,10 @@ export class PerformanceUtils {
         link.as = 'style';
       } else if (resource.match(/\.js$/)) {
         link.as = 'script';
+      } else {
+        // Default fallback for unknown resource types
+        link.as = 'fetch';
+        link.crossOrigin = 'anonymous';
       }
       
       document.head.appendChild(link);
