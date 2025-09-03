@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Sparkles } from 'lucide-react';
+import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Sparkles, TestTube } from 'lucide-react';
 import { FalService } from '../services/falService';
 import { ProjectService } from '../services/projectService';
+import { RefinedPromptGenerator } from '../utils/refinedPromptGenerator';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
 
@@ -51,6 +52,12 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>(initialImages || {});
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>('');
+  
+  // Experimental generation state
+  const [isExperimentalGenerating, setIsExperimentalGenerating] = useState(false);
+  const [experimentalImages, setExperimentalImages] = useState<GeneratedImageSet>({});
+  const [experimentalError, setExperimentalError] = useState<string | null>(null);
+  const [experimentalProgress, setExperimentalProgress] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
@@ -111,14 +118,11 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       return;
     }
 
-    // Check if brand assets are available for integrated generation
-    const hasBrandAssets = formData && (
-      formData.brandLogo || 
-      formData.productImage || 
-      formData.keyVisual
-    );
-
-    // Removed model configuration logic since we automatically select the best approach
+    // Validate mandatory brand assets
+    if (!formData || !formData.brandLogo || !formData.productImage) {
+      setError('Brand logo and product image are required for AI generation');
+      return;
+    }
 
     setIsGenerating(true);
     setError(null);
@@ -128,120 +132,61 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       // Use the base prompts (no enhancement needed)
       const finalPrompts = prompts;
 
-      if (hasBrandAssets) {
-        // NEW STRATEGY: Use Nano Banana Edit for brand-integrated primary generation
-        console.log('🍌 Brand assets detected - using integrated generation approach');
-        
-        // Collect brand asset URLs
-        const brandAssetUrls: string[] = [];
-        if (formData.brandLogo) brandAssetUrls.push(formData.brandLogo);
-        if (formData.productImage) brandAssetUrls.push(formData.productImage);
-        if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual);
+      // SINGLE FLOW: Always use Nano Banana Edit for brand-integrated generation
+      console.log('🍌 Generating with brand-integrated approach using Nano Banana');
+      
+      // Collect brand asset URLs (Logo and Product are mandatory, Key Visual is optional)
+      const brandAssetUrls: string[] = [];
+      brandAssetUrls.push(formData.brandLogo); // Mandatory
+      brandAssetUrls.push(formData.productImage); // Mandatory
+      if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
 
-        setProgress('🍌 Generating front view with integrated brand assets...');
-        const frontResult = await FalService.generateWithBrandAssets({
-          prompt: finalPrompts.frontView,
-          brand_asset_urls: brandAssetUrls,
-          aspect_ratio: '9:16',
-          num_images: 1
-        });
-        const frontImageUrl = frontResult.images[0]?.url;
-        if (frontImageUrl) {
-          setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
-          if (currentProjectId) {
-            await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
-          }
+      setProgress('🍌 Generating front view with integrated brand assets...');
+      const frontResult = await FalService.generateWithBrandAssets({
+        prompt: finalPrompts.frontView,
+        brand_asset_urls: brandAssetUrls,
+        aspect_ratio: '9:16',
+        num_images: 1
+      });
+      const frontImageUrl = frontResult.images[0]?.url;
+      if (frontImageUrl) {
+        setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
+        if (currentProjectId) {
+          await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
         }
-
-        setProgress('🍌 Generating store view with integrated brand assets...');
-        const storeResult = await FalService.generateWithBrandAssets({
-          prompt: finalPrompts.storeView,
-          brand_asset_urls: brandAssetUrls,
-          aspect_ratio: '16:9',
-          num_images: 1
-        });
-        const storeImageUrl = storeResult.images[0]?.url;
-        if (storeImageUrl) {
-          setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
-          if (currentProjectId) {
-            await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
-          }
-        }
-
-        setProgress('🍌 Generating 3/4 view with integrated brand assets...');
-        const threeQuarterResult = await FalService.generateWithBrandAssets({
-          prompt: finalPrompts.threeQuarterView,
-          brand_asset_urls: brandAssetUrls,
-          aspect_ratio: '3:4',
-          num_images: 1
-        });
-        const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
-        if (threeQuarterImageUrl) {
-          setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
-          if (currentProjectId) {
-            await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
-          }
-        }
-
-        setProgress('✅ All brand-integrated images generated successfully!');
-        
-      } else {
-        // FALLBACK: Use traditional Flux Dev generation when no brand assets
-        console.log('🎯 No brand assets - using traditional Flux Dev generation');
-        
-        const requests = [
-          {
-            prompt: finalPrompts.frontView,
-            aspect_ratio: "9:16",
-            num_images: 1,
-            model: 'flux-dev' as const
-          },
-          {
-            prompt: finalPrompts.storeView,
-            aspect_ratio: "16:9", 
-            num_images: 1,
-            model: 'flux-dev' as const
-          },
-          {
-            prompt: finalPrompts.threeQuarterView,
-            aspect_ratio: "3:4",
-            num_images: 1,
-            model: 'flux-dev' as const
-          }
-        ];
-
-        setProgress('🎯 Generating front view with Flux Dev...');
-        const frontResult = await FalService.generateImage(requests[0]);
-        const frontImageUrl = frontResult.images[0]?.url;
-        if (frontImageUrl) {
-          setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
-          if (currentProjectId) {
-            await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
-          }
-        }
-
-        setProgress('🎯 Generating store view with Flux Dev...');
-        const storeResult = await FalService.generateImage(requests[1]);
-        const storeImageUrl = storeResult.images[0]?.url;
-        if (storeImageUrl) {
-          setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
-          if (currentProjectId) {
-            await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
-          }
-        }
-
-        setProgress('🎯 Generating 3/4 view with Flux Dev...');
-        const threeQuarterResult = await FalService.generateImage(requests[2]);
-        const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
-        if (threeQuarterImageUrl) {
-          setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
-          if (currentProjectId) {
-            await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
-          }
-        }
-
-        setProgress('✅ All images generated successfully!');
       }
+
+      setProgress('🍌 Generating store view with integrated brand assets...');
+      const storeResult = await FalService.generateWithBrandAssets({
+          prompt: finalPrompts.storeView,
+        brand_asset_urls: brandAssetUrls,
+        aspect_ratio: '16:9',
+        num_images: 1
+      });
+      const storeImageUrl = storeResult.images[0]?.url;
+      if (storeImageUrl) {
+        setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
+        if (currentProjectId) {
+          await saveImageToSupabase(storeImageUrl, 'store_view', finalPrompts.storeView, '16:9');
+        }
+      }
+
+      setProgress('🍌 Generating 3/4 view with integrated brand assets...');
+      const threeQuarterResult = await FalService.generateWithBrandAssets({
+          prompt: finalPrompts.threeQuarterView,
+        brand_asset_urls: brandAssetUrls,
+        aspect_ratio: '3:4',
+        num_images: 1
+      });
+      const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
+      if (threeQuarterImageUrl) {
+        setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
+        if (currentProjectId) {
+          await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', finalPrompts.threeQuarterView, '3:4');
+        }
+      }
+
+      setProgress('✅ All brand-integrated images generated successfully!');
       
       setTimeout(() => setProgress(''), 3000);
     } catch (error) {
@@ -249,6 +194,90 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       setError(error instanceof Error ? error.message : 'Failed to generate images. Please try again.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // EXPERIMENTAL: Refined brand integration generation
+  const generateExperimentalImages = async () => {
+    if (!isFormValid || !formData) {
+      setExperimentalError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate mandatory brand assets
+    if (!formData.brandLogo || !formData.productImage) {
+      setExperimentalError('Brand logo and product image are required for AI generation');
+      return;
+    }
+
+    setIsExperimentalGenerating(true);
+    setExperimentalError(null);
+    setExperimentalImages({});
+    
+    try {
+      // Generate refined prompts using the new system
+      const refinedPrompts = RefinedPromptGenerator.generateAllPrompts(formData);
+
+      console.log('🧪 EXPERIMENTAL: Generating with refined prompt approach');
+      
+      // Collect brand asset URLs (Logo and Product are mandatory, Key Visual is optional)
+      const brandAssetUrls: string[] = [];
+      brandAssetUrls.push(formData.brandLogo); // Mandatory
+      brandAssetUrls.push(formData.productImage); // Mandatory
+      if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
+
+      setExperimentalProgress('🧪 Generating experimental front view...');
+      const frontResult = await FalService.generateWithRefinedBrandAssets({
+        prompt: refinedPrompts.frontView,
+        brand_asset_urls: brandAssetUrls,
+        aspect_ratio: '9:16',
+        num_images: 1
+      });
+      const frontImageUrl = frontResult.images[0]?.url;
+      if (frontImageUrl) {
+        setExperimentalImages(prev => ({ ...prev, frontView: frontImageUrl }));
+        if (currentProjectId) {
+          await saveImageToSupabase(frontImageUrl, 'front_view', refinedPrompts.frontView, '9:16');
+        }
+      }
+
+      setExperimentalProgress('🧪 Generating experimental store view...');
+      const storeResult = await FalService.generateWithRefinedBrandAssets({
+        prompt: refinedPrompts.storeView,
+        brand_asset_urls: brandAssetUrls,
+        aspect_ratio: '16:9',
+        num_images: 1
+      });
+      const storeImageUrl = storeResult.images[0]?.url;
+      if (storeImageUrl) {
+        setExperimentalImages(prev => ({ ...prev, storeView: storeImageUrl }));
+        if (currentProjectId) {
+          await saveImageToSupabase(storeImageUrl, 'store_view', refinedPrompts.storeView, '16:9');
+        }
+      }
+
+      setExperimentalProgress('🧪 Generating experimental 3/4 view...');
+      const threeQuarterResult = await FalService.generateWithRefinedBrandAssets({
+        prompt: refinedPrompts.threeQuarterView,
+        brand_asset_urls: brandAssetUrls,
+        aspect_ratio: '3:4',
+        num_images: 1
+      });
+      const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
+      if (threeQuarterImageUrl) {
+        setExperimentalImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
+        if (currentProjectId) {
+          await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', refinedPrompts.threeQuarterView, '3:4');
+        }
+      }
+
+      setExperimentalProgress('✅ All experimental images generated successfully!');
+      setTimeout(() => setExperimentalProgress(''), 3000);
+    } catch (error) {
+      console.error('Experimental generation error:', error);
+      setExperimentalError(error instanceof Error ? error.message : 'Failed to generate experimental images. Please try again.');
+    } finally {
+      setIsExperimentalGenerating(false);
     }
   };
 
@@ -293,10 +322,13 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     console.log('Image edited successfully:', editedImageUrl);
     // Could update the UI to show the new edited image or refresh the gallery
   };
+
+  // All images are square from Nano Banana
+  const getAspectRatioClass = () => 'aspect-square';
   const imageTypes = [
-    { key: 'frontView', title: 'Front View (9:16)', filename: 'pop-stand-front-view.png', aspectRatio: '9:16' as const },
-    { key: 'storeView', title: 'Store View (16:9)', filename: 'pop-stand-store-view.png', aspectRatio: '16:9' as const },
-    { key: 'threeQuarterView', title: '3/4 View (3:4)', filename: 'pop-stand-three-quarter-view.png', aspectRatio: '3:4' as const }
+    { key: 'frontView', title: 'Front View', filename: 'pop-stand-front-view.png', aspectRatio: '1:1' as const },
+    { key: 'storeView', title: 'Store View', filename: 'pop-stand-store-view.png', aspectRatio: '1:1' as const },
+    { key: 'threeQuarterView', title: 'Three-Quarter View', filename: 'pop-stand-three-quarter-view.png', aspectRatio: '1:1' as const }
   ];
 
   return (
@@ -307,12 +339,10 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             <Wand2 className="w-5 h-5 mr-2" />
             AI Image Generation
           </h3>
-          {formData && (formData.brandLogo || formData.productImage || formData.keyVisual) && (
-            <p className="text-sm text-purple-600 mt-1 flex items-center">
-              <Sparkles className="w-4 h-4 mr-1" />
-              Brand assets detected - using integrated generation approach
-            </p>
-          )}
+          <p className="text-sm text-purple-600 mt-1 flex items-center">
+            <Sparkles className="w-4 h-4 mr-1" />
+            Brand-integrated generation with Nano Banana AI
+          </p>
         </div>
         
         <div className="flex items-center">
@@ -389,7 +419,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             <div key={key} className="bg-white rounded-lg p-4 shadow-md">
               <h4 className="font-medium text-gray-900 mb-3">{title}</h4>
               
-              <div className="relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center mb-3 overflow-hidden group">
+              <div className={`relative ${getAspectRatioClass()} bg-gray-100 rounded-lg flex items-center justify-center mb-3 overflow-hidden group`}>
                 {imageUrl ? (
                   <>
                     <img
@@ -436,6 +466,115 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             </div>
           );
         })}
+      </div>
+
+      {/* EXPERIMENTAL SECTION */}
+      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-6 mt-8 border-2 border-dashed border-blue-300">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+              <TestTube className="w-5 h-5 mr-2 text-blue-600" />
+              🧪 Experimental Generation
+            </h3>
+            <p className="text-sm text-blue-600 mt-1 flex items-center">
+              <Sparkles className="w-4 h-4 mr-1" />
+              Refined prompt templates with flexible brand integration
+            </p>
+          </div>
+          
+          <div className="flex items-center">
+            <button
+              onClick={generateExperimentalImages}
+              disabled={isExperimentalGenerating || !isFormValid}
+              className={`flex items-center px-6 py-3 rounded-lg font-semibold transition-all ${
+                isExperimentalGenerating || !isFormValid
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:scale-105'
+              }`}
+            >
+              {isExperimentalGenerating ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <TestTube className="w-5 h-5 mr-2" />
+              )}
+              {isExperimentalGenerating ? 'Experimenting...' : 'Generate Experimental'}
+            </button>
+          </div>
+        </div>
+
+        {/* Experimental Progress */}
+        {experimentalProgress && (
+          <div className="mb-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">{experimentalProgress}</p>
+          </div>
+        )}
+
+        {/* Experimental Error */}
+        {experimentalError && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-200 rounded-lg flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+            <p className="text-red-700 text-sm">{experimentalError}</p>
+          </div>
+        )}
+
+        {/* Experimental Images Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {imageTypes.map(({ key, title, filename, aspectRatio }) => {
+            const imageUrl = experimentalImages[key as keyof GeneratedImageSet];
+            return (
+              <div key={`exp-${key}`} className="space-y-3">
+                <h4 className="text-lg font-medium text-gray-800">{title} (Experimental)</h4>
+                
+                <div className="relative bg-white rounded-lg border-2 border-dashed border-blue-200 group">
+                  <div className={`${getAspectRatioClass()} bg-gray-50 rounded-lg flex items-center justify-center relative overflow-hidden`}>
+                    {imageUrl ? (
+                      <>
+                        <img
+                          src={imageUrl}
+                          alt={title}
+                          className="w-full h-full object-cover rounded-lg cursor-pointer transition-transform hover:scale-105"
+                          onClick={() => openModal(imageUrl, `${title} (Experimental)`, `exp-${filename}`)}
+                        />
+                        <div 
+                          className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer"
+                          onClick={() => openModal(imageUrl, `${title} (Experimental)`, `exp-${filename}`)}
+                        >
+                          <div className="bg-white bg-opacity-90 rounded-full p-2">
+                            <Maximize2 className="w-5 h-5 text-gray-700" />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-gray-400 text-center">
+                        <TestTube className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+                        <p className="text-sm">Experimental image will appear here</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {imageUrl && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => downloadImage(imageUrl, `exp-${filename}`)}
+                        className="flex items-center justify-center px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </button>
+                      <button
+                        onClick={() => openEditModal(imageUrl, `${title} (Experimental)`, aspectRatio)}
+                        className="flex items-center justify-center px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {!isFormValid && (

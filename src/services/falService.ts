@@ -290,7 +290,7 @@ export class FalService {
   static async generateWithBrandAssets(request: {
     prompt: string;
     brand_asset_urls: string[];
-    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Required for proper output dimensions
     num_images?: number;
     output_format?: 'jpeg' | 'png';
   }): Promise<any> {
@@ -343,19 +343,62 @@ BRAND INTEGRATION REQUIREMENTS:
     }
   }
 
+  // EXPERIMENTAL: Generate images with refined brand integration framework
+  static async generateWithRefinedBrandAssets(request: {
+    prompt: string;
+    brand_asset_urls: string[];
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Required for proper output dimensions
+    num_images?: number;
+    output_format?: 'jpeg' | 'png';
+  }): Promise<any> {
+    try {
+      console.log('🧪 EXPERIMENTAL: Refined brand integration approach using Nano Banana');
+      
+      // Create enhanced prompt with refined brand integration framework
+      const refinedPrompt = `${request.prompt}
+
+VISUAL INTEGRATION FRAMEWORK:
+- Apply provided brand assets (logo, product, key visual) strategically throughout design
+- Populate display areas with supplied product imagery at appropriate scale
+- Incorporate brand color palette naturally into display architecture
+- Maintain professional retail presentation standards
+- Balance brand presence with structural design integrity
+- Ensure visibility and accessibility of displayed products
+- Create cohesive visual hierarchy between branding and product placement
+- Design for versatile retail environments and lighting conditions`;
+
+      console.log('📝 Refined Prompt:', refinedPrompt);
+      console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
+      console.log('🎯 Aspect Ratio:', request.aspect_ratio);
+
+      // Use Nano Banana Edit with refined approach
+      return await this.applyBrandAssetsWithNanaBanana({
+        image_urls: request.brand_asset_urls,
+        prompt: refinedPrompt,
+        aspect_ratio: request.aspect_ratio,
+        num_images: request.num_images || 1,
+        output_format: request.output_format || "jpeg"
+      });
+    } catch (error: any) {
+      console.error('❌ Error generating with refined brand assets:', error);
+      throw new Error(`Failed to generate with refined brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   // Apply brand assets using Nano Banana Edit (legacy method for secondary editing)
   static async applyBrandAssetsWithNanaBanana(request: {
     image_urls: string[]; 
     prompt: string;
-    aspect_ratio?: "9:16" | "16:9" | "3:4" | "1:1";
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Make aspect_ratio required
     num_images?: number;
     output_format?: 'jpeg' | 'png';
   }): Promise<any> {
     try {
       console.log('🍌 Applying brand assets with Nano Banana Edit');
-      const { image_urls, prompt, num_images, output_format, aspect_ratio } = request; // Destructure aspect_ratio
+      const { image_urls, prompt, num_images, output_format, aspect_ratio } = request;
       console.log('📝 Prompt:', request.prompt);
       console.log('🖼️ Input images:', request.image_urls);
+      console.log('🎯 Target aspect ratio:', aspect_ratio);
 
       // Validate inputs before API call
       if (!request.image_urls || request.image_urls.length === 0) {
@@ -436,17 +479,13 @@ BRAND INTEGRATION REQUIREMENTS:
       console.log(`✅ Successfully processed ${accessibleImageUrls.length} out of ${request.image_urls.length} images`);
       console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
 
-      // Use the correct nano-banana/edit endpoint with enhanced configuration
+      // Use the correct nano-banana/edit endpoint  
       const result = await fal.subscribe("fal-ai/nano-banana/edit", {
         input: {
           prompt: request.prompt,
           image_urls: accessibleImageUrls, // Use re-uploaded URLs
           num_images: request.num_images || 1,
-          output_format: request.output_format || "jpeg",
-          // Enhanced settings for better structure preservation
-          guidance_scale: 7.0, // Higher guidance for better prompt adherence
-          num_inference_steps: 50, // More steps for better quality and precision
-          ...(request.aspect_ratio && { aspect_ratio: request.aspect_ratio })
+          output_format: request.output_format || "jpeg"
         },
         logs: true,
         onQueueUpdate: (update: any) => {
@@ -508,6 +547,7 @@ BRAND INTEGRATION REQUIREMENTS:
       throw new Error(fullErrorMessage);
     }
   }
+
 }
 
 // DELETE ALL THE TRINITY PIPELINE STUFF - WE DON'T NEED IT

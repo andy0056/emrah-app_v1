@@ -55,6 +55,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
     }
   };
 
+
   if (!isOpen || !imageUrl) return null;
 
   return (
@@ -63,7 +64,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="relative max-w-7xl max-h-[90vh] mx-4 bg-white rounded-lg shadow-2xl"
+        className="relative mx-4 bg-white rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -91,8 +92,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
           <img
             src={imageUrl}
             alt={imageTitle}
-            className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg"
-            style={{ maxWidth: '90vw' }}
+            className="max-w-[90vw] max-h-[80vh] object-contain mx-auto rounded-lg block"
           />
         </div>
 
