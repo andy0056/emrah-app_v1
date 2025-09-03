@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Suspense } from 'react';
-import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Loader2, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { PromptGenerator } from '../utils/promptGenerator';
 import { SecurityUtils } from '../utils/security';
@@ -11,7 +12,7 @@ import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
 import { ProjectService } from '../services/projectService';
 import type { FormData as FormDataType, StandType, Material } from '../types';
-import LoadingSpinner from './atoms/LoadingSpinner';
+import { Button, Card, Input, LoadingSpinner, showToast } from './ui';
 
 interface FormData extends FormDataType {
   // FormData is now properly typed via types/index.ts
@@ -523,59 +524,118 @@ const StandRequestForm: React.FC = () => {
     );
   };
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-4 sm:p-8">
-      <div className="mb-8">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">POP Stand Design Request</h2>
-        <p className="text-gray-600 text-sm sm:text-base">
-          Fill out this comprehensive form to generate AI-powered 2D renderings of your POP display stand designs.
-        </p>
-      </div>
-
-      {/* Loading/Error States */}
-      {isUploading && (
-        <div className="mb-6 p-4 bg-blue-100 border border-blue-200 rounded-lg">
-          <div className="flex items-center">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-600 mr-2" />
-            <p className="text-blue-800 text-sm font-medium">Uploading files...</p>
-          </div>
-        </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Basic Information Section */}
-        <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center">
-            <FileText className="w-5 h-5 mr-2" />
-            Basic Information
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Submission ID (Başvuru Kimliği)
-              </label>
-              <input
-                type="text"
-                value={formData.submissionId}
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+    <motion.div 
+      className="max-w-6xl mx-auto space-y-8"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
+      <Card className="p-6 md:p-8 gradient">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="relative">
+              <Sparkles className="w-8 h-8 text-purple-600" />
+              <motion.div
+                className="absolute -top-1 -right-1 w-2 h-2 bg-pink-400 rounded-full"
+                animate={{ scale: [1, 1.5, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
               />
             </div>
+            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              AI-Powered Design Studio
+            </h2>
+          </div>
+          <p className="text-lg text-gray-600 leading-relaxed">
+            Create professional POP display stands with our advanced AI system. Simply fill in your requirements and watch as we generate stunning 2D renderings tailored to your brand.
+          </p>
+        </motion.div>
+      </Card>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+      <AnimatePresence>
+        {isUploading && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            className="mb-6"
+          >
+            <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <div className="flex items-center">
+                <LoadingSpinner size="sm" variant="dots" className="mr-3" />
+                <div>
+                  <p className="text-blue-900 font-medium">Uploading files...</p>
+                  <p className="text-blue-700 text-sm">Please wait while we process your assets</p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.form 
+        onSubmit={handleSubmit} 
+        className="space-y-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.6 }}
+      >
+        {/* Basic Information Section */}
+        <Card className="p-6 md:p-8 hover:shadow-lg transition-all duration-300" hover>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg mr-3">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              Basic Information
+            </h3>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Submission ID (Başvuru Kimliği)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.submissionId}
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 font-mono text-sm focus:outline-none"
+                />
+                <div className="absolute right-3 top-3">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Respondent ID (Yanıtlayan Kimliği) *
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.respondentId}
                 onChange={(e) => handleInputChange('respondentId', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.respondentId ? 'border-red-500' : 'border-gray-300'
-                }`}
+                error={errors.respondentId}
                 placeholder="PqM601"
+                className="font-mono"
               />
-              {errors.respondentId && <p className="text-red-500 text-sm mt-1">{errors.respondentId}</p>}
-            </div>
+            </motion.div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -590,31 +650,40 @@ const StandRequestForm: React.FC = () => {
               />
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Brand & Product Information */}
-        <div className="bg-blue-50 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-            <Package className="w-5 h-5 mr-2" />
-            Brand & Product Information
-          </h3>
+        <Card className="p-6 md:p-8 hover:shadow-lg transition-all duration-300" hover gradient>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg mr-3">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              Brand & Product Information
+            </h3>
+          </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Brand (Marka) *
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.brand}
                 onChange={(e) => handleInputChange('brand', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.brand ? 'border-red-500' : 'border-gray-300'
-                }`}
+                error={errors.brand}
                 placeholder="Coca-Cola"
               />
-              {errors.brand && <p className="text-red-500 text-sm mt-1">{errors.brand}</p>}
-            </div>
+            </motion.div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1040,19 +1109,24 @@ const StandRequestForm: React.FC = () => {
         </div>
 
         {/* Submit Button */}
-        <div className="flex justify-center pt-6">
-          <button
+        <motion.div 
+          className="flex justify-center pt-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
+          <Button
             type="submit"
             disabled={isSubmitting}
-            className={`flex items-center px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
-              isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            loading={isSubmitting}
+            size="xl"
+            icon={<Send />}
+            className="px-12 py-4 shadow-2xl hover:shadow-purple-200"
           >
-            <Send className="w-5 h-5 mr-2" />
-            {isSubmitting ? 'Submitting...' : 'Submit Design Request'}
-          </button>
-        </div>
-      </form>
+            {isSubmitting ? 'Submitting Design Request...' : 'Submit Design Request'}
+          </Button>
+        </motion.div>
+      </motion.form>
 
       {/* Project Management */}
       <Suspense fallback={<LoadingSpinner size="lg" text="Loading project manager..." />}>
@@ -1079,7 +1153,7 @@ const StandRequestForm: React.FC = () => {
           onImagesUpdated={setGeneratedImages}
         />
       </Suspense>
-    </div>
+    </motion.div>
   );
 };
 
