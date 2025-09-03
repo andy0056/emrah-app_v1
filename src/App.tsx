@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, LogOut, Sparkles, Zap, Wand2, Star, ArrowRight } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import StandRequestForm from './components/StandRequestForm';
 import AuthModal from './components/AuthModal';
 import { MonitoringService } from './utils/monitoring';
 import { PerformanceUtils } from './utils/performance';
 import AuthDebugPanel from './components/AuthDebugPanel';
+import { ToastProvider, Button, Card, LoadingSpinner } from './components/ui';
 
 function App() {
   const { user, loading, signOut } = useAuth();
@@ -35,97 +37,314 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <LoadingSpinner size="xl" variant="ai" text="Loading your creative workspace..." />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-8 text-sm text-gray-500"
+          >
+            Preparing AI-powered design tools
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-2 sm:px-4">
-      {/* Top Navigation */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Brand2Stand</h1>
-            
-            {user ? (
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">
-                  Welcome, {user.email}
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  <LogOut size={16} />
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      <ToastProvider />
+      
+      {/* World-class Navigation */}
+      <motion.nav
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white/90 backdrop-blur-xl border-b border-purple-100/50 px-6 py-4 sticky top-0 z-50 shadow-sm"
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <motion.div
+            className="flex items-center space-x-3"
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="relative">
+              <Sparkles className="w-8 h-8 text-purple-600" />
+              <motion.div
+                className="absolute -top-1 -right-1 w-2 h-2 bg-pink-400 rounded-full"
+                animate={{ scale: [1, 1.5, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Brand2Stand
+            </span>
+            {user && (
+              <motion.span
+                className="px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs font-medium rounded-full"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 }}
               >
-                <User size={16} />
-                Sign In
-              </button>
+                Pro Studio
+              </motion.span>
+            )}
+          </motion.div>
+          
+          <div className="flex items-center space-x-6">
+            {user ? (
+              <>
+                <motion.div
+                  className="hidden md:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <User className="w-4 h-4" />
+                  <span>{user.email}</span>
+                </motion.div>
+                
+                <Button
+                  onClick={handleSignOut}
+                  variant="ghost"
+                  size="sm"
+                  icon={<LogOut />}
+                >
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => setShowAuthModal(true)}
+                variant="secondary"
+                icon={<ArrowRight />}
+                iconPosition="right"
+              >
+                Get Started
+              </Button>
             )}
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
-      <div className="container mx-auto px-4 py-8">
-        {user ? (
-          <>
-            <div className="text-center mb-8">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">AI-Powered POP Display Designer</h2>
-              <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto px-4">
-                Create innovative, stylized, and unique stand designs with advanced AI rendering via Fal.ai.
-              </p>
-            </div>
-            <StandRequestForm />
-          </>
-        ) : (
-          <div className="max-w-4xl mx-auto text-center py-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">
-              Transform Your Brand with AI-Powered POP Displays
-            </h2>
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Create stunning Point of Purchase display designs in minutes using advanced AI technology. 
-              Generate photorealistic mockups with just a few clicks.
-            </p>
-            
-            <div className="grid md:grid-cols-3 gap-8 mb-12">
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <div className="text-3xl mb-4">🎨</div>
-                <h3 className="font-semibold text-lg mb-2">AI-Powered Design</h3>
-                <p className="text-gray-600">Advanced AI models create unique, professional designs tailored to your brand</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <div className="text-3xl mb-4">⚡</div>
-                <h3 className="font-semibold text-lg mb-2">Lightning Fast</h3>
-                <p className="text-gray-600">Generate multiple design variations in seconds, not hours</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <div className="text-3xl mb-4">🎯</div>
-                <h3 className="font-semibold text-lg mb-2">Brand Focused</h3>
-                <p className="text-gray-600">Designs that perfectly match your brand identity and target audience</p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-lg"
+      {user ? (
+        /* Authenticated Dashboard */
+        <main className="p-6">
+          <div className="max-w-7xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="mb-12"
             >
-              Get Started - Sign Up Free
-            </button>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <motion.h1
+                    className="text-4xl font-bold text-gray-900 mb-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    Welcome to your{' '}
+                    <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      Design Studio
+                    </span>
+                  </motion.h1>
+                  <motion.p
+                    className="text-lg text-gray-600"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    Create professional POP displays with AI-powered design automation
+                  </motion.p>
+                </div>
+                
+                <motion.div
+                  className="hidden lg:flex items-center space-x-4"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50">
+                    <div className="flex items-center space-x-3">
+                      <Wand2 className="w-6 h-6 text-purple-600" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">AI Assistant</div>
+                        <div className="text-xs text-gray-600">Ready to help</div>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.8 }}
+            >
+              <StandRequestForm />
+            </motion.div>
           </div>
-        )}
-      </div>
+        </main>
+      ) : (
+        /* Unauthenticated Landing Page */
+        <div className="overflow-hidden">
+          {/* Animated background elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            <motion.div
+              className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20"
+              animate={{
+                x: [0, 100, 0],
+                y: [0, -100, 0],
+              }}
+              transition={{
+                duration: 20,
+                repeat: Infinity,
+                ease: "linear"
+              }}
+            />
+            <motion.div
+              className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20"
+              animate={{
+                x: [0, -100, 0],
+                y: [0, 100, 0],
+              }}
+              transition={{
+                duration: 15,
+                repeat: Infinity,
+                ease: "linear"
+              }}
+            />
+          </div>
+
+          <main className="relative z-10 px-6 py-20">
+            <div className="max-w-6xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="text-center mb-16"
+              >
+                <motion.h1
+                  className="text-6xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                >
+                  Transform Your Brand Into{' '}
+                  <motion.span
+                    className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 bg-clip-text text-transparent relative"
+                    animate={{
+                      backgroundPosition: ['0%', '100%', '0%'],
+                    }}
+                    transition={{
+                      duration: 5,
+                      repeat: Infinity,
+                      ease: "linear"
+                    }}
+                  >
+                    Stunning Displays
+                    <motion.div
+                      className="absolute -right-4 -top-4"
+                      animate={{
+                        rotate: [0, 360],
+                        scale: [1, 1.2, 1]
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity
+                      }}
+                    >
+                      <Star className="w-8 h-8 text-yellow-400" />
+                    </motion.div>
+                  </motion.span>
+                </motion.h1>
+                
+                <motion.p
+                  className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.4 }}
+                >
+                  AI-powered POP display design automation that creates professional retail displays 
+                  in minutes, not days. Turn your brand vision into eye-catching reality.
+                </motion.p>
+                
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.6 }}
+                  className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+                >
+                  <Button
+                    onClick={() => setShowAuthModal(true)}
+                    size="xl"
+                    icon={<Wand2 />}
+                    className="shadow-2xl hover:shadow-purple-200"
+                  >
+                    Start Creating Magic
+                  </Button>
+                  
+                  <motion.div
+                    className="flex items-center space-x-2 text-gray-500"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span className="text-sm">No design experience needed</span>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+
+              {/* Feature showcase */}
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.8 }}
+                className="grid md:grid-cols-3 gap-8 mt-20"
+              >
+                {[
+                  {
+                    icon: <Sparkles className="w-8 h-8 text-purple-600" />,
+                    title: "AI-Powered Design",
+                    description: "Advanced AI creates stunning displays from your brand assets"
+                  },
+                  {
+                    icon: <Zap className="w-8 h-8 text-pink-600" />,
+                    title: "Lightning Fast",
+                    description: "Generate professional displays in under 30 seconds"
+                  },
+                  {
+                    icon: <Star className="w-8 h-8 text-yellow-500" />,
+                    title: "Brand Perfect",
+                    description: "Every design perfectly matches your brand identity"
+                  }
+                ].map((feature, index) => (
+                  <Card
+                    key={index}
+                    hover
+                    gradient
+                    className="p-8 text-center"
+                  >
+                    <motion.div
+                      className="mb-4 flex justify-center"
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      {feature.icon}
+                    </motion.div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
+                    <p className="text-gray-600">{feature.description}</p>
+                  </Card>
+                ))}
+              </motion.div>
+            </div>
+          </main>
+        </div>
+      )}
 
       {/* Auth Modal */}
       <AuthModal
