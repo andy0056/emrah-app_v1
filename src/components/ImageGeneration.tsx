@@ -4,6 +4,7 @@ import { FalService } from '../services/falService';
 import { ProjectService } from '../services/projectService';
 import { RefinedPromptGenerator } from '../utils/refinedPromptGenerator';
 import { AdvancedPromptGenerator } from '../utils/advancedPromptGenerator';
+import { OptimizedPromptGenerator } from '../utils/optimizedPromptGenerator';
 import { FormData } from '../types';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
@@ -55,7 +56,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [experimentalImages, setExperimentalImages] = useState<GeneratedImageSet>({});
   const [experimentalError, setExperimentalError] = useState<string | null>(null);
   const [experimentalProgress, setExperimentalProgress] = useState<string>('');
-  const [creativeMode, setCreativeMode] = useState<'refined' | 'advanced'>('refined');
+  const [creativeMode, setCreativeMode] = useState<'refined' | 'advanced' | 'optimized'>('refined');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
@@ -215,8 +216,9 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     try {
       // Generate refined prompts using the new system
       // Choose prompt generator based on creative mode
-      const refinedPrompts = creativeMode === 'advanced' 
-        ? AdvancedPromptGenerator.generateAllPrompts(formData)
+      const refinedPrompts = 
+        creativeMode === 'advanced' ? AdvancedPromptGenerator.generateAllPrompts(formData)
+        : creativeMode === 'optimized' ? OptimizedPromptGenerator.generateAllPrompts(formData)
         : RefinedPromptGenerator.generateAllPrompts(formData);
 
       console.log('🧪 EXPERIMENTAL: Generating with refined prompt approach');
@@ -479,7 +481,11 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             </h3>
             <p className="text-sm text-blue-600 mt-1 flex items-center">
               <Sparkles className="w-4 h-4 mr-1" />
-              {creativeMode === 'advanced' ? 'Advanced creative system with dimension precision & producibility validation' : 'Refined prompt templates with flexible brand integration'}
+              {creativeMode === 'advanced' 
+                ? 'Advanced creative system with dimension precision & producibility validation' 
+                : creativeMode === 'optimized' 
+                ? 'Optimized concise prompts - 35% shorter, maximum AI model compatibility' 
+                : 'Refined prompt templates with flexible brand integration'}
             </p>
           </div>
           
@@ -489,11 +495,12 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
               <label className="text-sm font-medium text-gray-700">Creative Mode:</label>
               <select
                 value={creativeMode}
-                onChange={(e) => setCreativeMode(e.target.value as 'refined' | 'advanced')}
+                onChange={(e) => setCreativeMode(e.target.value as 'refined' | 'advanced' | 'optimized')}
                 className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
                 <option value="refined">Refined (Current)</option>
                 <option value="advanced">🎯 Advanced (Client Feedback)</option>
+                <option value="optimized">⚡ Optimized (35% Shorter)</option>
               </select>
             </div>
             
