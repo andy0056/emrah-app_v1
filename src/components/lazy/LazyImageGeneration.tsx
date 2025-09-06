@@ -21,6 +21,7 @@ interface LazyImageGenerationProps {
     storeView?: string;
     threeQuarterView?: string;
   };
+  formData?: any; // Full form data for advanced prompt generation
   onImagesUpdated?: (images: any) => void;
 }
 

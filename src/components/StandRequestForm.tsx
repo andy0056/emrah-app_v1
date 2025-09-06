@@ -747,10 +747,10 @@ const StandRequestForm: React.FC = () => {
               {renderFilePreview(formData.productImage, "Product Image")}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Product Dimensions */}
-        <div className="bg-green-50 rounded-lg p-6">
+        <Card className="p-6 md:p-8 hover:shadow-lg transition-all duration-300" hover>
           <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <Ruler className="w-5 h-5 mr-2" />
             Product Dimensions & Quantities
@@ -845,10 +845,10 @@ const StandRequestForm: React.FC = () => {
               {errors.backToBackCount && <p className="text-red-500 text-xs mt-1">{errors.backToBackCount}</p>}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Visual Assets */}
-        <div className="bg-purple-50 rounded-lg p-6">
+        <Card className="p-6 md:p-8 hover:shadow-lg transition-all duration-300" hover>
           <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <Upload className="w-5 h-5 mr-2" />
             Visual Assets
@@ -901,10 +901,10 @@ const StandRequestForm: React.FC = () => {
               {renderMultipleFilePreview(formData.exampleStands)}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Stand Specifications */}
-        <div className="bg-orange-50 rounded-lg p-6">
+        <Card className="p-6 md:p-8 hover:shadow-lg transition-all duration-300" hover>
           <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <Package className="w-5 h-5 mr-2" />
             Stand Specifications
@@ -1082,10 +1082,10 @@ const StandRequestForm: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Description */}
-        <div className="bg-gray-50 rounded-lg p-6">
+        {/* Additional Details */}
+        <Card className="p-6 md:p-8 hover:shadow-lg transition-all duration-300" hover>
           <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <FileText className="w-5 h-5 mr-2" />
             Additional Details
@@ -1106,7 +1106,7 @@ const StandRequestForm: React.FC = () => {
             />
             {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
           </div>
-        </div>
+        </Card>
 
         {/* Submit Button */}
         <motion.div 

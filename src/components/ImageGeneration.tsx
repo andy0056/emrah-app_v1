@@ -3,6 +3,8 @@ import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Sparkles, TestT
 import { FalService } from '../services/falService';
 import { ProjectService } from '../services/projectService';
 import { RefinedPromptGenerator } from '../utils/refinedPromptGenerator';
+import { AdvancedPromptGenerator } from '../utils/advancedPromptGenerator';
+import { FormData } from '../types';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
 
@@ -19,12 +21,7 @@ interface ImageGenerationProps {
   } | null;
   isFormValid: boolean;
   currentProjectId?: string;
-  formData?: {
-    brandLogo?: string | null;
-    productImage?: string | null;
-    keyVisual?: string | null;
-    exampleStands?: string[];
-  };
+  formData?: FormData;
   initialImages?: {
     frontView?: string;
     storeView?: string;
@@ -58,6 +55,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [experimentalImages, setExperimentalImages] = useState<GeneratedImageSet>({});
   const [experimentalError, setExperimentalError] = useState<string | null>(null);
   const [experimentalProgress, setExperimentalProgress] = useState<string>('');
+  const [creativeMode, setCreativeMode] = useState<'refined' | 'advanced'>('refined');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
@@ -216,7 +214,10 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     
     try {
       // Generate refined prompts using the new system
-      const refinedPrompts = RefinedPromptGenerator.generateAllPrompts(formData);
+      // Choose prompt generator based on creative mode
+      const refinedPrompts = creativeMode === 'advanced' 
+        ? AdvancedPromptGenerator.generateAllPrompts(formData)
+        : RefinedPromptGenerator.generateAllPrompts(formData);
 
       console.log('🧪 EXPERIMENTAL: Generating with refined prompt approach');
       
@@ -478,11 +479,24 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             </h3>
             <p className="text-sm text-blue-600 mt-1 flex items-center">
               <Sparkles className="w-4 h-4 mr-1" />
-              Refined prompt templates with flexible brand integration
+              {creativeMode === 'advanced' ? 'Advanced creative system with dimension precision & producibility validation' : 'Refined prompt templates with flexible brand integration'}
             </p>
           </div>
           
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
+            {/* Creative Mode Selector */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Creative Mode:</label>
+              <select
+                value={creativeMode}
+                onChange={(e) => setCreativeMode(e.target.value as 'refined' | 'advanced')}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                <option value="refined">Refined (Current)</option>
+                <option value="advanced">🎯 Advanced (Client Feedback)</option>
+              </select>
+            </div>
+            
             <button
               onClick={generateExperimentalImages}
               disabled={isExperimentalGenerating || !isFormValid}
