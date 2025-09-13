@@ -1,15 +1,15 @@
-import type { ImageOptimization, CacheConfig } from '../types';
+import type { ImageOptimization } from '../types';
 
 /**
  * Performance optimization utilities
  */
 export class PerformanceUtils {
-  private static cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  private static cache = new Map<string, { data: unknown; timestamp: number; ttl: number }>();
 
   /**
    * Debounce function calls
    */
-  static debounce<T extends (...args: any[]) => any>(
+  static debounce<T extends (...args: unknown[]) => unknown>(
     func: T,
     wait: number
   ): (...args: Parameters<T>) => void {
@@ -24,11 +24,11 @@ export class PerformanceUtils {
   /**
    * Throttle function calls
    */
-  static throttle<T extends (...args: any[]) => any>(
+  static throttle<T extends (...args: unknown[]) => unknown>(
     func: T,
     limit: number
   ): (...args: Parameters<T>) => void {
-    let inThrottle: boolean;
+    let inThrottle = false;
     
     return (...args: Parameters<T>) => {
       if (!inThrottle) {
@@ -206,12 +206,12 @@ export class PerformanceUtils {
   /**
    * Virtual scrolling for large lists
    */
-  static createVirtualScroller(
+  static createVirtualScroller<T>(
     container: HTMLElement,
-    items: any[],
+    items: T[],
     itemHeight: number,
-    renderItem: (item: any, index: number) => HTMLElement
-  ) {
+    renderItem: (item: T, index: number) => HTMLElement
+  ): { update: () => void } {
     let startIndex = 0;
     let endIndex = Math.min(items.length, Math.ceil(container.clientHeight / itemHeight) + 1);
 
