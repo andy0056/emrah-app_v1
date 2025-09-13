@@ -38,7 +38,7 @@ export class PromptOptimizer {
     return prompt
       // Remove dimensions and measurements
       .replace(/\d+\.?\d*\s*×\s*\d+\.?\d*\s*×\s*\d+\.?\d*\s*(cm|mm|m|inches?)?/gi, '')
-      .replace(/\d+\.?\d*\s*(cm|mm|m|inches?|"|\′|″)/gi, '')
+      .replace(/\d+\.?\d*\s*(cm|mm|m|inches?|"|′|″)/gi, '')
       .replace(/dimensions?:\s*\d+[^.]*\./gi, '')
       .replace(/size:\s*\d+[^.]*\./gi, '')
       
