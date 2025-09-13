@@ -57,6 +57,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [experimentalError, setExperimentalError] = useState<string | null>(null);
   const [experimentalProgress, setExperimentalProgress] = useState<string>('');
   const [creativeMode, setCreativeMode] = useState<'refined' | 'advanced' | 'optimized'>('refined');
+  const [selectedModel, setSelectedModel] = useState<'nano-banana' | 'seedream-v4'>('nano-banana');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
@@ -131,8 +132,9 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       // Use the base prompts (no enhancement needed)
       const finalPrompts = prompts;
 
-      // SINGLE FLOW: Always use Nano Banana Edit for brand-integrated generation
-      console.log('🍌 Generating with brand-integrated approach using Nano Banana');
+      // MODEL SELECTION: Use selected AI model for brand-integrated generation
+      const modelName = selectedModel === 'seedream-v4' ? 'SeedReam v4' : 'Nano Banana';
+      console.log(`🎯 Generating with ${modelName} for brand integration`);
       
       // Collect brand asset URLs (Logo and Product are mandatory, Key Visual is optional)
       const brandAssetUrls: string[] = [];
@@ -140,13 +142,23 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       brandAssetUrls.push(formData.productImage); // Mandatory
       if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
 
-      setProgress('🍌 Generating front view with integrated brand assets...');
-      const frontResult = await FalService.generateWithBrandAssets({
-        prompt: finalPrompts.frontView,
-        brand_asset_urls: brandAssetUrls,
-        aspect_ratio: '9:16',
-        num_images: 1
-      });
+      setProgress(`🎯 Generating front view with ${modelName}...`);
+      
+      // Choose generation method based on selected model
+      const frontResult = selectedModel === 'seedream-v4'
+        ? await FalService.generateWithSeedreamV4({
+            prompt: finalPrompts.frontView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '9:16',
+            num_images: 1,
+            image_size: 1024
+          })
+        : await FalService.generateWithBrandAssets({
+            prompt: finalPrompts.frontView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '9:16',
+            num_images: 1
+          });
       const frontImageUrl = frontResult.images[0]?.url;
       if (frontImageUrl) {
         setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
@@ -155,13 +167,21 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         }
       }
 
-      setProgress('🍌 Generating store view with integrated brand assets...');
-      const storeResult = await FalService.generateWithBrandAssets({
-          prompt: finalPrompts.storeView,
-        brand_asset_urls: brandAssetUrls,
-        aspect_ratio: '16:9',
-        num_images: 1
-      });
+      setProgress(`🎯 Generating store view with ${modelName}...`);
+      const storeResult = selectedModel === 'seedream-v4'
+        ? await FalService.generateWithSeedreamV4({
+            prompt: finalPrompts.storeView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '16:9',
+            num_images: 1,
+            image_size: 1024
+          })
+        : await FalService.generateWithBrandAssets({
+            prompt: finalPrompts.storeView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '16:9',
+            num_images: 1
+          });
       const storeImageUrl = storeResult.images[0]?.url;
       if (storeImageUrl) {
         setGeneratedImages(prev => ({ ...prev, storeView: storeImageUrl }));
@@ -170,13 +190,21 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         }
       }
 
-      setProgress('🍌 Generating 3/4 view with integrated brand assets...');
-      const threeQuarterResult = await FalService.generateWithBrandAssets({
-          prompt: finalPrompts.threeQuarterView,
-        brand_asset_urls: brandAssetUrls,
-        aspect_ratio: '3:4',
-        num_images: 1
-      });
+      setProgress(`🎯 Generating 3/4 view with ${modelName}...`);
+      const threeQuarterResult = selectedModel === 'seedream-v4'
+        ? await FalService.generateWithSeedreamV4({
+            prompt: finalPrompts.threeQuarterView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '3:4',
+            num_images: 1,
+            image_size: 1024
+          })
+        : await FalService.generateWithBrandAssets({
+            prompt: finalPrompts.threeQuarterView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '3:4',
+            num_images: 1
+          });
       const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
       if (threeQuarterImageUrl) {
         setGeneratedImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
@@ -185,7 +213,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         }
       }
 
-      setProgress('✅ All brand-integrated images generated successfully!');
+      setProgress(`✅ All ${modelName} images generated successfully!`);
       
       setTimeout(() => setProgress(''), 3000);
     } catch (error) {
@@ -221,7 +249,8 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         : creativeMode === 'optimized' ? OptimizedPromptGenerator.generateAllPrompts(formData)
         : RefinedPromptGenerator.generateAllPrompts(formData);
 
-      console.log('🧪 EXPERIMENTAL: Generating with refined prompt approach');
+      const modelName = selectedModel === 'seedream-v4' ? 'SeedReam v4' : 'Nano Banana';
+      console.log(`🧪 EXPERIMENTAL: Generating with ${modelName} and ${creativeMode} prompts`);
       
       // Collect brand asset URLs (Logo and Product are mandatory, Key Visual is optional)
       const brandAssetUrls: string[] = [];
@@ -229,13 +258,23 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       brandAssetUrls.push(formData.productImage); // Mandatory
       if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
 
-      setExperimentalProgress('🧪 Generating experimental front view...');
-      const frontResult = await FalService.generateWithRefinedBrandAssets({
-        prompt: refinedPrompts.frontView,
-        brand_asset_urls: brandAssetUrls,
-        aspect_ratio: '9:16',
-        num_images: 1
-      });
+      setExperimentalProgress(`🧪 Generating experimental front view with ${modelName}...`);
+      
+      // Choose generation method based on selected model
+      const frontResult = selectedModel === 'seedream-v4'
+        ? await FalService.generateWithSeedreamV4({
+            prompt: refinedPrompts.frontView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '9:16',
+            num_images: 1,
+            image_size: 1024
+          })
+        : await FalService.generateWithRefinedBrandAssets({
+            prompt: refinedPrompts.frontView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '9:16',
+            num_images: 1
+          });
       const frontImageUrl = frontResult.images[0]?.url;
       if (frontImageUrl) {
         setExperimentalImages(prev => ({ ...prev, frontView: frontImageUrl }));
@@ -244,13 +283,21 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         }
       }
 
-      setExperimentalProgress('🧪 Generating experimental store view...');
-      const storeResult = await FalService.generateWithRefinedBrandAssets({
-        prompt: refinedPrompts.storeView,
-        brand_asset_urls: brandAssetUrls,
-        aspect_ratio: '16:9',
-        num_images: 1
-      });
+      setExperimentalProgress(`🧪 Generating experimental store view with ${modelName}...`);
+      const storeResult = selectedModel === 'seedream-v4'
+        ? await FalService.generateWithSeedreamV4({
+            prompt: refinedPrompts.storeView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '16:9',
+            num_images: 1,
+            image_size: 1024
+          })
+        : await FalService.generateWithRefinedBrandAssets({
+            prompt: refinedPrompts.storeView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '16:9',
+            num_images: 1
+          });
       const storeImageUrl = storeResult.images[0]?.url;
       if (storeImageUrl) {
         setExperimentalImages(prev => ({ ...prev, storeView: storeImageUrl }));
@@ -259,13 +306,21 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         }
       }
 
-      setExperimentalProgress('🧪 Generating experimental 3/4 view...');
-      const threeQuarterResult = await FalService.generateWithRefinedBrandAssets({
-        prompt: refinedPrompts.threeQuarterView,
-        brand_asset_urls: brandAssetUrls,
-        aspect_ratio: '3:4',
-        num_images: 1
-      });
+      setExperimentalProgress(`🧪 Generating experimental 3/4 view with ${modelName}...`);
+      const threeQuarterResult = selectedModel === 'seedream-v4'
+        ? await FalService.generateWithSeedreamV4({
+            prompt: refinedPrompts.threeQuarterView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '3:4',
+            num_images: 1,
+            image_size: 1024
+          })
+        : await FalService.generateWithRefinedBrandAssets({
+            prompt: refinedPrompts.threeQuarterView,
+            brand_asset_urls: brandAssetUrls,
+            aspect_ratio: '3:4',
+            num_images: 1
+          });
       const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
       if (threeQuarterImageUrl) {
         setExperimentalImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
@@ -274,7 +329,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         }
       }
 
-      setExperimentalProgress('✅ All experimental images generated successfully!');
+      setExperimentalProgress(`✅ All experimental ${modelName} images generated successfully!`);
       setTimeout(() => setExperimentalProgress(''), 3000);
     } catch (error) {
       console.error('Experimental generation error:', error);
@@ -344,11 +399,24 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
           </h3>
           <p className="text-sm text-purple-600 mt-1 flex items-center">
             <Sparkles className="w-4 h-4 mr-1" />
-            Brand-integrated generation with Nano Banana AI
+            Brand-integrated generation with advanced AI models
           </p>
         </div>
         
-        <div className="flex items-center">
+        <div className="flex items-center space-x-4">
+          {/* Model Selection Dropdown */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">AI Model:</label>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value as 'nano-banana' | 'seedream-v4')}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+            >
+              <option value="nano-banana">🍌 Nano Banana Edit</option>
+              <option value="seedream-v4">🎯 SeedReam v4 Edit (New)</option>
+            </select>
+          </div>
+          
           <button
             onClick={generateImages}
             disabled={isGenerating || !isFormValid}
@@ -376,18 +444,33 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       {/* Model Info */}
       {(() => {
         const hasBrandAssets = formData && (formData.brandLogo || formData.productImage || formData.keyVisual);
-        const modelName = hasBrandAssets ? "Nano Banana Edit" : "Flux Dev";
-        const modelDescription = hasBrandAssets 
-          ? "AI image editing with brand asset integration" 
-          : "Fast, reliable text-to-image generation";
+        const modelInfo = {
+          'nano-banana': {
+            name: 'Nano Banana Edit',
+            description: 'Natural language image editing with brand integration',
+            icon: '🍌'
+          },
+          'seedream-v4': {
+            name: 'SeedReam v4 Edit',
+            description: 'Advanced multi-image editing with precise control (1024-4096px)',
+            icon: '🎯'
+          }
+        };
+        
+        const currentModel = modelInfo[selectedModel];
         
         return (
           <div className="mb-4 p-3 bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200 rounded-lg">
             <p className="text-purple-800 text-sm font-medium">
-              🤖 Using {modelName}: {modelDescription}
+              {currentModel.icon} Using {currentModel.name}: {currentModel.description}
               {hasBrandAssets && (
                 <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                  Brand assets integrated
+                  {selectedModel === 'seedream-v4' ? 'Multi-asset integration' : 'Brand assets integrated'}
+                </span>
+              )}
+              {selectedModel === 'seedream-v4' && (
+                <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  ✨ NEW MODEL
                 </span>
               )}
             </p>

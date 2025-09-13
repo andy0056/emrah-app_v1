@@ -5,7 +5,7 @@ fal.config({
   credentials: import.meta.env.VITE_FAL_KEY
 });
 
-export type AIModel = 'flux-dev' | 'flux-pro' | 'nano-banana' | 'stable-diffusion';
+export type AIModel = 'flux-dev' | 'flux-pro' | 'nano-banana' | 'seedream-v4' | 'stable-diffusion';
 
 export interface ModelConfig {
   id: AIModel;
@@ -40,6 +40,14 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     endpoint: 'fal-ai/nano-banana',
     type: 'text-to-image',
     requiresInput: false
+  },
+  {
+    id: 'seedream-v4',
+    name: 'SeedReam v4 Edit',
+    description: 'Advanced multi-image editing with precise text control',
+    endpoint: 'fal-ai/bytedance/seedream/v4/edit',
+    type: 'image-editing',
+    requiresInput: true
   }
 ];
 
@@ -60,6 +68,15 @@ export interface FluxKontextRequest {
   num_images?: number;
   output_format?: string;
   safety_tolerance?: string;
+}
+
+export interface SeedreamV4Request {
+  prompt: string;
+  image_urls: string[];
+  image_size?: { width: number; height: number };
+  num_images?: number;
+  enable_safety_checker?: boolean;
+  seed?: number;
 }
 
 export class FalService {
@@ -283,6 +300,139 @@ export class FalService {
     } catch (error: any) {
       console.error('❌ Error editing image with Flux Kontext:', error);
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Generate images with brand assets using SeedReam v4 Edit (New Advanced Model)
+  static async generateWithSeedreamV4(request: {
+    prompt: string;
+    brand_asset_urls: string[];
+    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
+    num_images?: number;
+    image_size?: number;
+  }): Promise<any> {
+    try {
+      console.log('🎯 NEW: Generating with SeedReam v4 Edit - Advanced multi-image editing');
+      
+      // Transform prompt to be brand-friendly for SeedReam
+      let brandFriendlyPrompt = request.prompt
+        .replace(/no branding/gi, 'with strong brand integration')
+        .replace(/no products/gi, 'with featured branded products')
+        .replace(/no text/gi, 'with clear brand text and logos')
+        .replace(/no logos/gi, 'with prominent brand logos')
+        .replace(/empty shelves/gi, 'shelves filled with branded products')
+        .replace(/clean display surfaces/gi, 'branded display surfaces with logo placement');
+
+      const enhancedPrompt = `${brandFriendlyPrompt}
+
+BRAND INTEGRATION: Seamlessly integrate all provided brand assets (logos, products, visuals) into the display design. Apply brand colors throughout the structure. Position products prominently on shelves. Ensure brand visibility from multiple angles. Create cohesive brand experience that maximizes retail impact and customer engagement.`;
+
+      console.log('📝 SeedReam Prompt:', enhancedPrompt);
+      console.log('🖼️ Brand Assets:', request.brand_asset_urls);
+      console.log('📏 Image Size:', request.image_size || 1024);
+
+      // Validate inputs
+      if (!request.brand_asset_urls || request.brand_asset_urls.length === 0) {
+        throw new Error('SeedReam v4 requires at least one brand asset image');
+      }
+
+      // Re-upload images to ensure Fal.ai compatibility
+      const accessibleImageUrls: string[] = [];
+      
+      for (let i = 0; i < request.brand_asset_urls.length; i++) {
+        const originalUrl = request.brand_asset_urls[i];
+        console.log(`📥 Processing brand asset ${i + 1}/${request.brand_asset_urls.length}`);
+        
+        try {
+          const response = await fetch(originalUrl);
+          if (!response.ok) {
+            console.warn(`⚠️ Skipping asset ${i + 1}: HTTP ${response.status}`);
+            continue;
+          }
+          
+          const blob = await response.blob();
+          if (!blob.type.startsWith('image/')) {
+            console.warn(`⚠️ Skipping asset ${i + 1}: Invalid content type`);
+            continue;
+          }
+          
+          const file = new File([blob], `brand-asset-${i + 1}.${blob.type.split('/')[1] || 'jpg'}`, {
+            type: blob.type
+          });
+          
+          const falUrl = await fal.storage.upload(file);
+          console.log(`✅ Uploaded brand asset ${i + 1} to Fal.ai`);
+          accessibleImageUrls.push(falUrl);
+        } catch (error) {
+          console.error(`❌ Failed to process brand asset ${i + 1}:`, error);
+          continue;
+        }
+      }
+      
+      if (accessibleImageUrls.length === 0) {
+        throw new Error('No valid brand assets could be processed for SeedReam v4');
+      }
+      
+      console.log(`✅ Using ${accessibleImageUrls.length} brand assets with SeedReam v4`);
+
+      // Call SeedReam v4 Edit API with correct parameters
+      const baseSize = request.image_size || 1024;
+      const aspectRatioSizes = {
+        "1:1": { width: baseSize, height: baseSize },
+        "9:16": { width: Math.round(baseSize * 9/16), height: baseSize },
+        "16:9": { width: baseSize, height: Math.round(baseSize * 9/16) },
+        "3:4": { width: Math.round(baseSize * 3/4), height: baseSize },
+        "4:3": { width: baseSize, height: Math.round(baseSize * 3/4) }
+      };
+      
+      const apiInput = {
+        prompt: enhancedPrompt,
+        image_urls: accessibleImageUrls,
+        image_size: aspectRatioSizes[request.aspect_ratio] || aspectRatioSizes["1:1"],
+        num_images: request.num_images || 1,
+        enable_safety_checker: true
+      };
+      
+      console.log('🔧 SeedReam v4 API Input:', JSON.stringify(apiInput, null, 2));
+      
+      const result = await fal.subscribe("fal-ai/bytedance/seedream/v4/edit", {
+        input: apiInput,
+        logs: true,
+        onQueueUpdate: (update: any) => {
+          console.log('🎯 SeedReam v4 Status:', update.status);
+          if (update.status === "IN_PROGRESS") {
+            update.logs?.map((log: any) => log.message).forEach(console.log);
+          }
+        }
+      });
+
+      console.log('✅ SeedReam v4 generation complete');
+      return result.data as any;
+    } catch (error: any) {
+      console.error('❌ Error generating with SeedReam v4:', error);
+      
+      // Enhanced error reporting for validation issues
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object') {
+        if (error.body) {
+          try {
+            const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
+            if (errorBody.detail) {
+              errorMessage = `Validation error: ${JSON.stringify(errorBody.detail)}`;
+            } else {
+              errorMessage = `API error: ${error.body}`;
+            }
+          } catch {
+            errorMessage = `API response error: ${error.body}`;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      throw new Error(`SeedReam v4 generation failed: ${errorMessage}`);
     }
   }
 
