@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, LogOut, Sparkles, Zap, Wand2, Star, ArrowRight } from 'lucide-react';
+import { User, LogOut, Sparkles, Zap, Wand2, Star, ArrowRight, BarChart3 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import StandRequestForm from './components/StandRequestForm';
 import AuthModal from './components/AuthModal';
+import AnalyticsOverview from './components/AnalyticsOverview';
 import { MonitoringService } from './utils/monitoring';
 import { PerformanceUtils } from './utils/performance';
 import AuthDebugPanel from './components/AuthDebugPanel';
@@ -12,6 +13,7 @@ import { ToastProvider, Button, Card, LoadingSpinner } from './components/ui';
 function App() {
   const { user, loading, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [currentView, setCurrentView] = useState<'form' | 'analytics'>('form');
 
   useEffect(() => {
     // Initialize monitoring in production
@@ -98,6 +100,26 @@ function App() {
           <div className="flex items-center space-x-6">
             {user ? (
               <>
+                {/* View Navigation */}
+                <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg">
+                  <Button
+                    onClick={() => setCurrentView('form')}
+                    variant={currentView === 'form' ? 'primary' : 'ghost'}
+                    size="sm"
+                    icon={<Wand2 />}
+                  >
+                    Creator
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentView('analytics')}
+                    variant={currentView === 'analytics' ? 'primary' : 'ghost'}
+                    size="sm"
+                    icon={<BarChart3 />}
+                  >
+                    Analytics
+                  </Button>
+                </div>
+
                 <motion.div
                   className="hidden md:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg"
                   whileHover={{ scale: 1.02 }}
@@ -105,7 +127,7 @@ function App() {
                   <User className="w-4 h-4" />
                   <span>{user.email}</span>
                 </motion.div>
-                
+
                 <Button
                   onClick={handleSignOut}
                   variant="ghost"
@@ -186,7 +208,11 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.8 }}
             >
-              <StandRequestForm />
+              {currentView === 'form' ? (
+                <StandRequestForm />
+              ) : (
+                <AnalyticsOverview />
+              )}
             </motion.div>
           </div>
         </main>

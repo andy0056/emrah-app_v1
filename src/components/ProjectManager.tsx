@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Save, FolderOpen, History, Download, Search, Plus, Copy, Trash2, Eye, Edit3, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { ProjectService, SavedProject, FormData } from '../services/projectService';
 import { supabase } from '../services/supabaseClient';
@@ -52,17 +52,17 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkAuthStatus, loadProjects]);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     setIsAuthenticated(!!session?.user);
     if (session?.user) {
       loadProjects();
     }
-  };
+  }, [loadProjects]);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -74,7 +74,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const saveProject = async (isNewVersion = false) => {
     if (!isAuthenticated) {

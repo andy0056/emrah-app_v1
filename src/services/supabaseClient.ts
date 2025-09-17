@@ -51,9 +51,9 @@ export interface Database {
           user_id: string;
           name: string;
           description: string | null;
-          form_data: any;
-          base_prompts: any;
-          enhanced_prompts: any;
+          form_data: import('../types').FormData;
+          base_prompts: import('../types').PromptSet;
+          enhanced_prompts: import('../types').PromptSet | null;
           brand: string | null;
           product: string | null;
           stand_type: string | null;
@@ -69,9 +69,9 @@ export interface Database {
           user_id: string;
           name: string;
           description?: string | null;
-          form_data: any;
-          base_prompts?: any;
-          enhanced_prompts?: any;
+          form_data: import('../types').FormData;
+          base_prompts?: import('../types').PromptSet;
+          enhanced_prompts?: import('../types').PromptSet | null;
           brand?: string | null;
           product?: string | null;
           stand_type?: string | null;
@@ -82,9 +82,9 @@ export interface Database {
         Update: {
           name?: string;
           description?: string | null;
-          form_data?: any;
-          base_prompts?: any;
-          enhanced_prompts?: any;
+          form_data?: import('../types').FormData;
+          base_prompts?: import('../types').PromptSet;
+          enhanced_prompts?: import('../types').PromptSet | null;
           brand?: string | null;
           product?: string | null;
           stand_type?: string | null;
@@ -97,9 +97,9 @@ export interface Database {
           id: string;
           project_id: string;
           version_number: number;
-          form_data: any;
-          base_prompts: any;
-          enhanced_prompts: any;
+          form_data: import('../types').FormData;
+          base_prompts: import('../types').PromptSet;
+          enhanced_prompts: import('../types').PromptSet | null;
           version_name: string | null;
           change_notes: string | null;
           created_by: string | null;
@@ -109,9 +109,9 @@ export interface Database {
           id?: string;
           project_id: string;
           version_number?: number;
-          form_data: any;
-          base_prompts?: any;
-          enhanced_prompts?: any;
+          form_data: import('../types').FormData;
+          base_prompts?: import('../types').PromptSet;
+          enhanced_prompts?: import('../types').PromptSet | null;
           version_name?: string | null;
           change_notes?: string | null;
           created_by?: string | null;
@@ -131,7 +131,7 @@ export interface Database {
           storage_path: string | null;
           prompt_used: string | null;
           model_used: string;
-          generation_params: any;
+          generation_params: import('../types').GenerationParams | null;
           aspect_ratio: string | null;
           file_size: number | null;
           width: number | null;
@@ -149,7 +149,7 @@ export interface Database {
           storage_path?: string | null;
           prompt_used?: string | null;
           model_used?: string;
-          generation_params?: any;
+          generation_params?: import('../types').GenerationParams | null;
           aspect_ratio?: string | null;
           file_size?: number | null;
           width?: number | null;

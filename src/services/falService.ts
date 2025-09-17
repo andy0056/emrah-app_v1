@@ -1,4 +1,9 @@
 import { fal } from "@fal-ai/client";
+import { ABTestingService } from './abTestingService';
+import { PromptOptimizationService } from './promptOptimizationService';
+import { IntelligentPromptService } from './intelligentPromptService';
+import { BrandAssetAnalysisService } from './brandAssetAnalysisService';
+import { PromptEvolutionService } from './promptEvolutionService';
 
 // Configure Fal.ai client
 fal.config({
@@ -80,7 +85,127 @@ export interface SeedreamV4Request {
 }
 
 export class FalService {
-  
+
+  // Initialize the full intelligence system
+  static initializeIntelligence(): void {
+    PromptOptimizationService.initialize();
+    PromptEvolutionService.initialize();
+    ABTestingService.initialize();
+    console.log('🚀 FalService AI intelligence system initialized');
+  }
+
+  // Intelligent model selection based on brand assets and context
+  static async getRecommendedModel(brandAssetUrls: string[], formData?: import('../types').FormData): Promise<import('../types').ModelRecommendation> {
+
+    try {
+      // Analyze brand assets
+      const assetAnalysis = await BrandAssetAnalysisService.analyzeBrandAssets(brandAssetUrls);
+
+      // Get model recommendation from asset analysis
+      const assetRecommendation = BrandAssetAnalysisService.getModelRecommendation(assetAnalysis);
+
+      // Get feedback-based recommendation
+      const feedbackRecommendation = FeedbackService.getRecommendedModel(formData || {});
+
+      // Combine recommendations with weights
+      let finalModel: 'seedream-v4' | 'nano-banana';
+      let confidence = assetRecommendation.confidence;
+      const reasoning = [...assetRecommendation.reasoning];
+
+      if (assetRecommendation.model === feedbackRecommendation) {
+        // Both agree
+        finalModel = assetRecommendation.model;
+        confidence = Math.min(0.95, confidence + 0.1);
+        reasoning.push('Asset analysis and feedback history agree on model choice');
+      } else {
+        // Disagreement - prioritize asset analysis for complex cases
+        if (assetAnalysis.overallComplexity >= 7) {
+          finalModel = assetRecommendation.model;
+          reasoning.push('Prioritizing asset analysis for complex brand integration');
+        } else {
+          finalModel = feedbackRecommendation;
+          confidence = 0.7;
+          reasoning.push('Using feedback-based recommendation for simpler cases');
+        }
+      }
+
+      console.log('🎯 Intelligent model recommendation:', {
+        model: finalModel,
+        confidence: confidence.toFixed(2),
+        assetComplexity: assetAnalysis.overallComplexity,
+        brandDifficulty: assetAnalysis.brandIntegrationDifficulty
+      });
+
+      return {
+        model: finalModel,
+        confidence,
+        reasoning,
+        assetAnalysis
+      };
+
+    } catch (error) {
+      console.warn('⚠️ Intelligent model selection failed, using fallback:', error);
+
+      // Fallback to feedback-based recommendation
+      return {
+        model: FeedbackService.getRecommendedModel(formData || {}),
+        confidence: 0.6,
+        reasoning: ['Using fallback recommendation due to analysis error']
+      };
+    }
+  }
+
+  // Generate client requirement mapping from form data
+  static generateClientRequirementMapping(formData: import('../types').FormData): string {
+    const requirements: string[] = [];
+
+    // Brand priority mapping
+    if (formData.brand) {
+      requirements.push(`BRAND: ${formData.brand} must dominate visual hierarchy`);
+    }
+
+    // Product specificity
+    if (formData.product && formData.description) {
+      requirements.push(`PRODUCT FOCUS: ${formData.product} (${formData.description}) must be prominently displayed on every shelf`);
+    }
+
+    // Shelf count and product placement specificity
+    if (formData.shelfCount) {
+      const productPlacement = formData.shelfCount === 1
+        ? 'single shelf must be densely packed with products at eye level'
+        : formData.shelfCount === 2
+        ? 'top shelf for premium products, bottom shelf for volume display'
+        : formData.shelfCount === 3
+        ? 'top shelf for hero products, middle for variety, bottom for volume'
+        : `all ${formData.shelfCount} shelves must create stepped product hierarchy from hero (top) to volume (bottom)`;
+
+      requirements.push(`PRODUCT PLACEMENT: ${productPlacement}`);
+      requirements.push(`SHELF DENSITY: Each shelf must appear 70-90% filled with branded products, never empty or sparse`);
+    }
+
+    // Material requirements
+    if (formData.materials && formData.materials.length > 0) {
+      requirements.push(`MATERIAL AUTHENTICITY: Display must clearly show ${formData.materials.join(' and ')} construction`);
+    }
+
+    // Stand type specificity
+    if (formData.standType) {
+      requirements.push(`DISPLAY TYPE: Must be recognizable as ${formData.standType} with appropriate proportions`);
+    }
+
+    // Color scheme requirements
+    if (formData.standBaseColor) {
+      requirements.push(`COLOR SCHEME: ${formData.standBaseColor} base color must be prominently featured in structural elements`);
+    }
+
+    // Dimensions for realistic proportions
+    if (formData.standWidth && formData.standHeight && formData.standDepth) {
+      requirements.push(`PROPORTIONS: Must visually represent ${formData.standWidth}×${formData.standDepth}×${formData.standHeight}cm dimensions`);
+    }
+
+    return requirements.length > 0 ? `\n\nCLIENT REQUIREMENTS:\n${requirements.map(req => `- ${req}`).join('\n')}` : '';
+  }
+
   // MULTI-MODEL APPROACH WITH SIMPLE INTERFACE
   static async generateImage(request: {
     prompt: string;
@@ -100,16 +225,21 @@ export class FalService {
       } else {
         return this.generateWithTextToImageModel(selectedModel, request);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`❌ ${request.model || 'flux-dev'} generation failed:`, error);
-      throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const { AIServiceError } = await import('../types');
+      throw new AIServiceError(
+        `Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        request.model,
+        request.prompt.length
+      );
     }
   }
 
-  private static async generateWithTextToImageModel(model: ModelConfig | undefined, request: any) {
+  private static async generateWithTextToImageModel(model: ModelConfig | undefined, request: import('../types').FalGenerationRequest) {
     const endpoint = model?.endpoint || 'fal-ai/flux/dev';
     
-    let inputConfig: any = {
+    let inputConfig: Record<string, unknown> = {
       prompt: request.prompt,
       num_images: request.num_images || 1
     };
@@ -157,7 +287,7 @@ export class FalService {
     };
   }
 
-  private static async generateWithEditingModel(model: ModelConfig | undefined, request: any) {
+  private static async generateWithEditingModel(model: ModelConfig | undefined, request: import('../types').FalGenerationRequest) {
     if (!request.inputImages || request.inputImages.length === 0) {
       throw new Error(`${model?.name} requires input images. Please upload reference images first.`);
     }
@@ -212,7 +342,7 @@ export class FalService {
   }
 
   // For image editing - keep it simple but working
-  static async editImageWithFluxKontext(request: FluxKontextRequest): Promise<any> {
+  static async editImageWithFluxKontext(request: FluxKontextRequest): Promise<import('../types').FalImageResponse> {
     try {
       // Ensure we have an image URL for image-to-image editing
       if (!request.image_url) {
@@ -262,9 +392,9 @@ export class FalService {
           ...(request.seed && { seed: request.seed })
         },
         logs: true,
-        onQueueUpdate: (update: any) => {
+        onQueueUpdate: (update: import('../types').FalQueueUpdate) => {
           if (update.status === "IN_PROGRESS") {
-            update.logs.map((log: any) => log.message).forEach(console.log);
+            update.logs.map((log: import('../types').FalLog) => log.message).forEach(console.log);
           }
         },
       });
@@ -297,7 +427,7 @@ export class FalService {
       }
       
       return result.data as any;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error editing image with Flux Kontext:', error);
       throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -310,7 +440,13 @@ export class FalService {
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
     num_images?: number;
     image_size?: number;
-  }): Promise<any> {
+    formData?: import('../types').FormData; // Optional form data for client requirements
+    userId?: string; // For A/B testing
+    enableABTesting?: boolean; // Whether to apply A/B testing
+    enableOptimization?: boolean; // Whether to apply dynamic optimization
+    enableIntelligence?: boolean; // Whether to apply intelligent form analysis
+    enableEvolution?: boolean; // Whether to apply evolved patterns
+  }): Promise<import('../types').FalImageResponse> {
     try {
       console.log('🎯 NEW: Generating with SeedReam v4 Edit - Advanced multi-image editing');
       
@@ -323,9 +459,67 @@ export class FalService {
         .replace(/empty shelves/gi, 'shelves filled with branded products')
         .replace(/clean display surfaces/gi, 'branded display surfaces with logo placement');
 
-      const enhancedPrompt = `${brandFriendlyPrompt}
+      // Add client requirement mapping if form data is provided
+      const clientRequirements = request.formData ? this.generateClientRequirementMapping(request.formData) : '';
 
-BRAND INTEGRATION: Seamlessly integrate all provided brand assets (logos, products, visuals) into the display design. Apply brand colors throughout the structure. Position products prominently on shelves. Ensure brand visibility from multiple angles. Create cohesive brand experience that maximizes retail impact and customer engagement.`;
+      let enhancedPrompt = `${brandFriendlyPrompt}
+
+CLIENT-PRIORITY BRAND INTEGRATION:
+- LOGO PROMINENCE: Feature brand logo as primary visual anchor on multiple display surfaces
+- PRODUCT SHOWCASE: Position actual branded products as hero elements on every shelf level with front-facing labels
+- PRODUCT DENSITY: Fill each shelf 70-90% with products, creating abundant display without overcrowding
+- PRODUCT HIERARCHY: Arrange products by importance - hero products at eye level, volume products lower
+- BRAND COLOR DOMINANCE: Apply brand colors as structural design elements, not just accents
+- RETAIL IMPACT FOCUS: Design for maximum customer attention and purchase influence
+- BRAND CONSISTENCY: Ensure cohesive brand experience across all display angles and surfaces
+- COMMERCIAL VIABILITY: Balance strong branding with practical retail functionality${clientRequirements}`;
+
+      // Apply A/B testing if enabled
+      let abTestVariant = null;
+      if (request.enableABTesting && request.userId) {
+        abTestVariant = ABTestingService.getVariantForUser(request.userId);
+        enhancedPrompt = ABTestingService.applyVariantToPrompt(enhancedPrompt, abTestVariant);
+        console.log('🧪 A/B Test Variant Applied:', abTestVariant.name);
+      }
+
+      // Apply dynamic optimization if enabled
+      if (request.enableOptimization) {
+        enhancedPrompt = PromptOptimizationService.optimizePrompt(enhancedPrompt, request.formData);
+        console.log('🎯 Dynamic optimization applied');
+      }
+
+      // Apply A/B testing variant if enabled
+      if (request.enableABTesting) {
+        const { ABTestingService } = await import('./abTestingService');
+        const userVariant = ABTestingService.getVariantForUser(request.userId || 'anonymous');
+        enhancedPrompt = ABTestingService.applyVariantToPrompt(enhancedPrompt, userVariant);
+        console.log('🧪 A/B testing variant applied:', userVariant.name);
+
+        // Store variant assignment for feedback tracking
+        request._abTestVariant = userVariant;
+      }
+
+      // Apply intelligent form analysis if enabled
+      if (request.enableIntelligence && request.formData) {
+        const intelligentResult = IntelligentPromptService.generateIntelligentPrompt(enhancedPrompt, request.formData);
+        enhancedPrompt = intelligentResult.enhancedPrompt;
+        console.log('🧠 Intelligent form analysis applied:', {
+          primaryObjective: intelligentResult.intent.primaryObjective,
+          brandPriority: intelligentResult.analysis.brandPriority,
+          visualStyle: intelligentResult.analysis.visualStyle
+        });
+      }
+
+      // Apply evolved patterns if enabled
+      if (request.enableEvolution) {
+        const contexts = request.formData ? [
+          `${request.formData.standType || 'display'}-type`,
+          `${request.formData.materials?.join('-') || 'material'}-materials`,
+          'brand-integration'
+        ] : ['general'];
+        enhancedPrompt = PromptEvolutionService.generateEvolvedPrompt(enhancedPrompt, contexts);
+        console.log('🧬 Evolved patterns applied');
+      }
 
       console.log('📝 SeedReam Prompt:', enhancedPrompt);
       console.log('🖼️ Brand Assets:', request.brand_asset_urls);
@@ -398,17 +592,28 @@ BRAND INTEGRATION: Seamlessly integrate all provided brand assets (logos, produc
       const result = await fal.subscribe("fal-ai/bytedance/seedream/v4/edit", {
         input: apiInput,
         logs: true,
-        onQueueUpdate: (update: any) => {
+        onQueueUpdate: (update: import('../types').FalQueueUpdate) => {
           console.log('🎯 SeedReam v4 Status:', update.status);
           if (update.status === "IN_PROGRESS") {
-            update.logs?.map((log: any) => log.message).forEach(console.log);
+            update.logs?.map((log: import('../types').FalLog) => log.message).forEach(console.log);
           }
         }
       });
 
       console.log('✅ SeedReam v4 generation complete');
-      return result.data as any;
-    } catch (error: any) {
+
+      // Add A/B test metadata to result
+      const resultWithMetadata = {
+        ...result.data,
+        abTestVariant: abTestVariant ? {
+          id: abTestVariant.id,
+          name: abTestVariant.name,
+          promptVersion: abTestVariant.id
+        } : null
+      };
+
+      return resultWithMetadata;
+    } catch (error: unknown) {
       console.error('❌ Error generating with SeedReam v4:', error);
       
       // Enhanced error reporting for validation issues
@@ -443,7 +648,13 @@ BRAND INTEGRATION: Seamlessly integrate all provided brand assets (logos, produc
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Required for proper output dimensions
     num_images?: number;
     output_format?: 'jpeg' | 'png';
-  }): Promise<any> {
+    formData?: import('../types').FormData; // Optional form data for client requirements
+    userId?: string; // For A/B testing
+    enableABTesting?: boolean; // Whether to apply A/B testing
+    enableOptimization?: boolean; // Whether to apply dynamic optimization
+    enableIntelligence?: boolean; // Whether to apply intelligent form analysis
+    enableEvolution?: boolean; // Whether to apply evolved patterns
+  }): Promise<import('../types').FalImageResponse> {
     try {
       console.log('🍌 Primary generation with integrated brand assets using Nano Banana Edit');
       
@@ -462,32 +673,83 @@ BRAND INTEGRATION: Seamlessly integrate all provided brand assets (logos, produc
         .replace(/plain/gi, 'branded')
         .replace(/generic/gi, 'brand-specific');
 
-      // Create a comprehensive prompt that encourages brand integration
-      const integratedPrompt = `${brandFriendlyPrompt}
+      // Add client requirement mapping if form data is provided
+      const clientRequirements = request.formData ? this.generateClientRequirementMapping(request.formData) : '';
 
-BRAND INTEGRATION REQUIREMENTS:
-- Prominently display the brand logo from the provided images in multiple locations
-- Fill shelves with the specific product items shown in the brand assets
-- Use brand colors, typography, and visual elements throughout the entire display
-- Create a bold, eye-catching retail display that maximizes brand recognition and impact
-- Seamlessly integrate ALL provided brand assets (logos, products, key visuals) as focal points
-- Design for maximum brand visibility and customer engagement in retail environments
-- Ensure brand consistency across all display elements and surfaces
-- Make the brand the hero of the display design with strong visual hierarchy`;
+      // Create a comprehensive prompt that encourages brand integration
+      let integratedPrompt = `${brandFriendlyPrompt}
+
+CLIENT-PRIORITY BRAND INTEGRATION:
+- LOGO PROMINENCE: Feature brand logo as primary visual anchor on multiple display surfaces
+- PRODUCT SHOWCASE: Position actual branded products as hero elements on every shelf level with front-facing labels
+- PRODUCT DENSITY: Fill each shelf 70-90% with products, creating abundant display without overcrowding
+- PRODUCT HIERARCHY: Arrange products by importance - hero products at eye level, volume products lower
+- BRAND COLOR DOMINANCE: Apply brand colors as structural design elements, not just accents
+- RETAIL IMPACT FOCUS: Design for maximum customer attention and purchase influence
+- BRAND CONSISTENCY: Ensure cohesive brand experience across all display angles and surfaces
+- COMMERCIAL VIABILITY: Balance strong branding with practical retail functionality
+- ASSET UTILIZATION: Seamlessly integrate ALL provided brand assets (logo, product, key visual) as focal design elements
+- VISUAL HIERARCHY: Establish clear brand dominance while maintaining structural integrity${clientRequirements}`;
+
+      // Apply A/B testing if enabled
+      let abTestVariant = null;
+      if (request.enableABTesting && request.userId) {
+        abTestVariant = ABTestingService.getVariantForUser(request.userId);
+        integratedPrompt = ABTestingService.applyVariantToPrompt(integratedPrompt, abTestVariant);
+        console.log('🧪 A/B Test Variant Applied:', abTestVariant.name);
+      }
+
+      // Apply dynamic optimization if enabled
+      if (request.enableOptimization) {
+        integratedPrompt = PromptOptimizationService.optimizePrompt(integratedPrompt, request.formData);
+        console.log('🎯 Dynamic optimization applied');
+      }
+
+      // Apply intelligent form analysis if enabled
+      if (request.enableIntelligence && request.formData) {
+        const intelligentResult = IntelligentPromptService.generateIntelligentPrompt(integratedPrompt, request.formData);
+        integratedPrompt = intelligentResult.enhancedPrompt;
+        console.log('🧠 Intelligent form analysis applied:', {
+          primaryObjective: intelligentResult.intent.primaryObjective,
+          brandPriority: intelligentResult.analysis.brandPriority,
+          visualStyle: intelligentResult.analysis.visualStyle
+        });
+      }
+
+      // Apply evolved patterns if enabled
+      if (request.enableEvolution) {
+        const contexts = request.formData ? [
+          `${request.formData.standType || 'display'}-type`,
+          `${request.formData.materials?.join('-') || 'material'}-materials`,
+          'brand-integration'
+        ] : ['general'];
+        integratedPrompt = PromptEvolutionService.generateEvolvedPrompt(integratedPrompt, contexts);
+        console.log('🧬 Evolved patterns applied');
+      }
 
       console.log('📝 Integrated Prompt:', integratedPrompt);
       console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
       console.log('🎯 Aspect Ratio:', request.aspect_ratio);
 
       // Use Nano Banana Edit with brand assets for initial generation
-      return await this.applyBrandAssetsWithNanaBanana({
+      const result = await this.applyBrandAssetsWithNanaBanana({
         image_urls: request.brand_asset_urls,
         prompt: integratedPrompt,
         aspect_ratio: request.aspect_ratio,
         num_images: request.num_images || 1,
         output_format: request.output_format || "jpeg"
       });
-    } catch (error: any) {
+
+      // Add A/B test metadata to result
+      return {
+        ...result,
+        abTestVariant: abTestVariant ? {
+          id: abTestVariant.id,
+          name: abTestVariant.name,
+          promptVersion: abTestVariant.id
+        } : null
+      };
+    } catch (error: unknown) {
       console.error('❌ Error generating with brand assets:', error);
       throw new Error(`Failed to generate with brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -500,7 +762,7 @@ BRAND INTEGRATION REQUIREMENTS:
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Required for proper output dimensions
     num_images?: number;
     output_format?: 'jpeg' | 'png';
-  }): Promise<any> {
+  }): Promise<import('../types').FalImageResponse> {
     try {
       console.log('🧪 EXPERIMENTAL: Refined brand integration approach using Nano Banana');
       
@@ -529,7 +791,7 @@ VISUAL INTEGRATION FRAMEWORK:
         num_images: request.num_images || 1,
         output_format: request.output_format || "jpeg"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error generating with refined brand assets:', error);
       throw new Error(`Failed to generate with refined brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -542,7 +804,7 @@ VISUAL INTEGRATION FRAMEWORK:
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Make aspect_ratio required
     num_images?: number;
     output_format?: 'jpeg' | 'png';
-  }): Promise<any> {
+  }): Promise<import('../types').FalImageResponse> {
     try {
       console.log('🍌 Applying brand assets with Nano Banana Edit');
       const { image_urls, prompt, num_images, output_format, aspect_ratio } = request;
@@ -638,10 +900,10 @@ VISUAL INTEGRATION FRAMEWORK:
           output_format: request.output_format || "jpeg"
         },
         logs: true,
-        onQueueUpdate: (update: any) => {
+        onQueueUpdate: (update: import('../types').FalQueueUpdate) => {
           console.log('🍌 Nano Banana Status:', update.status);
           if (update.status === "IN_PROGRESS") {
-            update.logs?.map((log: any) => log.message).forEach(console.log);
+            update.logs?.map((log: import('../types').FalLog) => log.message).forEach(console.log);
           }
         }
       });
@@ -652,7 +914,7 @@ VISUAL INTEGRATION FRAMEWORK:
       }
       
       return result.data as any;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error applying brand assets with Nano Banana:', error);
       
       // Extract detailed error information
@@ -720,7 +982,7 @@ export async function testFalModels() {
     });
     console.log("✅ fal-ai/flux/dev WORKS!");
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log("❌ fal-ai/flux/dev FAILED:", error?.message || error);
     throw error;
   }

@@ -104,7 +104,6 @@ export class SecurityUtils {
     ];
 
     const maxSize = 10 * 1024 * 1024; // 10MB
-    const maxFiles = 10;
 
     // Check file type
     if (!allowedTypes.includes(file.type)) {

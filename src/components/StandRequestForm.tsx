@@ -171,7 +171,7 @@ const StandRequestForm: React.FC = () => {
   // Check form validity
   useEffect(() => {
     debouncedValidation();
-  }, [formData]);
+  }, [formData, debouncedValidation]);
 
   const handleLoadProject = (project: SavedProject) => {
     setIsLoadingProject(true);

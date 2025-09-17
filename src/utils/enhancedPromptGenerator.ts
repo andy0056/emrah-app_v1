@@ -278,7 +278,6 @@ export class EnhancedPromptGenerator {
   private getShelfStructure(data: FormData): string {
     const brand = this.brandEngine.getPersonality(data.brand);
     const shelfCount = data.shelfCount;
-    const proportions = this.getProportionalDescription(data);
     
     let shelfDescription = '';
     
@@ -404,7 +403,7 @@ export class EnhancedPromptGenerator {
   /**
    * Generate randomized creative angles for 3/4 view variety
    */
-  private getCreativeAngle(data: FormData): string {
+  private getCreativeAngle(_data: FormData): string {
     const angles = [
       'dynamic three-quarter view from slightly above, emphasizing architectural presence',
       'dramatic low-angle perspective making the display appear monumental and inspiring',

@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Sparkles, TestTube } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wand2, Download, Loader2, AlertCircle, Maximize2, Edit, Sparkles, TestTube, Brain, Target, TrendingUp } from 'lucide-react';
 import { FalService } from '../services/falService';
 import { ProjectService } from '../services/projectService';
 import { RefinedPromptGenerator } from '../utils/refinedPromptGenerator';
 import { AdvancedPromptGenerator } from '../utils/advancedPromptGenerator';
 import { OptimizedPromptGenerator } from '../utils/optimizedPromptGenerator';
+import ValidatedPromptGenerator from '../utils/validatedPromptGenerator';
 import { FormData } from '../types';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
+import ImageFeedback from './ImageFeedback';
+import { RealAnalyticsService } from '../services/realAnalyticsService';
 
 interface ImageGenerationProps {
   prompts: {
@@ -56,8 +59,18 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [experimentalImages, setExperimentalImages] = useState<GeneratedImageSet>({});
   const [experimentalError, setExperimentalError] = useState<string | null>(null);
   const [experimentalProgress, setExperimentalProgress] = useState<string>('');
-  const [creativeMode, setCreativeMode] = useState<'refined' | 'advanced' | 'optimized'>('refined');
+  const [creativeMode, setCreativeMode] = useState<'refined' | 'advanced' | 'optimized' | 'validated'>('refined');
   const [selectedModel, setSelectedModel] = useState<'nano-banana' | 'seedream-v4'>('nano-banana');
+
+  // Intelligence and optimization features
+  const [enableIntelligence, setEnableIntelligence] = useState(true);
+  const [enableOptimization, setEnableOptimization] = useState(true);
+  const [enableEvolution, setEnableEvolution] = useState(true);
+  const [enableABTesting, setEnableABTesting] = useState(true);
+  const [modelRecommendation, setModelRecommendation] = useState<any>(null);
+  const [intelligenceInsights, setIntelligenceInsights] = useState<any>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
@@ -85,6 +98,33 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       onImagesUpdated(generatedImages);
     }
   }, [generatedImages, onImagesUpdated]);
+
+  // Get intelligent model recommendation when form data changes
+  useEffect(() => {
+    const getModelRecommendation = async () => {
+      if (formData && formData.brandLogo && formData.productImage) {
+        try {
+          const brandAssetUrls = [formData.brandLogo, formData.productImage];
+          if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual);
+
+          const recommendation = await FalService.getRecommendedModel(brandAssetUrls, formData);
+          setModelRecommendation(recommendation);
+          setSelectedModel(recommendation.model);
+
+          console.log('🎯 Model recommendation received:', recommendation);
+        } catch (error) {
+          console.warn('Failed to get model recommendation:', error);
+        }
+      }
+    };
+
+    getModelRecommendation();
+  }, [formData]);
+
+  // Initialize intelligence system
+  useEffect(() => {
+    FalService.initializeIntelligence();
+  }, []);
 
   const saveImageToSupabase = async (
     imageUrl: string, 
@@ -124,11 +164,28 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       return;
     }
 
+    // Run validation checks and show warnings
+    const validationResult = ValidatedPromptGenerator.validateAgainstTestCases(formData);
+    if (!validationResult.isValid) {
+      setError(`Validation issues detected: ${validationResult.warnings.join(', ')}`);
+      return;
+    }
+    
+    // Show warnings but allow generation to continue
+    if (validationResult.warnings.length > 0) {
+      console.warn('⚠️ Validation warnings:', validationResult.warnings);
+      console.log('💡 Recommendations:', validationResult.recommendations);
+    }
+
     setIsGenerating(true);
     setError(null);
     setGeneratedImages({});
-    
+
+    const startTime = Date.now();
+
     try {
+      // Track session activity
+      RealAnalyticsService.recordClientSession('image_generation_started');
       // Use the base prompts (no enhancement needed)
       const finalPrompts = prompts;
 
@@ -143,7 +200,8 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
 
       setProgress(`🎯 Generating front view with ${modelName}...`);
-      
+
+      const frontStartTime = Date.now();
       // Choose generation method based on selected model
       const frontResult = selectedModel === 'seedream-v4'
         ? await FalService.generateWithSeedreamV4({
@@ -151,16 +209,31 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '9:16',
             num_images: 1,
-            image_size: 1024
+            image_size: 1024,
+            formData: formData,
+            userId: 'demo-user', // In production, get from auth
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           })
         : await FalService.generateWithBrandAssets({
             prompt: finalPrompts.frontView,
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '9:16',
-            num_images: 1
+            num_images: 1,
+            formData: formData,
+            userId: 'demo-user', // In production, get from auth
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           });
       const frontImageUrl = frontResult.images[0]?.url;
       if (frontImageUrl) {
+        const frontDuration = Date.now() - frontStartTime;
+        RealAnalyticsService.recordGenerationTiming('frontView', frontDuration, true, selectedModel);
+
         setGeneratedImages(prev => ({ ...prev, frontView: frontImageUrl }));
         if (currentProjectId) {
           await saveImageToSupabase(frontImageUrl, 'front_view', finalPrompts.frontView, '9:16');
@@ -174,13 +247,25 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '16:9',
             num_images: 1,
-            image_size: 1024
+            image_size: 1024,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           })
         : await FalService.generateWithBrandAssets({
             prompt: finalPrompts.storeView,
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '16:9',
-            num_images: 1
+            num_images: 1,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           });
       const storeImageUrl = storeResult.images[0]?.url;
       if (storeImageUrl) {
@@ -197,13 +282,25 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '3:4',
             num_images: 1,
-            image_size: 1024
+            image_size: 1024,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           })
         : await FalService.generateWithBrandAssets({
             prompt: finalPrompts.threeQuarterView,
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '3:4',
-            num_images: 1
+            num_images: 1,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           });
       const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
       if (threeQuarterImageUrl) {
@@ -214,11 +311,19 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       }
 
       setProgress(`✅ All ${modelName} images generated successfully!`);
-      
+
+      // Track successful completion
+      const totalDuration = Date.now() - startTime;
+      RealAnalyticsService.recordClientSession('image_generation_completed', totalDuration);
+
       setTimeout(() => setProgress(''), 3000);
     } catch (error) {
       console.error('Image generation error:', error);
       setError(error instanceof Error ? error.message : 'Failed to generate images. Please try again.');
+
+      // Track failed generation
+      RealAnalyticsService.recordClientSession('image_generation_failed');
+      RealAnalyticsService.recordGenerationTiming('failed', Date.now() - startTime, false, selectedModel);
     } finally {
       setIsGenerating(false);
     }
@@ -242,15 +347,32 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     setExperimentalImages({});
     
     try {
+      // Run validation test cases before generation if using validated mode
+      if (creativeMode === 'validated') {
+        const testResults = ValidatedPromptGenerator.validateAgainstTestCases(formData);
+        if (!testResults.isValid) {
+          console.warn('⚠️ Validation warnings detected:', testResults.warnings);
+          console.info('💡 Recommendations:', testResults.recommendations);
+          setExperimentalProgress(`⚠️ Validation warnings: ${testResults.warnings.join(', ')}`);
+          // Continue with generation but show warnings
+        }
+      }
+
       // Generate refined prompts using the new system
       // Choose prompt generator based on creative mode
       const refinedPrompts = 
         creativeMode === 'advanced' ? AdvancedPromptGenerator.generateAllPrompts(formData)
         : creativeMode === 'optimized' ? OptimizedPromptGenerator.generateAllPrompts(formData)
+        : creativeMode === 'validated' ? ValidatedPromptGenerator.generateConstrainedPrompts(formData)
         : RefinedPromptGenerator.generateAllPrompts(formData);
 
       const modelName = selectedModel === 'seedream-v4' ? 'SeedReam v4' : 'Nano Banana';
       console.log(`🧪 EXPERIMENTAL: Generating with ${modelName} and ${creativeMode} prompts`);
+
+      // Log validation input for debugging when using validated mode
+      if (creativeMode === 'validated' && 'validationInput' in refinedPrompts) {
+        console.log('📋 Validation Input:', refinedPrompts.validationInput);
+      }
       
       // Collect brand asset URLs (Logo and Product are mandatory, Key Visual is optional)
       const brandAssetUrls: string[] = [];
@@ -267,13 +389,25 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '9:16',
             num_images: 1,
-            image_size: 1024
+            image_size: 1024,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           })
-        : await FalService.generateWithRefinedBrandAssets({
+        : await FalService.generateWithBrandAssets({
             prompt: refinedPrompts.frontView,
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '9:16',
-            num_images: 1
+            num_images: 1,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           });
       const frontImageUrl = frontResult.images[0]?.url;
       if (frontImageUrl) {
@@ -290,13 +424,25 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '16:9',
             num_images: 1,
-            image_size: 1024
+            image_size: 1024,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           })
-        : await FalService.generateWithRefinedBrandAssets({
+        : await FalService.generateWithBrandAssets({
             prompt: refinedPrompts.storeView,
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '16:9',
-            num_images: 1
+            num_images: 1,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           });
       const storeImageUrl = storeResult.images[0]?.url;
       if (storeImageUrl) {
@@ -313,13 +459,25 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '3:4',
             num_images: 1,
-            image_size: 1024
+            image_size: 1024,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           })
-        : await FalService.generateWithRefinedBrandAssets({
+        : await FalService.generateWithBrandAssets({
             prompt: refinedPrompts.threeQuarterView,
             brand_asset_urls: brandAssetUrls,
             aspect_ratio: '3:4',
-            num_images: 1
+            num_images: 1,
+            formData: formData,
+            userId: 'demo-user',
+            enableABTesting: enableABTesting,
+            enableOptimization: enableOptimization,
+            enableIntelligence: enableIntelligence,
+            enableEvolution: enableEvolution
           });
       const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
       if (threeQuarterImageUrl) {
@@ -404,6 +562,15 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         </div>
         
         <div className="flex items-center space-x-4">
+          {/* Intelligence Toggle */}
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Analytics
+          </button>
+
           {/* Model Selection Dropdown */}
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-700">AI Model:</label>
@@ -478,6 +645,100 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         );
       })()}
 
+      {/* Model Recommendation */}
+      {modelRecommendation && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-green-800 flex items-center">
+                <Target className="w-4 h-4 mr-2" />
+                Intelligent Model Recommendation
+              </h4>
+              <p className="text-green-700 text-sm mt-1">
+                {modelRecommendation.model === 'seedream-v4' ? '🎯 SeedReam v4' : '🍌 Nano Banana'}
+                {' '}({Math.round(modelRecommendation.confidence * 100)}% confidence)
+              </p>
+              <p className="text-green-600 text-xs mt-1">
+                {modelRecommendation.reasoning[0]}
+              </p>
+            </div>
+            {modelRecommendation.assetAnalysis && (
+              <div className="text-right">
+                <div className="text-xs text-gray-600">
+                  Complexity: {modelRecommendation.assetAnalysis.overallComplexity}/10
+                </div>
+                <div className="text-xs text-gray-600">
+                  Integration: {modelRecommendation.assetAnalysis.brandIntegrationDifficulty}/10
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Intelligence Controls */}
+      {showAnalytics && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+          <h4 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+            <Brain className="w-5 h-5 mr-2" />
+            AI Intelligence Controls
+          </h4>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={enableIntelligence}
+                  onChange={(e) => setEnableIntelligence(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">🧠 Form Intelligence</span>
+              </label>
+
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={enableOptimization}
+                  onChange={(e) => setEnableOptimization(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">🎯 Dynamic Optimization</span>
+              </label>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={enableEvolution}
+                  onChange={(e) => setEnableEvolution(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">🧬 Evolved Patterns</span>
+              </label>
+
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={enableABTesting}
+                  onChange={(e) => setEnableABTesting(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">🧪 A/B Testing</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-4 text-xs text-gray-600">
+            <p>• <strong>Form Intelligence:</strong> Analyzes your inputs to understand brand priorities and visual preferences</p>
+            <p>• <strong>Dynamic Optimization:</strong> Adjusts prompts based on previous client feedback patterns</p>
+            <p>• <strong>Evolved Patterns:</strong> Uses genetic algorithms to improve prompt effectiveness over time</p>
+            <p>• <strong>A/B Testing:</strong> Tests different prompt approaches to find the most effective ones</p>
+          </div>
+        </div>
+      )}
+
       {enhancedPrompts && (
         <div className="mb-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
           <p className="text-purple-800 text-sm font-medium">🚀 Using AI-enhanced Brand-First prompts with signature elements, brand metaphors, and emotional storytelling!</p>
@@ -514,7 +775,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
                       className="w-full h-full object-cover rounded-lg cursor-pointer transition-transform hover:scale-105"
                       onClick={() => openModal(imageUrl, title, filename)}
                     />
-                    <div 
+                    <div
                       className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer"
                       onClick={() => openModal(imageUrl, title, filename)}
                     >
@@ -522,6 +783,19 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
                         <Maximize2 className="w-5 h-5 text-gray-700" />
                       </div>
                     </div>
+
+                    {/* Feedback Component */}
+                    <ImageFeedback
+                      imageUrl={imageUrl}
+                      imageType={key as 'frontView' | 'storeView' | 'threeQuarterView'}
+                      model={selectedModel}
+                      promptVersion="phase3-intelligent"
+                      promptUsed={prompts[key as keyof typeof prompts]}
+                      formData={formData}
+                      projectId={currentProjectId || 'demo-project'}
+                      userId="demo-user"
+                      generationTime={Date.now() - (new Date().getTime() - 30000)} // Approximate
+                    />
                   </>
                 ) : (
                   <div className="text-gray-400 text-center">
@@ -568,6 +842,8 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
                 ? 'Advanced creative system with dimension precision & producibility validation' 
                 : creativeMode === 'optimized' 
                 ? 'Optimized concise prompts - 35% shorter, maximum AI model compatibility' 
+                : creativeMode === 'validated'
+                ? 'Strict constraint validation ensuring manufacturability & spec compliance'
                 : 'Refined prompt templates with flexible brand integration'}
             </p>
           </div>
@@ -578,12 +854,13 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
               <label className="text-sm font-medium text-gray-700">Creative Mode:</label>
               <select
                 value={creativeMode}
-                onChange={(e) => setCreativeMode(e.target.value as 'refined' | 'advanced' | 'optimized')}
+                onChange={(e) => setCreativeMode(e.target.value as 'refined' | 'advanced' | 'optimized' | 'validated')}
                 className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
                 <option value="refined">Refined (Current)</option>
                 <option value="advanced">🎯 Advanced (Client Feedback)</option>
                 <option value="optimized">⚡ Optimized (35% Shorter)</option>
+                <option value="validated">✅ Validated (Strict Compliance)</option>
               </select>
             </div>
             

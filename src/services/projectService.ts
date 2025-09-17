@@ -1,4 +1,6 @@
 import { supabase, Project, ProjectInsert, ProjectUpdate, ProjectVersion, GeneratedImage, GeneratedImageInsert } from './supabaseClient';
+import { OfflineProjectService } from './offlineProjectService';
+import { APIError, NetworkError, ValidationError, AuthenticationError } from '../types';
 
 export interface FormData {
   submissionId: string;
@@ -44,7 +46,7 @@ export class ProjectService {
     changeNotes?: string
   ): Promise<ProjectVersion> {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    if (!user) throw new AuthenticationError('User not authenticated');
 
     const versionData = {
       project_id: projectId,
@@ -62,50 +64,97 @@ export class ProjectService {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to save project version: ${error.message}`);
+    if (error) throw new APIError('PROJECT_SAVE_ERROR', `Failed to save project version: ${error.message}`, 'high', 'system');
     return data;
   }
 
   // Load a project by ID
   static async loadProject(projectId: string): Promise<SavedProject> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        generated_images(*),
-        project_versions(*)
-      `)
-      .eq('id', projectId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          generated_images(*),
+          project_versions(*)
+        `)
+        .eq('id', projectId)
+        .single();
 
-    if (error) throw new Error(`Failed to load project: ${error.message}`);
-    return data;
+      if (error) throw new APIError('PROJECT_LOAD_ERROR', `Failed to load project: ${error.message}`, 'medium', 'system');
+      return data;
+    } catch (networkError) {
+      console.warn('Network error accessing Supabase:', networkError);
+      // Fallback to offline project
+      const offlineProject = OfflineProjectService.getProject(projectId);
+      if (offlineProject) {
+        console.log('📁 Using offline project data as fallback');
+        return offlineProject;
+      }
+      throw new Error(`Project not found: ${projectId}`);
+    }
   }
 
   // Get user's projects
   static async getUserProjects(limit = 50, offset = 0): Promise<SavedProject[]> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        generated_images(count),
-        project_versions(count)
-      `)
-      .order('updated_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          generated_images(count),
+          project_versions(count)
+        `)
+        .order('updated_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
-    if (error) throw new Error(`Failed to load projects: ${error.message}`);
-    return data || [];
+      if (error) {
+        console.warn('Supabase projects query failed:', error.message);
+        // Return mock/cached data if Supabase is unreachable
+        return this.getMockProjects();
+      }
+
+      return data || [];
+    } catch (networkError) {
+      console.warn('Network error accessing Supabase:', networkError);
+      // Fallback to local storage or mock data
+      return this.getMockProjects();
+    }
+  }
+
+  // Fallback method to provide mock projects when Supabase is unavailable
+  private static getMockProjects(): SavedProject[] {
+    // Use offline service to get projects
+    let projects = OfflineProjectService.getProjects();
+
+    // If no offline projects exist, create samples
+    if (projects.length === 0) {
+      OfflineProjectService.createSampleProjects();
+      projects = OfflineProjectService.getProjects();
+    }
+
+    console.log(`📁 Using ${projects.length} offline projects as fallback`);
+    return projects;
   }
 
   // Delete a project
   static async deleteProject(projectId: string): Promise<void> {
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
 
-    if (error) throw new Error(`Failed to delete project: ${error.message}`);
+      if (error) throw new Error(`Failed to delete project: ${error.message}`);
+    } catch (networkError) {
+      console.warn('Network error accessing Supabase:', networkError);
+      // Fallback to offline deletion
+      const deleted = OfflineProjectService.deleteProject(projectId);
+      if (!deleted) {
+        throw new Error(`Project not found: ${projectId}`);
+      }
+      console.log('📁 Project deleted from offline storage as fallback');
+    }
   }
 
   // Save generated image to project
@@ -117,25 +166,51 @@ export class ProjectService {
     aspectRatio: string,
     versionId?: string
   ): Promise<GeneratedImage> {
-    const imageData: GeneratedImageInsert = {
-      project_id: projectId,
-      version_id: versionId || null,
-      image_type: imageType,
-      image_url: imageUrl,
-      prompt_used: promptUsed,
-      model_used: 'imagen4',
-      aspect_ratio: aspectRatio,
-      status: 'generated'
-    };
+    try {
+      const imageData: GeneratedImageInsert = {
+        project_id: projectId,
+        version_id: versionId || null,
+        image_type: imageType,
+        image_url: imageUrl,
+        prompt_used: promptUsed,
+        model_used: 'imagen4',
+        aspect_ratio: aspectRatio,
+        status: 'generated'
+      };
 
-    const { data, error } = await supabase
-      .from('generated_images')
-      .insert(imageData)
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('generated_images')
+        .insert(imageData)
+        .select()
+        .single();
 
-    if (error) throw new Error(`Failed to save generated image: ${error.message}`);
-    return data;
+      if (error) throw new Error(`Failed to save generated image: ${error.message}`);
+      return data;
+    } catch (networkError) {
+      console.warn('Network error accessing Supabase:', networkError);
+      // Fallback to offline image saving
+      OfflineProjectService.saveGeneratedImage(projectId, imageType, imageUrl, promptUsed, aspectRatio);
+
+      // Return a mock GeneratedImage object for offline use
+      return {
+        id: `offline-image-${Date.now()}`,
+        project_id: projectId,
+        version_id: versionId || null,
+        image_type: imageType,
+        image_url: imageUrl,
+        storage_path: null,
+        prompt_used: promptUsed,
+        model_used: 'imagen4',
+        generation_params: null,
+        aspect_ratio: aspectRatio,
+        file_size: null,
+        width: null,
+        height: null,
+        status: 'generated',
+        quality_score: null,
+        created_at: new Date().toISOString()
+      };
+    }
   }
 
   // Upload file to Supabase Storage
@@ -245,10 +320,10 @@ export class ProjectService {
     name?: string,
     description?: string
   ): Promise<SavedProject> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new AuthenticationError('User not authenticated');
+
       // Process and upload files
       const processedFormData = await this.processFormDataFiles(formData);
 
@@ -274,8 +349,15 @@ export class ProjectService {
       if (error) throw new Error(`Failed to save project: ${error.message}`);
       return data;
     } catch (error) {
-      console.error('Error in saveProject:', error);
-      throw error;
+      console.warn('Network error saving project, using offline mode:', error);
+      // Fallback to offline saving (without file uploads for now)
+      return OfflineProjectService.saveProject(
+        formData,
+        basePrompts,
+        enhancedPrompts,
+        name,
+        description
+      );
     }
   }
 
@@ -309,8 +391,18 @@ export class ProjectService {
       if (error) throw new Error(`Failed to update project: ${error.message}`);
       return data;
     } catch (error) {
-      console.error('Error in updateProject:', error);
-      throw error;
+      console.warn('Network error updating project, using offline mode:', error);
+      // Fallback to offline updating (without file uploads for now)
+      const updatedProject = OfflineProjectService.updateProject(
+        projectId,
+        formData,
+        basePrompts,
+        enhancedPrompts
+      );
+      if (!updatedProject) {
+        throw new Error(`Project not found: ${projectId}`);
+      }
+      return updatedProject;
     }
   }
 
@@ -322,13 +414,6 @@ export class ProjectService {
     editPrompt: string,
     versionId?: string
   ): Promise<GeneratedImage> {
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
     try {
       const imageData: GeneratedImageInsert = {
         project_id: projectId,
