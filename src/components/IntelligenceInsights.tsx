@@ -15,7 +15,6 @@ interface IntelligenceInsightsProps {
 const IntelligenceInsights: React.FC<IntelligenceInsightsProps> = ({ formData, className }) => {
   const [feedbackAnalytics, setFeedbackAnalytics] = useState<any>(null);
   const [abTestAnalytics, setAbTestAnalytics] = useState<any>(null);
-  const [optimizationData, setOptimizationData] = useState<any>(null);
   const [evolutionMetrics, setEvolutionMetrics] = useState<any>(null);
   const [assetInsights, setAssetInsights] = useState<any>(null);
   const [clientInsights, setClientInsights] = useState<any>(null);

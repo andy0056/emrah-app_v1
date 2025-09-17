@@ -75,7 +75,7 @@ const IntelligentAlerts: React.FC<IntelligentAlertsProps> = ({ className = '' })
     }
   };
 
-  const getAlertBg = (type: string, priority: number) => {
+  const getAlertBg = (type: string) => {
     const baseClasses = 'border-l-4 ';
     switch (type) {
       case 'critical':
@@ -177,7 +177,7 @@ const IntelligentAlerts: React.FC<IntelligentAlertsProps> = ({ className = '' })
             {filteredAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className={`rounded-lg p-4 ${getAlertBg(alert.type, alert.priority)}`}
+                className={`rounded-lg p-4 ${getAlertBg(alert.type)}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1">

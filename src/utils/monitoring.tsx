@@ -192,7 +192,7 @@ export class MonitoringService {
           },
           body: JSON.stringify({ errors })
         });
-      } catch (error) {
+      } catch (_error) {
         // If sending fails, add errors back to queue
         this.errorQueue.unshift(...errors.slice(-5)); // Keep only last 5
       }
@@ -213,7 +213,7 @@ export class MonitoringService {
           },
           body: JSON.stringify(metric)
         });
-      } catch (error) {
+      } catch (_error) {
         // Silently fail for metrics
       }
     }
@@ -277,7 +277,7 @@ export function withErrorBoundary<P extends object>(
       this.state = { hasError: false };
     }
 
-    static getDerivedStateFromError(error: Error) {
+    static getDerivedStateFromError(_error: Error) {
       return { hasError: true };
     }
 

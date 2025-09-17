@@ -68,7 +68,6 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [enableEvolution, setEnableEvolution] = useState(true);
   const [enableABTesting, setEnableABTesting] = useState(true);
   const [modelRecommendation, setModelRecommendation] = useState<any>(null);
-  const [intelligenceInsights, setIntelligenceInsights] = useState<any>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
