@@ -328,58 +328,85 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     }
   };
 
-  // EXPERIMENTAL: Refined brand integration generation
+  // EXPERIMENTAL: Grounded Manufacturing-First Generation
   const generateExperimentalImages = async () => {
     if (!isFormValid || !formData) {
       setExperimentalError('Please fill in all required fields');
       return;
     }
 
-    // Validate mandatory brand assets
-    if (!formData.brandLogo || !formData.productImage) {
-      setExperimentalError('Brand logo and product image are required for AI generation');
-      return;
-    }
-
     setIsExperimentalGenerating(true);
     setExperimentalError(null);
     setExperimentalImages({});
-    
+
     try {
-      // Run validation test cases before generation if using validated mode
-      if (creativeMode === 'validated') {
-        const testResults = ValidatedPromptGenerator.validateAgainstTestCases(formData);
-        if (!testResults.isValid) {
-          console.warn('⚠️ Validation warnings detected:', testResults.warnings);
-          console.info('💡 Recommendations:', testResults.recommendations);
-          setExperimentalProgress(`⚠️ Validation warnings: ${testResults.warnings.join(', ')}`);
-          // Continue with generation but show warnings
-        }
-      }
+      setExperimentalProgress('🏗️ Analyzing requirements and selecting optimal template...');
 
-      // Generate refined prompts using the new system
-      // Choose prompt generator based on creative mode
-      const refinedPrompts = 
-        creativeMode === 'advanced' ? AdvancedPromptGenerator.generateAllPrompts(formData)
-        : creativeMode === 'optimized' ? OptimizedPromptGenerator.generateAllPrompts(formData)
-        : creativeMode === 'validated' ? ValidatedPromptGenerator.generateConstrainedPrompts(formData)
-        : RefinedPromptGenerator.generateAllPrompts(formData);
-
-      const modelName = selectedModel === 'seedream-v4' ? 'SeedReam v4' : 'Nano Banana';
-      console.log(`🧪 EXPERIMENTAL: Generating with ${modelName} and ${creativeMode} prompts`);
-
-      // Log validation input for debugging when using validated mode
-      if (creativeMode === 'validated' && 'validationInput' in refinedPrompts) {
-        console.log('📋 Validation Input:', refinedPrompts.validationInput);
-      }
-      
-      // Collect brand asset URLs (Logo and Product are mandatory, Key Visual is optional)
+      // Collect brand asset URLs if available
       const brandAssetUrls: string[] = [];
-      brandAssetUrls.push(formData.brandLogo); // Mandatory
-      brandAssetUrls.push(formData.productImage); // Mandatory
-      if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
+      if (formData.brandLogo) brandAssetUrls.push(formData.brandLogo);
+      if (formData.productImage) brandAssetUrls.push(formData.productImage);
+      if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual);
 
-      setExperimentalProgress(`🧪 Generating experimental front view with ${modelName}...`);
+      // Import the new grounded generation service
+      const { GroundedGenerationService } = await import('../services/groundedGenerationService');
+
+      // Configure generation options based on creative mode
+      const options = {
+        model: selectedModel === 'seedream-v4' ? 'seedream-v4' as const : 'nano-banana' as const,
+        preserveStructure: creativeMode === 'validated' || creativeMode === 'refined',
+        includeBrandAssets: brandAssetUrls.length > 0,
+        showJoinery: true,
+        perspective: '3quarter' as const,
+        enableDFMValidation: true
+      };
+
+      console.log(`🧪 GROUNDED GENERATION: ${options.model} with ${creativeMode} mode`);
+      setExperimentalProgress(`🎯 Using ${options.model} with manufacturing-first approach...`);
+
+      // Generate using grounded pipeline
+      const result = await GroundedGenerationService.generateGroundedDisplay(
+        formData,
+        brandAssetUrls,
+        options
+      );
+
+      console.log('✅ Grounded Generation Result:', {
+        templateUsed: result.template.name,
+        manufacturabilityScore: result.manufacturability.score,
+        processingTime: result.metadata.processingTime
+      });
+
+      setExperimentalProgress(`✅ Generated with template: ${result.template.name} (${result.manufacturability.score}% manufacturable)`);
+
+      // Display results
+      if (result.images.length > 0) {
+        setExperimentalImages({ frontView: result.images[0].url });
+
+        if (currentProjectId) {
+          await saveImageToSupabase(
+            result.images[0].url,
+            'front_view',
+            `Grounded: ${result.template.name}`,
+            '9:16'
+          );
+        }
+
+        // Show manufacturability insights
+        if (result.manufacturability.issues.length > 0) {
+          const warnings = result.manufacturability.issues
+            .filter(issue => issue.severity === 'warning')
+            .map(issue => issue.message);
+
+          if (warnings.length > 0) {
+            setExperimentalProgress(`⚠️ Manufacturing notes: ${warnings.slice(0, 2).join(', ')}`);
+          }
+        }
+      } else {
+        setExperimentalError('No images generated. Please check your inputs and try again.');
+      }
+
+      setExperimentalProgress('✅ Grounded generation complete!');
       
       // Choose generation method based on selected model
       const frontResult = selectedModel === 'seedream-v4'
