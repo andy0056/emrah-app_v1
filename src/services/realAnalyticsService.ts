@@ -181,7 +181,18 @@ export class RealAnalyticsService {
   // Helper methods
   private static getClientSessions(): any {
     const stored = localStorage.getItem(this.SESSION_KEY);
-    return stored ? JSON.parse(stored) : {};
+    if (!stored) return {};
+
+    const sessions = JSON.parse(stored);
+
+    // Convert uniqueClients arrays back to Sets
+    Object.keys(sessions).forEach(date => {
+      if (sessions[date] && sessions[date].uniqueClients) {
+        sessions[date].uniqueClients = new Set(sessions[date].uniqueClients);
+      }
+    });
+
+    return sessions;
   }
 
   private static getGenerationTimings(): any[] {

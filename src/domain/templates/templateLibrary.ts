@@ -293,6 +293,280 @@ export const TEMPLATE_LIBRARY: DisplayTemplate[] = [
       stability_ratio: 2.4, // 1200/500
       assembly_complexity: 'simple'
     }
+  },
+
+  // Island Display Templates
+  {
+    id: 'island_rotating_3tier',
+    name: 'Rotating Island Display 3-Tier',
+    archetype_id: 'island',
+    overall_dimensions: { width_mm: 400, height_mm: 1600, depth_mm: 300 },
+    material: {
+      type: 'metal',
+      thickness_mm: 2,
+      finish: 'powder_coated',
+      color: 'black'
+    },
+    modules: [
+      {
+        id: 'header',
+        type: 'header',
+        dimensions: { width_mm: 400, height_mm: 200 },
+        material: { type: 'metal', thickness_mm: 2 },
+        printZone: { x_mm: 25, y_mm: 25, width_mm: 350, height_mm: 150 }
+      },
+      {
+        id: 'central_column',
+        type: 'side_panel',
+        dimensions: { width_mm: 50, height_mm: 1400 },
+        material: { type: 'metal', thickness_mm: 2 }
+      },
+      {
+        id: 'shelf_top',
+        type: 'shelf',
+        dimensions: { width_mm: 380, height_mm: 300, depth_mm: 2 },
+        material: { type: 'metal', thickness_mm: 2 }
+      },
+      {
+        id: 'shelf_middle',
+        type: 'shelf',
+        dimensions: { width_mm: 380, height_mm: 300, depth_mm: 2 },
+        material: { type: 'metal', thickness_mm: 2 }
+      },
+      {
+        id: 'shelf_bottom',
+        type: 'shelf',
+        dimensions: { width_mm: 380, height_mm: 300, depth_mm: 2 },
+        material: { type: 'metal', thickness_mm: 2 }
+      },
+      {
+        id: 'base',
+        type: 'base_plate',
+        dimensions: { width_mm: 400, height_mm: 300, depth_mm: 10 },
+        material: { type: 'metal', thickness_mm: 2 }
+      }
+    ],
+    joinery: {
+      type: 'screws',
+      hardware_required: ['M6x25 bolts', 'rotation bearing', 'base weights']
+    },
+    packing: {
+      flat_pack_dimensions: { width_mm: 420, height_mm: 320, depth_mm: 150 },
+      piece_count: 8,
+      estimated_assembly_minutes: 25,
+      shipping_weight_kg: 12.5
+    },
+    product_capacity: {
+      shelf_count: 3,
+      products_per_shelf: 8,
+      max_product_dimensions: { width_mm: 100, height_mm: 250, depth_mm: 80 }
+    },
+    constraints: {
+      max_shelf_load_kg: 15,
+      stability_ratio: 1.33, // 400/300 - better stability for rotating stand
+      assembly_complexity: 'moderate'
+    }
+  },
+
+  {
+    id: 'island_compact_4tier',
+    name: 'Compact Island Display 4-Tier',
+    archetype_id: 'island',
+    overall_dimensions: { width_mm: 350, height_mm: 1400, depth_mm: 250 },
+    material: {
+      type: 'MDF',
+      thickness_mm: 18,
+      finish: 'laminate',
+      color: 'white'
+    },
+    modules: [
+      {
+        id: 'header',
+        type: 'header',
+        dimensions: { width_mm: 350, height_mm: 150 },
+        material: { type: 'MDF', thickness_mm: 18 },
+        printZone: { x_mm: 25, y_mm: 25, width_mm: 300, height_mm: 100 }
+      },
+      {
+        id: 'side_a',
+        type: 'side_panel',
+        dimensions: { width_mm: 250, height_mm: 1250 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      },
+      {
+        id: 'side_b',
+        type: 'side_panel',
+        dimensions: { width_mm: 250, height_mm: 1250 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      },
+      {
+        id: 'shelf_1',
+        type: 'shelf',
+        dimensions: { width_mm: 330, height_mm: 240, depth_mm: 18 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      },
+      {
+        id: 'shelf_2',
+        type: 'shelf',
+        dimensions: { width_mm: 330, height_mm: 240, depth_mm: 18 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      },
+      {
+        id: 'shelf_3',
+        type: 'shelf',
+        dimensions: { width_mm: 330, height_mm: 240, depth_mm: 18 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      },
+      {
+        id: 'shelf_4',
+        type: 'shelf',
+        dimensions: { width_mm: 330, height_mm: 240, depth_mm: 18 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      },
+      {
+        id: 'base',
+        type: 'base_plate',
+        dimensions: { width_mm: 350, height_mm: 250, depth_mm: 18 },
+        material: { type: 'MDF', thickness_mm: 18 }
+      }
+    ],
+    joinery: {
+      type: 'screws',
+      hardware_required: ['wood screws', 'dowels', 'cam bolts']
+    },
+    packing: {
+      flat_pack_dimensions: { width_mm: 370, height_mm: 270, depth_mm: 120 },
+      piece_count: 9,
+      estimated_assembly_minutes: 20,
+      shipping_weight_kg: 8.2
+    },
+    product_capacity: {
+      shelf_count: 4,
+      products_per_shelf: 6,
+      max_product_dimensions: { width_mm: 80, height_mm: 200, depth_mm: 60 }
+    },
+    constraints: {
+      max_shelf_load_kg: 12,
+      stability_ratio: 1.4, // 350/250
+      assembly_complexity: 'moderate'
+    }
+  },
+
+  // Hanger Display Templates
+  {
+    id: 'hanger_wall_mount_2tier',
+    name: 'Wall Mount 2-Tier Display',
+    archetype_id: 'hanger',
+    overall_dimensions: { width_mm: 400, height_mm: 600, depth_mm: 300 },
+    material: {
+      type: 'EB_flute_cardboard',
+      thickness_mm: 3,
+      finish: 'matte',
+      color: 'white'
+    },
+    modules: [
+      {
+        id: 'back_panel',
+        type: 'back_panel',
+        dimensions: { width_mm: 400, height_mm: 600 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 3 },
+        printZone: { x_mm: 25, y_mm: 25, width_mm: 350, height_mm: 150 }
+      },
+      {
+        id: 'shelf_1',
+        type: 'shelf',
+        dimensions: { width_mm: 390, height_mm: 300, depth_mm: 3 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 3 }
+      },
+      {
+        id: 'shelf_2',
+        type: 'shelf',
+        dimensions: { width_mm: 390, height_mm: 300, depth_mm: 3 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 3 }
+      }
+    ],
+    joinery: {
+      type: 'slot_tab',
+      slot_width_mm: 3.2,
+      tab_count: 8
+    },
+    packing: {
+      flat_pack_dimensions: { width_mm: 450, height_mm: 350, depth_mm: 15 },
+      piece_count: 3,
+      estimated_assembly_minutes: 8,
+      shipping_weight_kg: 1.2
+    },
+    product_capacity: {
+      shelf_count: 2,
+      products_per_shelf: 6,
+      max_product_dimensions: { width_mm: 65, height_mm: 120, depth_mm: 50 }
+    },
+    constraints: {
+      max_shelf_load_kg: 3,
+      stability_ratio: 1.5, // 600/400
+      assembly_complexity: 'simple'
+    }
+  },
+
+  {
+    id: 'hanger_wall_mount_large',
+    name: 'Large Wall Mount Display',
+    archetype_id: 'hanger',
+    overall_dimensions: { width_mm: 600, height_mm: 1600, depth_mm: 400 },
+    material: {
+      type: 'EB_flute_cardboard',
+      thickness_mm: 5,
+      finish: 'matte',
+      color: 'white'
+    },
+    modules: [
+      {
+        id: 'back_panel',
+        type: 'back_panel',
+        dimensions: { width_mm: 600, height_mm: 1600 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 5 },
+        printZone: { x_mm: 50, y_mm: 50, width_mm: 500, height_mm: 300 }
+      },
+      {
+        id: 'shelf_1',
+        type: 'shelf',
+        dimensions: { width_mm: 590, height_mm: 400, depth_mm: 5 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 5 }
+      },
+      {
+        id: 'shelf_2',
+        type: 'shelf',
+        dimensions: { width_mm: 590, height_mm: 400, depth_mm: 5 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 5 }
+      },
+      {
+        id: 'shelf_3',
+        type: 'shelf',
+        dimensions: { width_mm: 590, height_mm: 400, depth_mm: 5 },
+        material: { type: 'EB_flute_cardboard', thickness_mm: 5 }
+      }
+    ],
+    joinery: {
+      type: 'slot_tab',
+      slot_width_mm: 5.2,
+      tab_count: 12
+    },
+    packing: {
+      flat_pack_dimensions: { width_mm: 650, height_mm: 450, depth_mm: 25 },
+      piece_count: 4,
+      estimated_assembly_minutes: 12,
+      shipping_weight_kg: 2.8
+    },
+    product_capacity: {
+      shelf_count: 3,
+      products_per_shelf: 8,
+      max_product_dimensions: { width_mm: 75, height_mm: 180, depth_mm: 60 }
+    },
+    constraints: {
+      max_shelf_load_kg: 5,
+      stability_ratio: 2.67, // 1600/600
+      assembly_complexity: 'simple'
+    }
   }
 ];
 

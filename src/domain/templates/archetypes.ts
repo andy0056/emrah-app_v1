@@ -87,13 +87,13 @@ export const BUILDABLE_ARCHETYPES: Archetype[] = [
   {
     id: 'hanger',
     name: 'Hanger Display',
-    description: 'Hanging display for overhead or wire rack mounting',
+    description: 'Wall-mounted display ranging from small hangers to large wall units',
     category: 'wall',
-    maxDimensions: { width_mm: 500, height_mm: 300, depth_mm: 200 },
+    maxDimensions: { width_mm: 1000, height_mm: 2000, depth_mm: 400 },
     constraints: {
       minShelfSpan: 100,
-      maxShelfSpan: 400,
-      maxShelfLoad_kg: 2,
+      maxShelfSpan: 800,
+      maxShelfLoad_kg: 8,
       requiresBase: false,
       supportsGraphics: true
     }

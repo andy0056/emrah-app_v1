@@ -4,6 +4,7 @@ import { PromptOptimizationService } from './promptOptimizationService';
 import { IntelligentPromptService } from './intelligentPromptService';
 import { BrandAssetAnalysisService } from './brandAssetAnalysisService';
 import { PromptEvolutionService } from './promptEvolutionService';
+import { FeedbackService } from './feedbackService';
 
 // Configure Fal.ai client
 fal.config({

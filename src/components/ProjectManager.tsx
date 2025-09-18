@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, FolderOpen, History, Download, Search, Plus, Copy, Trash2, Eye, Edit3, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Save, FolderOpen, History, Download, Search, Copy, Trash2, Eye, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { ProjectService, SavedProject, FormData } from '../services/projectService';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -41,27 +41,6 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   // Get auth functions at component level
   const { signInWithGoogle } = useAuth();
 
-  // Check authentication status
-  useEffect(() => {
-    checkAuthStatus();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session?.user);
-      if (session?.user) {
-        loadProjects();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [checkAuthStatus, loadProjects]);
-
-  const checkAuthStatus = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setIsAuthenticated(!!session?.user);
-    if (session?.user) {
-      loadProjects();
-    }
-  }, [loadProjects]);
-
   const loadProjects = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -75,6 +54,27 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
       setIsLoading(false);
     }
   }, []);
+
+  const checkAuthStatus = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setIsAuthenticated(!!session?.user);
+    if (session?.user) {
+      loadProjects();
+    }
+  }, [loadProjects]);
+
+  // Check authentication status
+  useEffect(() => {
+    checkAuthStatus();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session?.user);
+      if (session?.user) {
+        loadProjects();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [checkAuthStatus, loadProjects]);
 
   const saveProject = async (isNewVersion = false) => {
     if (!isAuthenticated) {

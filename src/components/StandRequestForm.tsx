@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Loader2, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Sparkles, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { PromptGenerator } from '../utils/promptGenerator';
 import { SecurityUtils } from '../utils/security';
 import { PerformanceUtils } from '../utils/performance';
+import { DesignModeSelector, DesignMode } from './DesignModeSelector';
+import { ManufacturingReportModal } from './ManufacturingReport';
+import { HybridResultsModal } from './HybridResultsModal';
+import { ProductionDesignService, ManufacturingReport as IManufacturingReport } from '../services/productionDesignService';
+import { HybridDesignService, HybridDesignResult } from '../services/hybridDesignService';
+import { UserPreferencesService } from '../services/userPreferencesService';
 
 import LazyImageGeneration from './lazy/LazyImageGeneration';
 import LazyProjectManager from './lazy/LazyProjectManager';
@@ -14,9 +20,8 @@ import { ProjectService } from '../services/projectService';
 import type { FormData as FormDataType, StandType, Material } from '../types';
 import { Button, Card, Input, LoadingSpinner, showToast } from './ui';
 
-interface FormData extends FormDataType {
-  // FormData is now properly typed via types/index.ts
-}
+// FormData is now properly typed via types/index.ts
+type FormData = FormDataType;
 
 // Remove the old interface definition and use the one from types
 /*interface FormData {
@@ -98,6 +103,15 @@ const StandRequestForm: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Dual-mode system state
+  const [designMode, setDesignMode] = useState<DesignMode>('production');
+  const [manufacturingReport, setManufacturingReport] = useState<IManufacturingReport | null>(null);
+  const [showManufacturingReport, setShowManufacturingReport] = useState(false);
+  const [hybridResults, setHybridResults] = useState<HybridDesignResult | null>(null);
+  const [showHybridResults, setShowHybridResults] = useState(false);
+  const [isGeneratingWithMode, setIsGeneratingWithMode] = useState(false);
+  const [modeGenerationResults, setModeGenerationResults] = useState<any>(null);
   const [prompts, setPrompts] = useState({
     frontView: '',
     storeView: '',
@@ -447,6 +461,126 @@ const StandRequestForm: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Handle dual-mode generation
+  const handleGenerateWithMode = async () => {
+    if (!isFormValid) {
+      showToast.error('Please fill out all required form fields before generating designs.');
+      return;
+    }
+
+    setIsGeneratingWithMode(true);
+    setModeGenerationResults(null);
+    setManufacturingReport(null);
+
+    try {
+      console.log(`🎯 Generating with ${designMode} mode`);
+
+      // Collect brand asset URLs
+      const brandAssetUrls: string[] = [];
+      if (formData.brandLogo && typeof formData.brandLogo === 'string') {
+        brandAssetUrls.push(formData.brandLogo);
+      }
+      if (formData.productImage && typeof formData.productImage === 'string') {
+        brandAssetUrls.push(formData.productImage);
+      }
+      if (formData.keyVisual && typeof formData.keyVisual === 'string') {
+        brandAssetUrls.push(formData.keyVisual);
+      }
+
+      let results;
+
+      switch (designMode) {
+        case 'production':
+          results = await ProductionDesignService.generateProductionReady(formData, {
+            referenceStyle: 'standard',
+            includeAssemblyGuide: true
+          });
+
+          if (results.manufacturingReport) {
+            setManufacturingReport(results.manufacturingReport);
+            setShowManufacturingReport(true);
+          }
+
+          showToast.success(
+            `Production-ready design generated! Manufacturability score: ${results.manufacturability.score}%`
+          );
+          break;
+
+        case 'concept':
+          // Use the existing creative system (ImageGeneration component)
+          showToast.info('Concept mode: Use the Creative Generation section below for artistic designs.');
+          return;
+
+        case 'hybrid':
+          results = await HybridDesignService.generateHybridDesign(formData, brandAssetUrls, {
+            creativityLevel: 'moderate',
+            budgetConstraint: 'medium'
+          });
+
+          // Store hybrid results and show modal
+          setHybridResults(results);
+          setShowHybridResults(true);
+
+          showToast.success(
+            `Hybrid design generated! Base score: ${results.baseStructure.manufacturabilityScore}%, Additional cost: $${results.creativeElements.additionalCost}`
+          );
+          break;
+
+        default:
+          throw new Error(`Unsupported design mode: ${designMode}`);
+      }
+
+      setModeGenerationResults(results);
+
+      // Update generated images for display
+      if (results && results.images && results.images.length > 0) {
+        setGeneratedImages({
+          frontView: results.images[0].url,
+          storeView: results.images[1]?.url,
+          threeQuarterView: results.images[2]?.url
+        });
+      }
+
+    } catch (error) {
+      console.error(`${designMode} generation failed:`, error);
+      showToast.error(`Failed to generate ${designMode} design: ${error}`);
+    } finally {
+      setIsGeneratingWithMode(false);
+    }
+  };
+
+  // Download manufacturing specifications
+  const downloadManufacturingSpecs = () => {
+    if (!manufacturingReport) return;
+
+    const data = {
+      report: manufacturingReport,
+      formData,
+      generatedAt: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `manufacturing_specs_${manufacturingReport.designId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Load user preferences on component mount
+  useEffect(() => {
+    if (user?.id) {
+      const preferences = UserPreferencesService.loadDesignModePreference(user.id);
+      if (preferences) {
+        setDesignMode(preferences.defaultMode);
+        console.log('📖 Loaded user design mode preference:', preferences.defaultMode);
+      }
+    }
+  }, [user?.id]);
 
   const renderFilePreview = (file: File | string | null, alt: string) => {
     if (!file) return null;
@@ -1127,6 +1261,149 @@ const StandRequestForm: React.FC = () => {
           </Button>
         </motion.div>
       </motion.form>
+
+      {/* Design Mode Selector & Generation */}
+      <DesignModeSelector
+        mode={designMode}
+        onModeChange={setDesignMode}
+        disabled={isGeneratingWithMode}
+      />
+
+      {/* Mode-specific Generation Button */}
+      <motion.div
+        className="flex justify-center pt-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Button
+          onClick={handleGenerateWithMode}
+          disabled={isGeneratingWithMode || !isFormValid}
+          loading={isGeneratingWithMode}
+          size="xl"
+          icon={designMode === 'production' ? <Package /> : designMode === 'hybrid' ? <Sparkles /> : <Palette />}
+          className={`px-8 py-4 shadow-lg ${
+            designMode === 'production' ? 'bg-blue-600 hover:bg-blue-700' :
+            designMode === 'hybrid' ? 'bg-green-600 hover:bg-green-700' :
+            'bg-purple-600 hover:bg-purple-700'
+          }`}
+        >
+          {isGeneratingWithMode ?
+            `Generating ${designMode.charAt(0).toUpperCase() + designMode.slice(1)} Design...` :
+            `Generate ${designMode.charAt(0).toUpperCase() + designMode.slice(1)} Design`
+          }
+        </Button>
+      </motion.div>
+
+      {/* Mode-specific Results Display */}
+      {modeGenerationResults && (
+        <motion.div
+          className="mt-8 bg-white rounded-xl shadow-lg p-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            {designMode === 'production' && <Package className="w-6 h-6 mr-2 text-blue-600" />}
+            {designMode === 'hybrid' && <Sparkles className="w-6 h-6 mr-2 text-green-600" />}
+            {designMode === 'concept' && <Palette className="w-6 h-6 mr-2 text-purple-600" />}
+            {designMode.charAt(0).toUpperCase() + designMode.slice(1)} Design Results
+          </h3>
+
+          {modeGenerationResults.images && modeGenerationResults.images.length > 0 && (
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              {modeGenerationResults.images.map((image: any, index: number) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <img
+                    src={image.url}
+                    alt={`Generated design ${index + 1}`}
+                    className="w-full h-48 object-contain rounded-lg mb-2"
+                  />
+                  <p className="text-sm text-gray-600 text-center">
+                    View {index + 1}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {designMode === 'production' && modeGenerationResults.manufacturability && (
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-blue-900 mb-2">Manufacturability Assessment</h4>
+              <div className="grid md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Score:</span> {modeGenerationResults.manufacturability.score}%
+                </div>
+                <div>
+                  <span className="font-medium">Issues:</span> {modeGenerationResults.manufacturability.issues.length}
+                </div>
+                <div>
+                  <span className="font-medium">Status:</span>
+                  <span className={`ml-1 ${modeGenerationResults.manufacturability.isManufacturable ? 'text-green-600' : 'text-red-600'}`}>
+                    {modeGenerationResults.manufacturability.isManufacturable ? 'Ready for Production' : 'Needs Review'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {designMode === 'hybrid' && modeGenerationResults.creativeElements && (
+            <div className="bg-green-50 rounded-lg p-4 mb-4">
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="font-semibold text-green-900">Creative Enhancements Applied</h4>
+                <Button
+                  onClick={() => setShowHybridResults(true)}
+                  variant="secondary"
+                  size="sm"
+                  icon={<Sparkles />}
+                >
+                  View Full Report
+                </Button>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Enhancements:</span> {modeGenerationResults.creativeElements.appliedEnhancements.length}
+                </div>
+                <div>
+                  <span className="font-medium">Additional Cost:</span> ${modeGenerationResults.creativeElements.additionalCost}
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="font-medium text-sm">Applied Features:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {modeGenerationResults.creativeElements.appliedEnhancements.slice(0, 5).map((enhancement: string, idx: number) => (
+                    <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                      {enhancement}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Manufacturing Report Modal */}
+      {manufacturingReport && (
+        <ManufacturingReportModal
+          report={manufacturingReport}
+          onClose={() => setShowManufacturingReport(false)}
+          onDownload={downloadManufacturingSpecs}
+          isOpen={showManufacturingReport}
+        />
+      )}
+
+      {/* Hybrid Results Modal */}
+      {hybridResults && (
+        <HybridResultsModal
+          result={hybridResults}
+          onClose={() => setShowHybridResults(false)}
+          isOpen={showHybridResults}
+          onDownload={() => {
+            // Handle hybrid results download if needed
+            showToast.info('Hybrid report download feature coming soon!');
+          }}
+        />
+      )}
 
       {/* Project Management */}
       <Suspense fallback={<LoadingSpinner size="lg" text="Loading project manager..." />}>

@@ -44,14 +44,21 @@ export class DFMValidator {
     const issues: ManufacturabilityIssue[] = [];
     const { width_mm, height_mm, depth_mm } = template.overall_dimensions;
 
-    // Stability check: height to base ratio
+    // Stability check: height to base ratio (relaxed for practical displays)
     const stabilityRatio = height_mm / Math.min(width_mm, depth_mm);
-    if (stabilityRatio > 3.0) {
+    if (stabilityRatio > 6.0) {
       issues.push({
         severity: 'critical',
         category: 'structure',
         message: `Stability ratio too high (${stabilityRatio.toFixed(1)}). Display may tip over.`,
         suggestion: 'Increase base dimensions or reduce height'
+      });
+    } else if (stabilityRatio > 4.0) {
+      issues.push({
+        severity: 'warning',
+        category: 'structure',
+        message: `Tall display (ratio ${stabilityRatio.toFixed(1)}) may need stabilization`,
+        suggestion: 'Consider wall mounting or weighted base'
       });
     } else if (stabilityRatio > 2.5) {
       issues.push({
@@ -402,14 +409,21 @@ export class DFMValidator {
       });
     }
 
-    // Stability check
+    // Stability check (relaxed for practical displays)
     const stabilityRatio = height_mm / Math.min(width_mm, depth_mm);
-    if (stabilityRatio > 3.0) {
+    if (stabilityRatio > 6.0) {
       issues.push({
         severity: 'critical',
         category: 'structure',
-        message: 'Dimensions create unstable design (too tall for base)',
+        message: 'Dimensions create extremely unstable design (too tall for base)',
         suggestion: 'Increase base dimensions or reduce height'
+      });
+    } else if (stabilityRatio > 4.0) {
+      issues.push({
+        severity: 'warning',
+        category: 'structure',
+        message: 'Tall design may need wall mounting or additional stabilization',
+        suggestion: 'Consider wall mounting brackets or weighted base'
       });
     }
 

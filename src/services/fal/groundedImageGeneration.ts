@@ -65,21 +65,27 @@ export class GroundedImageGeneration {
       // Convert SVG guide to base64 data URL for fal.ai
       const guideImageUrl = await this.convertSVGToDataURL(request.structureGuide.svg);
 
+      // Prepare image URLs array - structure guide is primary, reference images as secondary
+      const image_urls = [guideImageUrl];
+      if (request.referenceImages && request.referenceImages.length > 0) {
+        // Add reference images but limit total to 10 as per API constraints
+        image_urls.push(...request.referenceImages.slice(0, 9)); // 1 guide + max 9 reference
+      }
+
       const payload = {
         prompt: prompt,
-        image: guideImageUrl,
-        reference_images: request.referenceImages || [],
-        negative_prompt: this.getNegativePrompt(),
-        guidance_scale: 7.5,
-        num_inference_steps: 20,
-        strength: request.preserveStructure ? 0.3 : 0.7, // Lower strength = more structure preservation
+        image_urls: image_urls,
+        num_images: 1,
+        image_size: "2048x2048" as const,
+        enable_safety_checker: true,
         seed: Math.floor(Math.random() * 100000)
       };
 
       console.log('🎯 SeedReam v4 Edit Request:', {
         template: request.template.id,
         preserveStructure: request.preserveStructure,
-        strength: payload.strength
+        imageUrls: image_urls.length,
+        imageSize: payload.image_size
       });
 
       const result = await fal.subscribe("fal-ai/bytedance/seedream/v4/edit", {
@@ -107,8 +113,11 @@ export class GroundedImageGeneration {
     request: GroundedGenerationRequest
   ): Promise<GroundedGenerationResult> {
     try {
+      // Convert SVG guide to data URL for fal.ai
+      const guideImageUrl = await this.convertSVGToDataURL(request.structureGuide.svg);
+
       // Prepare multi-image input for brand asset fusion
-      const images = [request.structureGuide.svg];
+      const images = [guideImageUrl];
       if (request.brandAssetUrls) {
         images.push(...request.brandAssetUrls);
       }
@@ -255,6 +264,7 @@ export class GroundedImageGeneration {
     return promptSections.join("\n");
   }
 
+  // Negative prompts are now handled by the API's built-in safety checker
   private static getNegativePrompt(): string {
     return [
       "floating elements",
@@ -282,18 +292,18 @@ export class GroundedImageGeneration {
   static selectOptimalModel(
     request: Partial<GroundedGenerationRequest>
   ): 'seedream-v4' | 'nano-banana' | 'flux-kontext' {
+    // Structure preservation with SVG guides -> Nano Banana (SeedReam v4 fails with SVG data URLs)
+    if (request.preserveStructure) {
+      return 'nano-banana';
+    }
+
     // Multi-image fusion (brand assets + guide) -> Nano Banana
     if (request.brandAssetUrls?.length && request.brandAssetUrls.length > 1) {
       return 'nano-banana';
     }
 
-    // Structure preservation priority -> SeedReam v4
-    if (request.preserveStructure) {
-      return 'seedream-v4';
-    }
-
-    // Default to SeedReam v4 for best structure preservation
-    return 'seedream-v4';
+    // Default to Nano Banana for better compatibility with structure guides
+    return 'nano-banana';
   }
 
   // Validate generation result against DFM rules
