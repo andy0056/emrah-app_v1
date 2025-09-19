@@ -352,8 +352,9 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       const { GroundedGenerationService } = await import('../services/groundedGenerationService');
 
       // Configure generation options based on creative mode
+      // Force Nano Banana for grounded generation due to better SVG compatibility
       const options = {
-        model: selectedModel === 'seedream-v4' ? 'seedream-v4' as const : 'nano-banana' as const,
+        model: 'nano-banana' as const,
         preserveStructure: creativeMode === 'validated' || creativeMode === 'refined',
         includeBrandAssets: brandAssetUrls.length > 0,
         showJoinery: true,

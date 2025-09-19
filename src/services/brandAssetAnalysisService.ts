@@ -96,13 +96,10 @@ export class BrandAssetAnalysisService {
       // Fallback to default analysis
     }
 
-    console.log('🔍 Brand asset analysis complete:', {
-      logoComplexity: analysis.logoComplexity,
-      productType: analysis.productType,
-      overallComplexity: analysis.overallComplexity,
-      recommendedModel: analysis.recommendedModel,
-      confidence: analysis.confidence
-    });
+    // Reduced logging for performance
+    if (import.meta.env.DEV) {
+      console.log('🔍 Brand analysis:', analysis.recommendedModel, `(${(analysis.confidence * 100).toFixed(0)}%)`);
+    }
 
     return analysis;
   }
@@ -347,12 +344,10 @@ export class BrandAssetAnalysisService {
       reasoning.push('Moderate confidence - either model could work well');
     }
 
-    console.log('🎯 Model recommendation:', {
-      seedreamScore: seedreamScore.toFixed(2),
-      nanaBananaScore: nanaBananaScore.toFixed(2),
-      recommended: recommendedModel,
-      confidence: confidence.toFixed(2)
-    });
+    // Reduced logging for performance
+    if (import.meta.env.DEV) {
+      console.log('🎯 Model rec:', recommendedModel, confidence.toFixed(2));
+    }
 
     return {
       model: recommendedModel,
@@ -441,11 +436,9 @@ export class BrandAssetAnalysisService {
 
     localStorage.setItem('asset_feedback_records', JSON.stringify(existingRecords));
 
-    console.log('📊 Asset feedback recorded:', {
-      assetComplexity: assetAnalysis.overallComplexity,
-      modelUsed,
-      performance: feedback.rating
-    });
+    if (import.meta.env.DEV) {
+      console.log('📊 Feedback:', modelUsed, feedback.rating);
+    }
   }
 
   // Get insights for asset optimization

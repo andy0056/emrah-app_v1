@@ -62,32 +62,63 @@ export class RealAnalyticsService {
 
   // Track client sessions
   static recordClientSession(action: string, duration: number = 0): void {
-    const sessions = this.getClientSessions();
-    const today = new Date().toDateString();
+    try {
+      const sessions = this.getClientSessions();
+      const today = new Date().toDateString();
 
-    if (!sessions[today]) {
-      sessions[today] = {
-        uniqueClients: new Set<string>(),
-        actions: [],
-        durations: []
-      };
-    }
-
-    sessions[today].actions.push(action);
-    if (duration > 0) {
-      sessions[today].durations.push(duration);
-    }
-
-    // Simulate client ID (in real app, would come from auth)
-    sessions[today].uniqueClients.add('demo-user');
-
-    localStorage.setItem(this.SESSION_KEY, JSON.stringify({
-      ...sessions,
-      [today]: {
-        ...sessions[today],
-        uniqueClients: Array.from(sessions[today].uniqueClients)
+      if (!sessions[today]) {
+        sessions[today] = {
+          uniqueClients: new Set<string>(),
+          actions: [],
+          durations: []
+        };
       }
-    }));
+
+      // Ensure the session has the correct structure
+      if (!sessions[today].actions) {
+        sessions[today].actions = [];
+      }
+      if (!sessions[today].durations) {
+        sessions[today].durations = [];
+      }
+      if (!sessions[today].uniqueClients) {
+        sessions[today].uniqueClients = new Set<string>();
+      }
+
+      sessions[today].actions.push(action);
+      if (duration > 0) {
+        sessions[today].durations.push(duration);
+      }
+
+      // Simulate client ID (in real app, would come from auth)
+      sessions[today].uniqueClients.add('demo-user');
+
+      // Safely serialize the sessions object
+      const serializedSessions = { ...sessions };
+      Object.keys(serializedSessions).forEach(date => {
+        if (serializedSessions[date] && serializedSessions[date].uniqueClients) {
+          // Ensure uniqueClients is always converted to array for localStorage
+          const clients = serializedSessions[date].uniqueClients;
+          if (clients instanceof Set) {
+            serializedSessions[date].uniqueClients = Array.from(clients);
+          } else if (!Array.isArray(clients)) {
+            // Handle edge case where uniqueClients might be corrupted
+            serializedSessions[date].uniqueClients = ['demo-user'];
+          }
+        }
+      });
+
+      localStorage.setItem(this.SESSION_KEY, JSON.stringify(serializedSessions));
+    } catch (error) {
+      console.warn('⚠️ Failed to record client session:', error);
+      // Clear corrupted data and retry with fresh session
+      localStorage.removeItem(this.SESSION_KEY);
+      try {
+        this.recordClientSession(action, duration);
+      } catch (retryError) {
+        console.error('❌ Failed to record client session on retry:', retryError);
+      }
+    }
   }
 
   // Get client insights
@@ -180,24 +211,70 @@ export class RealAnalyticsService {
 
   // Helper methods
   private static getClientSessions(): any {
-    const stored = localStorage.getItem(this.SESSION_KEY);
-    if (!stored) return {};
+    try {
+      const stored = localStorage.getItem(this.SESSION_KEY);
+      if (!stored) return {};
 
-    const sessions = JSON.parse(stored);
+      const sessions = JSON.parse(stored);
 
-    // Convert uniqueClients arrays back to Sets
-    Object.keys(sessions).forEach(date => {
-      if (sessions[date] && sessions[date].uniqueClients) {
-        sessions[date].uniqueClients = new Set(sessions[date].uniqueClients);
-      }
-    });
+      // Convert uniqueClients arrays back to Sets with proper validation
+      Object.keys(sessions).forEach(date => {
+        if (sessions[date]) {
+          // Ensure the session has the correct structure
+          if (!sessions[date].actions) {
+            sessions[date].actions = [];
+          }
+          if (!sessions[date].durations) {
+            sessions[date].durations = [];
+          }
 
-    return sessions;
+          // Handle uniqueClients with robust validation
+          const clients = sessions[date].uniqueClients;
+          if (!clients) {
+            // No uniqueClients field, initialize as empty Set
+            sessions[date].uniqueClients = new Set();
+          } else if (clients instanceof Set) {
+            // Already a Set, keep as is (shouldn't happen in localStorage but just in case)
+            return;
+          } else if (Array.isArray(clients)) {
+            // It's an array, convert to Set
+            sessions[date].uniqueClients = new Set(clients);
+          } else if (typeof clients === 'object' && clients !== null) {
+            // Object-like (possibly serialized Set), try to extract values
+            try {
+              const values = Object.values(clients);
+              sessions[date].uniqueClients = new Set(values);
+            } catch (objError) {
+              console.warn(`Failed to convert object uniqueClients for date ${date}, initializing as empty Set`);
+              sessions[date].uniqueClients = new Set();
+            }
+          } else {
+            // Invalid format (string, number, etc.), initialize as empty Set
+            console.warn(`Invalid uniqueClients format for date ${date}, initializing as empty Set`);
+            sessions[date].uniqueClients = new Set();
+          }
+        }
+      });
+
+      return sessions;
+    } catch (error) {
+      console.warn('⚠️ Failed to parse client sessions from localStorage:', error);
+      // Clear corrupted data and return empty sessions
+      localStorage.removeItem(this.SESSION_KEY);
+      return {};
+    }
   }
 
   private static getGenerationTimings(): any[] {
-    const stored = localStorage.getItem(this.TIMING_KEY);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const stored = localStorage.getItem(this.TIMING_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.warn('⚠️ Failed to parse generation timings from localStorage:', error);
+      // Clear corrupted data and return empty array
+      localStorage.removeItem(this.TIMING_KEY);
+      return [];
+    }
   }
 
   private static getLast30Days(): string[] {

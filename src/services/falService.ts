@@ -5,6 +5,7 @@ import { IntelligentPromptService } from './intelligentPromptService';
 import { BrandAssetAnalysisService } from './brandAssetAnalysisService';
 import { PromptEvolutionService } from './promptEvolutionService';
 import { FeedbackService } from './feedbackService';
+import { PromptCompressionService } from './promptCompressionService';
 
 // Configure Fal.ai client
 fal.config({
@@ -137,21 +138,22 @@ export class FalService {
         brandDifficulty: assetAnalysis.brandIntegrationDifficulty
       });
 
+      // TEMPORARY: Force Nano Banana due to SeedReam v4 API issues
       return {
-        model: finalModel,
-        confidence,
-        reasoning,
+        model: 'nano-banana' as const,
+        confidence: Math.max(0.8, confidence),
+        reasoning: [...reasoning, 'Using Nano Banana for better API stability'],
         assetAnalysis
       };
 
     } catch (error) {
       console.warn('⚠️ Intelligent model selection failed, using fallback:', error);
 
-      // Fallback to feedback-based recommendation
+      // Fallback to Nano Banana (safer choice)
       return {
-        model: FeedbackService.getRecommendedModel(formData || {}),
+        model: 'nano-banana' as const,
         confidence: 0.6,
-        reasoning: ['Using fallback recommendation due to analysis error']
+        reasoning: ['Using Nano Banana fallback due to analysis error and better API stability']
       };
     }
   }
@@ -522,7 +524,41 @@ CLIENT-PRIORITY BRAND INTEGRATION:
         console.log('🧬 Evolved patterns applied');
       }
 
-      console.log('📝 SeedReam Prompt:', enhancedPrompt);
+      // Apply prompt compression to reduce token usage while maintaining quality
+      let finalPrompt = enhancedPrompt;
+      const enableCompression = request.enableCompression ?? true; // Default enabled
+
+      if (enableCompression) {
+        try {
+          console.log('🔄 Compressing prompt...', { originalLength: enhancedPrompt.length });
+          const compressionResult = await PromptCompressionService.compressPrompt(enhancedPrompt, {
+            targetReduction: 0.7, // 70% reduction
+            preserveKeywords: [
+              request.formData?.brand || '',
+              request.formData?.product || '',
+              request.formData?.materials?.[0] || '',
+              request.formData?.standType || ''
+            ].filter(Boolean),
+            style: 'structured'
+          });
+
+          finalPrompt = compressionResult.compressedPrompt;
+          console.log('✅ Prompt compressed:', {
+            reduction: `${(compressionResult.compressionRatio * 100).toFixed(1)}%`,
+            originalTokens: compressionResult.originalPrompt.length,
+            compressedTokens: compressionResult.compressedPrompt.length,
+            tokensReduced: compressionResult.tokensReduced
+          });
+        } catch (error) {
+          console.warn('⚠️ Prompt compression failed, using original:', error);
+          finalPrompt = enhancedPrompt;
+        }
+      } else {
+        console.log('⏭️ Prompt compression disabled, using original prompt');
+        finalPrompt = enhancedPrompt;
+      }
+
+      console.log('📝 SeedReam Final Prompt:', finalPrompt);
       console.log('🖼️ Brand Assets:', request.brand_asset_urls);
       console.log('📏 Image Size:', request.image_size || 1024);
 
@@ -581,7 +617,7 @@ CLIENT-PRIORITY BRAND INTEGRATION:
       };
       
       const apiInput = {
-        prompt: enhancedPrompt,
+        prompt: finalPrompt,
         image_urls: accessibleImageUrls,
         image_size: aspectRatioSizes[request.aspect_ratio] || aspectRatioSizes["1:1"],
         num_images: request.num_images || 1,
@@ -728,14 +764,48 @@ CLIENT-PRIORITY BRAND INTEGRATION:
         console.log('🧬 Evolved patterns applied');
       }
 
-      console.log('📝 Integrated Prompt:', integratedPrompt);
+      // Apply prompt compression to reduce token usage while maintaining quality
+      let finalIntegratedPrompt = integratedPrompt;
+      const enableCompression = request.enableCompression ?? true; // Default enabled
+
+      if (enableCompression) {
+        try {
+          console.log('🔄 Compressing integrated prompt...', { originalLength: integratedPrompt.length });
+          const compressionResult = await PromptCompressionService.compressPrompt(integratedPrompt, {
+            targetReduction: 0.7, // 70% reduction
+            preserveKeywords: [
+              request.formData?.brand || '',
+              request.formData?.product || '',
+              request.formData?.materials?.[0] || '',
+              request.formData?.standType || ''
+            ].filter(Boolean),
+            style: 'structured'
+          });
+
+          finalIntegratedPrompt = compressionResult.compressedPrompt;
+          console.log('✅ Integrated prompt compressed:', {
+            reduction: `${(compressionResult.compressionRatio * 100).toFixed(1)}%`,
+            originalTokens: compressionResult.originalPrompt.length,
+            compressedTokens: compressionResult.compressedPrompt.length,
+            tokensReduced: compressionResult.tokensReduced
+          });
+        } catch (error) {
+          console.warn('⚠️ Integrated prompt compression failed, using original:', error);
+          finalIntegratedPrompt = integratedPrompt;
+        }
+      } else {
+        console.log('⏭️ Integrated prompt compression disabled, using original prompt');
+        finalIntegratedPrompt = integratedPrompt;
+      }
+
+      console.log('📝 Final Integrated Prompt:', finalIntegratedPrompt);
       console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
       console.log('🎯 Aspect Ratio:', request.aspect_ratio);
 
       // Use Nano Banana Edit with brand assets for initial generation
       const result = await this.applyBrandAssetsWithNanaBanana({
         image_urls: request.brand_asset_urls,
-        prompt: integratedPrompt,
+        prompt: finalIntegratedPrompt,
         aspect_ratio: request.aspect_ratio,
         num_images: request.num_images || 1,
         output_format: request.output_format || "jpeg"
@@ -822,63 +892,66 @@ VISUAL INTEGRATION FRAMEWORK:
         throw new Error('Prompt is required');
       }
       
-      // Re-upload all images to Fal.ai storage to ensure accessibility
+      // Process images, only re-uploading non-fal.ai images
       const accessibleImageUrls: string[] = [];
-      
+
       for (let i = 0; i < request.image_urls.length; i++) {
         const originalUrl = request.image_urls[i];
         console.log(`📥 Processing image ${i + 1}/${request.image_urls.length}: ${originalUrl}`);
-        
+
         try {
-          // Download the image
+          // Check if image is already on fal.ai - if so, use it directly
+          if (originalUrl.includes('fal.media') || originalUrl.includes('fal.ai')) {
+            console.log(`✅ Image ${i + 1} already on fal.ai, using directly: ${originalUrl}`);
+            accessibleImageUrls.push(originalUrl);
+            continue;
+          }
+
+          // For external images, download and re-upload to fal.ai
           const response = await fetch(originalUrl, {
             headers: {
               'User-Agent': 'FalAI-Client/1.0'
             }
           });
-          
+
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ Failed to download image ${i + 1}: HTTP ${response.status} - ${response.statusText}`);
             console.error(`Response body:`, errorText);
-            
+
             // Check for specific Supabase bucket not found error
             if (errorText.includes('Bucket not found')) {
               console.warn(`⚠️ Skipping image ${i + 1}: Supabase 'uploads' bucket not found. Please create the bucket in your Supabase project.`);
               continue; // Skip this image but continue with others
             }
-            
+
             console.warn(`⚠️ Skipping image ${i + 1} due to download error: ${response.status}`);
             continue; // Skip this image but continue with others
           }
-          
-          if (!response.ok) {
-            throw new Error(`Failed to download image: ${response.status}`);
-          }
-          
+
           const blob = await response.blob();
-          
+
           // Verify we got actual image data
           if (!blob.type.startsWith('image/')) {
             console.error(`❌ Image ${i + 1} returned invalid content type: ${blob.type}`);
             console.warn(`⚠️ Skipping image ${i + 1}: Invalid content type: ${blob.type}`);
             continue; // Skip this image but continue with others
           }
-          
+
           console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
-          
+
           // Create a File object for Fal.ai upload
           const file = new File([blob], `image-${i + 1}.${blob.type.split('/')[1] || 'jpg'}`, {
             type: blob.type
           });
-          
-          // Upload to Fal.ai storage  
+
+          // Upload to Fal.ai storage
           const falUrl = await fal.storage.upload(file);
           console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai: ${falUrl}`);
-          
+
           accessibleImageUrls.push(falUrl);
         } catch (error) {
-          console.error(`❌ Failed to re-upload image ${i + 1}:`, error);
+          console.error(`❌ Failed to process image ${i + 1}:`, error);
           // Skip this image but continue with others
           console.warn(`⚠️ Skipping image ${i + 1} due to processing error`);
           continue;

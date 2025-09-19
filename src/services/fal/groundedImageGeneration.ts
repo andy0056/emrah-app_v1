@@ -33,23 +33,29 @@ export class GroundedImageGeneration {
   ): Promise<GroundedGenerationResult> {
     const startTime = Date.now();
 
+    // Force optimal model selection to avoid SeedReam v4 API issues
+    const optimalModel = this.selectOptimalModel(request);
+    const safeRequest = { ...request, model: optimalModel };
+
+    console.log('🔧 Model Override:', { requested: request.model, using: optimalModel });
+
     // Generate manufacturing-aware prompt
-    const structuredPrompt = this.generateStructuredPrompt(request);
+    const structuredPrompt = this.generateStructuredPrompt(safeRequest);
 
     let result: GroundedGenerationResult;
 
-    switch (request.model) {
+    switch (safeRequest.model) {
       case 'seedream-v4':
-        result = await this.generateWithSeedreamV4(structuredPrompt, request);
+        result = await this.generateWithSeedreamV4(structuredPrompt, safeRequest);
         break;
       case 'nano-banana':
-        result = await this.generateWithNanoBanana(structuredPrompt, request);
+        result = await this.generateWithNanoBanana(structuredPrompt, safeRequest);
         break;
       case 'flux-kontext':
-        result = await this.generateWithFluxKontext(structuredPrompt, request);
+        result = await this.generateWithFluxKontext(structuredPrompt, safeRequest);
         break;
       default:
-        throw new Error(`Unsupported model: ${request.model}`);
+        throw new Error(`Unsupported model: ${safeRequest.model}`);
     }
 
     result.processing_time_ms = Date.now() - startTime;
