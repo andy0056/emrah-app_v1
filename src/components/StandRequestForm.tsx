@@ -826,7 +826,7 @@ const StandRequestForm: React.FC = () => {
               </label>
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/jpg"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
                 disabled={!user}
                 onChange={(e) => handleFileUpload('brandLogo', e.target.files)}
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${

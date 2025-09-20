@@ -6,6 +6,7 @@ import { BrandAssetAnalysisService } from './brandAssetAnalysisService';
 import { PromptEvolutionService } from './promptEvolutionService';
 import { FeedbackService } from './feedbackService';
 import { PromptCompressionService } from './promptCompressionService';
+import { EmpatiDesignDNAService } from './empatiDesignDNAService';
 
 // Configure Fal.ai client
 fal.config({
@@ -558,7 +559,15 @@ CLIENT-PRIORITY BRAND INTEGRATION:
         finalPrompt = enhancedPrompt;
       }
 
-      console.log('📝 SeedReam Final Prompt:', finalPrompt);
+      // Apply Empati Design DNA alignment for brand consistency
+      const empatiAlignedPrompt = EmpatiDesignDNAService.generateEmpatiAlignedPrompt(
+        finalPrompt,
+        request.formData || {},
+        'production', // Default to production mode if not specified
+        'moderate'
+      );
+
+      console.log('📝 SeedReam Final Prompt (Empati-aligned):', empatiAlignedPrompt);
       console.log('🖼️ Brand Assets:', request.brand_asset_urls);
       console.log('📏 Image Size:', request.image_size || 1024);
 
@@ -617,7 +626,7 @@ CLIENT-PRIORITY BRAND INTEGRATION:
       };
       
       const apiInput = {
-        prompt: finalPrompt,
+        prompt: empatiAlignedPrompt,
         image_urls: accessibleImageUrls,
         image_size: aspectRatioSizes[request.aspect_ratio] || aspectRatioSizes["1:1"],
         num_images: request.num_images || 1,
@@ -798,14 +807,22 @@ CLIENT-PRIORITY BRAND INTEGRATION:
         finalIntegratedPrompt = integratedPrompt;
       }
 
-      console.log('📝 Final Integrated Prompt:', finalIntegratedPrompt);
+      // Apply Empati Design DNA alignment for brand consistency
+      const empatiAlignedIntegratedPrompt = EmpatiDesignDNAService.generateEmpatiAlignedPrompt(
+        finalIntegratedPrompt,
+        request.formData || {},
+        'hybrid', // Nano Banana is often used in hybrid approach
+        'moderate'
+      );
+
+      console.log('📝 Final Integrated Prompt (Empati-aligned):', empatiAlignedIntegratedPrompt);
       console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
       console.log('🎯 Aspect Ratio:', request.aspect_ratio);
 
       // Use Nano Banana Edit with brand assets for initial generation
       const result = await this.applyBrandAssetsWithNanaBanana({
         image_urls: request.brand_asset_urls,
-        prompt: finalIntegratedPrompt,
+        prompt: empatiAlignedIntegratedPrompt,
         aspect_ratio: request.aspect_ratio,
         num_images: request.num_images || 1,
         output_format: request.output_format || "jpeg"

@@ -124,8 +124,9 @@ export const DesignModeSelector: React.FC<DesignModeSelectorProps> = ({
 
       <div className="mt-4 p-4 bg-gray-50 rounded-lg">
         <p className="text-sm text-gray-600">
-          💡 <strong>Tip:</strong> Start with Production-Ready for immediate manufacturing needs,
-          or choose Concept Design for pitch decks and vision presentations. Hybrid mode combines the best of both.
+          💡 <strong>Empati Brand Alignment:</strong> All designs are automatically aligned with your
+          minimalist-modern aesthetic, professional blue accents (#4E5AC3), and clean geometric principles.
+          Choose your creativity level while maintaining brand consistency.
         </p>
       </div>
 
@@ -141,10 +142,10 @@ export const DesignModeSelector: React.FC<DesignModeSelectorProps> = ({
             Production Mode Active
           </h4>
           <ul className="text-sm text-blue-700 space-y-1">
-            <li>✓ Designs will be validated for manufacturability</li>
-            <li>✓ Using real-world reference standards</li>
-            <li>✓ Technical drawings will be generated</li>
-            <li>✓ Material costs will be estimated</li>
+            <li>✓ Designs validated for immediate manufacturability</li>
+            <li>✓ Empati's grid-based modular design principles</li>
+            <li>✓ Professional finishes with clean geometric lines</li>
+            <li>✓ Cost-optimized with standard fabrication methods</li>
           </ul>
         </motion.div>
       )}
@@ -160,10 +161,10 @@ export const DesignModeSelector: React.FC<DesignModeSelectorProps> = ({
             Concept Mode Active
           </h4>
           <ul className="text-sm text-purple-700 space-y-1">
-            <li>✨ Full creative freedom enabled</li>
-            <li>✨ Innovative materials and techniques</li>
-            <li>✨ Artistic interpretation encouraged</li>
-            <li>✨ Perfect for pitches and vision boards</li>
+            <li>✨ Creative exploration within Empati's design language</li>
+            <li>✨ Advanced materials maintaining professional aesthetic</li>
+            <li>✨ Future-forward concepts with brand consistency</li>
+            <li>✨ Premium presentations and client pitches</li>
           </ul>
         </motion.div>
       )}
@@ -179,10 +180,10 @@ export const DesignModeSelector: React.FC<DesignModeSelectorProps> = ({
             Hybrid Mode Active
           </h4>
           <ul className="text-sm text-green-700 space-y-1">
-            <li>🎯 Manufacturable base + creative accents</li>
-            <li>🎯 Best of both worlds approach</li>
-            <li>🎯 Practical innovation balance</li>
-            <li>🎯 Scalable with premium options</li>
+            <li>🎯 Production-ready base with Empati signature touches</li>
+            <li>🎯 Smart LED integration with brand color themes</li>
+            <li>🎯 Premium material accents within budget constraints</li>
+            <li>🎯 Scalable creativity maintaining manufacturing efficiency</li>
           </ul>
         </motion.div>
       )}

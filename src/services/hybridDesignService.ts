@@ -1,6 +1,7 @@
 import { FormData } from '../types';
 import { ProductionDesignService } from './productionDesignService';
 import { GroundedGenerationService } from './groundedGenerationService';
+import { EmpatiDesignDNAService } from './empatiDesignDNAService';
 
 export interface CreativeZone {
   id: string;
@@ -299,7 +300,8 @@ export class HybridDesignService {
     const creativityLevel = options.creativityLevel || 'moderate';
     const activeZones = creativeZones.filter(zone => zone.canUseCreative);
 
-    const promptSections = [
+    // Build base prompt
+    const basePromptSections = [
       // Base manufacturing requirements
       "HYBRID DESIGN APPROACH:",
       "- Maintain ALL structural requirements from base template",
@@ -343,7 +345,15 @@ export class HybridDesignService {
       "- Clean, implementable design"
     ];
 
-    return promptSections.join('\n');
+    const basePrompt = basePromptSections.join('\n');
+
+    // Apply Empati Design DNA alignment
+    return EmpatiDesignDNAService.generateEmpatiAlignedPrompt(
+      basePrompt,
+      formData,
+      'hybrid', // Design mode
+      creativityLevel
+    );
   }
 
   private static getCreativityGuidelines(creativityLevel: string): string {

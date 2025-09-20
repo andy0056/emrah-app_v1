@@ -184,22 +184,6 @@ function App() {
                   </motion.p>
                 </div>
                 
-                <motion.div
-                  className="hidden lg:flex items-center space-x-4"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50">
-                    <div className="flex items-center space-x-3">
-                      <Wand2 className="w-6 h-6 text-purple-600" />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">AI Assistant</div>
-                        <div className="text-xs text-gray-600">Ready to help</div>
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
               </div>
             </motion.div>
             
