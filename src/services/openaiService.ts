@@ -1,7 +1,11 @@
 import { apiProxy } from './apiProxy';
+import { SecureService } from '../security/secureService';
 
-// SECURITY: Removed direct OpenAI client instantiation
-// API calls now go through secure proxy to avoid exposing keys in browser
+// SECURITY: Enhanced with comprehensive LLM security protections
+// - Prompt injection prevention
+// - PII detection and sanitization
+// - Authentication and rate limiting
+// - Real-time security monitoring
 
 export interface PromptEnhancementRequest {
   basePrompt: string;
@@ -9,12 +13,32 @@ export interface PromptEnhancementRequest {
   productContext: string;
   targetView: 'front' | 'store' | 'three-quarter';
   innovationHint: string;
+  clientId?: string; // For security tracking
 }
 
 export class OpenAIService {
   static async enhancePrompt(request: PromptEnhancementRequest): Promise<string> {
-    try {
-      const systemPrompt = `You are a Master Prompt Engineer specializing in AI image generation for retail POP displays. Your goal is to create CONCISE, SPECIFICATION-FOCUSED prompts that produce accurate, buildable display stands.
+    const clientId = request.clientId || 'anonymous';
+
+    // Use secure service layer for comprehensive protection
+    const secureResponse = await SecureService.processSecureRequest(
+      `${request.basePrompt} | Context: ${request.brandContext} | Product: ${request.productContext} | Innovation: ${request.innovationHint}`,
+      {
+        endpoint: '/api/openai/enhance',
+        clientId,
+        requireAuth: false, // Set to true if authentication is required
+        enablePIIDetection: true,
+        enablePromptValidation: true,
+        enableOutputSanitization: true,
+        enableMonitoring: true
+      },
+      async (sanitizedInput) => {
+        // Extract components from sanitized input
+        const [basePrompt, brandContext, productContext, innovationHint] = sanitizedInput.split(' | ').map(part =>
+          part.includes(':') ? part.split(':')[1].trim() : part.trim()
+        );
+
+        const systemPrompt = `You are a Master Prompt Engineer specializing in AI image generation for retail POP displays. Your goal is to create CONCISE, SPECIFICATION-FOCUSED prompts that produce accurate, buildable display stands.
 
 CRITICAL RULES:
 1. Keep prompts under 60 words maximum
@@ -31,12 +55,12 @@ STYLE: [Brief style note]
 
 INNOVATION: Add ONE unique feature that's buildable and brand-appropriate.`;
 
-      const userPrompt = `Optimize this prompt for AI image generation. Make it CONCISE (under 60 words) and SPECIFICATION-FOCUSED.
+        const userPrompt = `Optimize this prompt for AI image generation. Make it CONCISE (under 60 words) and SPECIFICATION-FOCUSED.
 
-**BASE PROMPT:** ${request.basePrompt}
-**BRAND CONTEXT:** ${request.brandContext}
-**PRODUCT CONTEXT:** ${request.productContext}
-**INNOVATION HINT:** ${request.innovationHint}
+**BASE PROMPT:** ${basePrompt}
+**BRAND CONTEXT:** ${brandContext}
+**PRODUCT CONTEXT:** ${productContext}
+**INNOVATION HINT:** ${innovationHint}
 
 **REQUIREMENTS:**
 1. Keep under 60 words total
@@ -50,27 +74,37 @@ OUTPUT FORMAT:
 
 Be CONCISE and CLEAR - AI models work better with simple, direct instructions!`;
 
-      // Use secure API proxy instead of direct OpenAI client
-      const response = await apiProxy.callOpenAI({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        max_tokens: 150,
-        temperature: 0.6
-      });
+        // Use secure API proxy instead of direct OpenAI client
+        const response = await apiProxy.callOpenAI({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.6
+        });
 
-      if (response.error) {
-        throw new Error(response.error);
+        if (response.error) {
+          throw new Error(response.error);
+        }
+
+        return response.data.choices?.[0]?.message?.content || basePrompt;
       }
+    );
 
-      return response.data.choices?.[0]?.message?.content || request.basePrompt;
-    } catch (error) {
-      console.error('Error enhancing prompt with OpenAI:', error);
-      // Fallback to base prompt if enhancement fails
-      return request.basePrompt;
+    // Handle security response
+    if (!secureResponse.success) {
+      console.error('🚨 OpenAI enhancement blocked by security:', secureResponse.errors);
+      return request.basePrompt; // Fallback to original
     }
+
+    // Log security events if any
+    if (secureResponse.securityEvents.length > 0) {
+      console.warn('⚠️ Security events during OpenAI enhancement:', secureResponse.securityEvents);
+    }
+
+    return secureResponse.data || request.basePrompt;
   }
 
   static async enhanceMultiplePrompts(requests: PromptEnhancementRequest[]): Promise<string[]> {
