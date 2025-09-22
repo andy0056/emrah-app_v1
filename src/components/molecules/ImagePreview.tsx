@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, Maximize2, Edit, X } from 'lucide-react';
-import Button from '../atoms/Button';
+import { Button } from '../ui';
 
 interface ImagePreviewProps {
   imageUrl: string;

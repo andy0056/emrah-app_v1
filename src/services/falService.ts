@@ -1,4 +1,9 @@
-import { fal } from "@fal-ai/client";
+/**
+ * Simplified FAL Service
+ * Refactored and modular version of the original FalService
+ */
+
+import { FalCoreService, FalBrandIntegrationService, AVAILABLE_MODELS } from './fal';
 import { ABTestingService } from './abTestingService';
 import { PromptOptimizationService } from './promptOptimizationService';
 import { IntelligentPromptService } from './intelligentPromptService';
@@ -6,90 +11,20 @@ import { BrandAssetAnalysisService } from './brandAssetAnalysisService';
 import { PromptEvolutionService } from './promptEvolutionService';
 import { FeedbackService } from './feedbackService';
 import { PromptCompressionService } from './promptCompressionService';
-import { EmpatiDesignDNAService } from './empatiDesignDNAService';
-
-// Configure Fal.ai client
-fal.config({
-  credentials: import.meta.env.VITE_FAL_KEY
-});
-
-export type AIModel = 'flux-dev' | 'flux-pro' | 'nano-banana' | 'seedream-v4' | 'stable-diffusion';
-
-export interface ModelConfig {
-  id: AIModel;
-  name: string;
-  description: string;
-  endpoint: string;
-  type: 'text-to-image' | 'image-editing';
-  requiresInput: boolean;
-}
-
-export const AVAILABLE_MODELS: ModelConfig[] = [
-  {
-    id: 'flux-dev',
-    name: 'Flux Dev',
-    description: 'Fast, reliable text-to-image generation',
-    endpoint: 'fal-ai/flux/dev',
-    type: 'text-to-image',
-    requiresInput: false
-  },
-  {
-    id: 'flux-pro',
-    name: 'Flux Pro',
-    description: 'Higher quality, slower generation',
-    endpoint: 'fal-ai/flux-pro',
-    type: 'text-to-image',
-    requiresInput: false
-  },
-  {
-    id: 'nano-banana-t2i',
-    name: 'Nano Banana T2I',
-    description: 'AI text-to-image with natural language understanding',
-    endpoint: 'fal-ai/nano-banana',
-    type: 'text-to-image',
-    requiresInput: false
-  },
-  {
-    id: 'seedream-v4',
-    name: 'SeedReam v4 Edit',
-    description: 'Advanced multi-image editing with precise text control',
-    endpoint: 'fal-ai/bytedance/seedream/v4/edit',
-    type: 'image-editing',
-    requiresInput: true
-  }
-];
-
-export interface ImageGenerationRequest {
-  prompt: string;
-  aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
-  num_images?: number;
-  negative_prompt?: string;
-  seed?: number;
-  reference_image_url?: string;
-}
-
-export interface FluxKontextRequest {
-  prompt: string;
-  image_url: string;
-  aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
-  guidance_scale?: number;
-  num_images?: number;
-  output_format?: string;
-  safety_tolerance?: string;
-}
-
-export interface SeedreamV4Request {
-  prompt: string;
-  image_urls: string[];
-  image_size?: { width: number; height: number };
-  num_images?: number;
-  enable_safety_checker?: boolean;
-  seed?: number;
-}
+import type {
+  AIModel,
+  ModelConfig,
+  ImageGenerationRequest,
+  FluxKontextRequest,
+  BrandAssetGenerationRequest,
+  SeedreamGenerationRequest,
+  ModelRecommendation
+} from './fal/types';
 
 export class FalService {
-
-  // Initialize the full intelligence system
+  /**
+   * Initialize the intelligence system
+   */
   static initializeIntelligence(): void {
     PromptOptimizationService.initialize();
     PromptEvolutionService.initialize();
@@ -97,31 +32,26 @@ export class FalService {
     console.log('🚀 FalService AI intelligence system initialized');
   }
 
-  // Intelligent model selection based on brand assets and context
-  static async getRecommendedModel(brandAssetUrls: string[], formData?: import('../types').FormData): Promise<import('../types').ModelRecommendation> {
-
+  /**
+   * Get intelligent model recommendation based on brand assets
+   */
+  static async getRecommendedModel(brandAssetUrls: string[], formData?: any): Promise<ModelRecommendation> {
     try {
       // Analyze brand assets
       const assetAnalysis = await BrandAssetAnalysisService.analyzeBrandAssets(brandAssetUrls);
-
-      // Get model recommendation from asset analysis
       const assetRecommendation = BrandAssetAnalysisService.getModelRecommendation(assetAnalysis);
-
-      // Get feedback-based recommendation
       const feedbackRecommendation = FeedbackService.getRecommendedModel(formData || {});
 
-      // Combine recommendations with weights
+      // Combine recommendations
       let finalModel: 'seedream-v4' | 'nano-banana';
       let confidence = assetRecommendation.confidence;
       const reasoning = [...assetRecommendation.reasoning];
 
       if (assetRecommendation.model === feedbackRecommendation) {
-        // Both agree
         finalModel = assetRecommendation.model;
         confidence = Math.min(0.95, confidence + 0.1);
         reasoning.push('Asset analysis and feedback history agree on model choice');
       } else {
-        // Disagreement - prioritize asset analysis for complex cases
         if (assetAnalysis.overallComplexity >= 7) {
           finalModel = assetRecommendation.model;
           reasoning.push('Prioritizing asset analysis for complex brand integration');
@@ -139,7 +69,7 @@ export class FalService {
         brandDifficulty: assetAnalysis.brandIntegrationDifficulty
       });
 
-      // TEMPORARY: Force Nano Banana due to SeedReam v4 API issues
+      // Force Nano Banana for API stability
       return {
         model: 'nano-banana' as const,
         confidence: Math.max(0.8, confidence),
@@ -149,8 +79,6 @@ export class FalService {
 
     } catch (error) {
       console.warn('⚠️ Intelligent model selection failed, using fallback:', error);
-
-      // Fallback to Nano Banana (safer choice)
       return {
         model: 'nano-banana' as const,
         confidence: 0.6,
@@ -159,922 +87,58 @@ export class FalService {
     }
   }
 
-  // Generate client requirement mapping from form data
-  static generateClientRequirementMapping(formData: import('../types').FormData): string {
-    const requirements: string[] = [];
-
-    // Brand priority mapping
-    if (formData.brand) {
-      requirements.push(`BRAND: ${formData.brand} must dominate visual hierarchy`);
-    }
-
-    // Product specificity
-    if (formData.product && formData.description) {
-      requirements.push(`PRODUCT FOCUS: ${formData.product} (${formData.description}) must be prominently displayed on every shelf`);
-    }
-
-    // Shelf count and product placement specificity
-    if (formData.shelfCount) {
-      const productPlacement = formData.shelfCount === 1
-        ? 'single shelf must be densely packed with products at eye level'
-        : formData.shelfCount === 2
-        ? 'top shelf for premium products, bottom shelf for volume display'
-        : formData.shelfCount === 3
-        ? 'top shelf for hero products, middle for variety, bottom for volume'
-        : `all ${formData.shelfCount} shelves must create stepped product hierarchy from hero (top) to volume (bottom)`;
-
-      requirements.push(`PRODUCT PLACEMENT: ${productPlacement}`);
-      requirements.push(`SHELF DENSITY: Each shelf must appear 70-90% filled with branded products, never empty or sparse`);
-    }
-
-    // Material requirements
-    if (formData.materials && formData.materials.length > 0) {
-      requirements.push(`MATERIAL AUTHENTICITY: Display must clearly show ${formData.materials.join(' and ')} construction`);
-    }
-
-    // Stand type specificity
-    if (formData.standType) {
-      requirements.push(`DISPLAY TYPE: Must be recognizable as ${formData.standType} with appropriate proportions`);
-    }
-
-    // Color scheme requirements
-    if (formData.standBaseColor) {
-      requirements.push(`COLOR SCHEME: ${formData.standBaseColor} base color must be prominently featured in structural elements`);
-    }
-
-    // Dimensions for realistic proportions
-    if (formData.standWidth && formData.standHeight && formData.standDepth) {
-      requirements.push(`PROPORTIONS: Must visually represent ${formData.standWidth}×${formData.standDepth}×${formData.standHeight}cm dimensions`);
-    }
-
-    return requirements.length > 0 ? `\n\nCLIENT REQUIREMENTS:\n${requirements.map(req => `- ${req}`).join('\n')}` : '';
-  }
-
-  // MULTI-MODEL APPROACH WITH SIMPLE INTERFACE
+  /**
+   * Generate image using core service
+   */
   static async generateImage(request: {
     prompt: string;
     aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1" | "4:3";
     num_images?: number;
     model?: AIModel;
-    inputImages?: string[]; // For editing models
+    inputImages?: string[];
   }) {
-    try {
-      const selectedModel = AVAILABLE_MODELS.find(m => m.id === (request.model || 'flux-dev'));
-      console.log(`🎯 Using ${selectedModel?.name} (${selectedModel?.endpoint})`);
-      console.log("📝 Prompt:", request.prompt);
-      console.log("📐 Aspect ratio:", request.aspect_ratio);
-      
-      if (selectedModel?.type === 'image-editing') {
-        return this.generateWithEditingModel(selectedModel, request);
-      } else {
-        return this.generateWithTextToImageModel(selectedModel, request);
-      }
-    } catch (error: unknown) {
-      console.error(`❌ ${request.model || 'flux-dev'} generation failed:`, error);
-      const { AIServiceError } = await import('../types');
-      throw new AIServiceError(
-        `Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        request.model,
-        request.prompt.length
-      );
-    }
+    return FalCoreService.generateImage(request);
   }
 
-  private static async generateWithTextToImageModel(model: ModelConfig | undefined, request: import('../types').FalGenerationRequest) {
-    const endpoint = model?.endpoint || 'fal-ai/flux/dev';
-    
-    let inputConfig: Record<string, unknown> = {
-      prompt: request.prompt,
-      num_images: request.num_images || 1
-    };
-
-    // Model-specific configurations
-    if (endpoint === 'fal-ai/flux/dev') {
-      inputConfig = {
-        ...inputConfig,
-        image_size: this.getImageSize(request.aspect_ratio),
-        num_inference_steps: 28,
-        guidance_scale: 7.5,
-        enable_safety_checker: false
-      };
-    } else if (endpoint === 'fal-ai/flux-pro') {
-      inputConfig = {
-        ...inputConfig,
-        aspect_ratio: request.aspect_ratio,
-        guidance_scale: 3.5,
-        num_inference_steps: 50,
-        safety_tolerance: 2
-      };
-    } else if (endpoint === 'fal-ai/nano-banana') {
-      inputConfig = {
-        ...inputConfig,
-        output_format: "jpeg"
-        // Note: Nano Banana doesn't support aspect_ratio, it generates square images
-      };
-    }
-
-    const result = await fal.subscribe(endpoint, {
-      input: inputConfig,
-      logs: true,
-      onQueueUpdate: (update) => {
-        console.log(`${model?.name} Status:`, update.status);
-        if (update.logs) {
-          update.logs.forEach(log => console.log("Log:", log.message));
-        }
-      }
-    });
-
-    return {
-      images: result.data.images,
-      seed: result.data.seed || 0,
-      description: result.data.description || null // Nano Banana provides descriptions
-    };
+  /**
+   * Generate with brand assets (primary method)
+   */
+  static async generateWithBrandAssets(request: BrandAssetGenerationRequest) {
+    return FalBrandIntegrationService.generateWithBrandAssets(request);
   }
 
-  private static async generateWithEditingModel(model: ModelConfig | undefined, request: import('../types').FalGenerationRequest) {
-    if (!request.inputImages || request.inputImages.length === 0) {
-      throw new Error(`${model?.name} requires input images. Please upload reference images first.`);
-    }
-
-    console.log("🖼️ Input images:", request.inputImages);
-    
-    const result = await fal.subscribe(model?.endpoint || 'fal-ai/nano-banana/edit', {
-      input: {
-        prompt: request.prompt,
-        image_urls: request.inputImages,
-        num_images: request.num_images || 1,
-        output_format: "jpeg"
-      },
-      logs: true,
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS") {
-          update.logs?.map((log) => log.message).forEach(console.log);
-        }
-      }
-    });
-
-    return {
-      images: result.data.images,
-      description: result.data.description || null
-    };
+  /**
+   * Generate with SeedReam v4 (advanced method)
+   */
+  static async generateWithSeedreamV4(request: SeedreamGenerationRequest) {
+    // For now, delegate to brand assets generation
+    // TODO: Implement SeedReam v4 specific logic
+    console.log('🎯 SeedReam v4 generation - delegating to brand assets for now');
+    return FalBrandIntegrationService.generateWithBrandAssets(request);
   }
 
+  /**
+   * Get model by ID
+   */
   static getModelById(modelId: AIModel): ModelConfig | undefined {
-    return AVAILABLE_MODELS.find(m => m.id === modelId);
+    return FalCoreService.getModelById(modelId);
   }
 
-  static getImageSize(aspectRatio: string) {
-    const sizes = {
-      "9:16": { width: 768, height: 1344 },
-      "16:9": { width: 1344, height: 768 },
-      "3:4": { width: 896, height: 1152 },
-      "4:3": { width: 1152, height: 896 },
-      "1:1": { width: 1024, height: 1024 }
-    };
-    return sizes[aspectRatio as keyof typeof sizes] || sizes["1:1"];
-  }
-
-  // Keep existing methods for backward compatibility
+  /**
+   * Generate multiple images
+   */
   static async generateMultipleImages(requests: ImageGenerationRequest[]): Promise<any[]> {
-    try {
-      const promises = requests.map(request => this.generateImage(request));
-      return await Promise.all(promises);
-    } catch (error) {
-      console.error('Error generating multiple images:', error);
-      throw error;
-    }
+    return FalCoreService.generateMultipleImages(requests.map(req => ({
+      prompt: req.prompt,
+      aspect_ratio: req.aspect_ratio,
+      num_images: req.num_images
+    })));
   }
 
-  // For image editing - keep it simple but working
-  static async editImageWithFluxKontext(request: FluxKontextRequest): Promise<import('../types').FalImageResponse> {
-    try {
-      // Ensure we have an image URL for image-to-image editing
-      if (!request.image_url) {
-        throw new Error('Image URL is required for image editing');
-      }
-
-      console.log('🎨 Editing image with Flux Kontext');
-      console.log('Original image URL:', request.image_url);
-      
-      // Upload the original image to Fal.ai storage to ensure accessibility
-      let accessibleImageUrl = request.image_url;
-      
-      try {
-        // Download the original image
-        console.log('📥 Downloading original image...');
-        const imageResponse = await fetch(request.image_url);
-        
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to download image: ${imageResponse.status}`);
-        }
-        
-        const imageBlob = await imageResponse.blob();
-        console.log('✅ Image downloaded, size:', imageBlob.size, 'bytes');
-        
-        // Upload to Fal.ai storage
-        console.log('📤 Uploading to Fal.ai storage...');
-        accessibleImageUrl = await fal.storage.upload(imageBlob);
-        console.log('✅ Uploaded to Fal.ai storage:', accessibleImageUrl);
-        
-      } catch (uploadError) {
-        console.warn('⚠️ Failed to upload image to Fal.ai storage, trying original URL:', uploadError);
-        // If upload fails, we'll try with the original URL
-      }
-      
-      console.log('🎯 Editing with prompt:', request.prompt);
-
-      const result = await fal.subscribe("fal-ai/flux-pro/kontext/max", {
-        input: {
-          prompt: request.prompt,
-          image_url: accessibleImageUrl,
-          aspect_ratio: request.aspect_ratio,
-          guidance_scale: request.guidance_scale || 7.5,
-          num_images: request.num_images || 1,
-          output_format: "png",
-          safety_tolerance: "6", // Increased from 2 to 6 for better brand name tolerance
-          enable_safety_checker: false, // Disable safety checker to prevent false positives
-          ...(request.seed && { seed: request.seed })
-        },
-        logs: true,
-        onQueueUpdate: (update: import('../types').FalQueueUpdate) => {
-          if (update.status === "IN_PROGRESS") {
-            update.logs.map((log: import('../types').FalLog) => log.message).forEach(console.log);
-          }
-        },
-      });
-
-      console.log('✅ Image editing complete');
-      
-      // Check for NSFW false positives
-      if (result.data.has_nsfw_concepts && result.data.has_nsfw_concepts[0] === true) {
-        console.warn('⚠️ NSFW filter triggered (likely false positive for brand names)');
-        console.warn('📝 Original prompt:', request.prompt);
-        
-        // Log additional debugging info
-        if (result.data.images && result.data.images.length > 0) {
-          console.warn('🖼️ Result image URL (may be black due to filter):', result.data.images[0].url);
-        }
-        
-        // Throw a more descriptive error for brand-related false positives
-        if (request.prompt.toLowerCase().includes('coca-cola') || 
-            request.prompt.toLowerCase().includes('brand') ||
-            request.prompt.toLowerCase().includes('logo')) {
-          throw new Error('The safety filter incorrectly flagged your brand-related prompt as inappropriate. This is a known issue with brand names. Try rephrasing your prompt without specific brand names (e.g., use "cola drink" instead of "Coca-Cola").');
-        } else {
-          throw new Error('The content safety filter flagged this request. Please try rephrasing your prompt or contact support if this seems incorrect.');
-        }
-      }
-      
-      // Debug: Log the actual edited image URL for direct inspection
-      if (result.data.images && result.data.images.length > 0) {
-        console.log('🖼️ EDITED IMAGE URL:', result.data.images[0].url);
-      }
-      
-      return result.data as any;
-    } catch (error: unknown) {
-      console.error('❌ Error editing image with Flux Kontext:', error);
-      throw new Error(`Failed to edit image: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // Generate images with brand assets using SeedReam v4 Edit (New Advanced Model)
-  static async generateWithSeedreamV4(request: {
-    prompt: string;
-    brand_asset_urls: string[];
-    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1";
-    num_images?: number;
-    image_size?: number;
-    formData?: import('../types').FormData; // Optional form data for client requirements
-    userId?: string; // For A/B testing
-    enableABTesting?: boolean; // Whether to apply A/B testing
-    enableOptimization?: boolean; // Whether to apply dynamic optimization
-    enableIntelligence?: boolean; // Whether to apply intelligent form analysis
-    enableEvolution?: boolean; // Whether to apply evolved patterns
-  }): Promise<import('../types').FalImageResponse> {
-    try {
-      console.log('🎯 NEW: Generating with SeedReam v4 Edit - Advanced multi-image editing');
-      
-      // Transform prompt to be brand-friendly for SeedReam
-      let brandFriendlyPrompt = request.prompt
-        .replace(/no branding/gi, 'with strong brand integration')
-        .replace(/no products/gi, 'with featured branded products')
-        .replace(/no text/gi, 'with clear brand text and logos')
-        .replace(/no logos/gi, 'with prominent brand logos')
-        .replace(/empty shelves/gi, 'shelves filled with branded products')
-        .replace(/clean display surfaces/gi, 'branded display surfaces with logo placement');
-
-      // Add client requirement mapping if form data is provided
-      const clientRequirements = request.formData ? this.generateClientRequirementMapping(request.formData) : '';
-
-      let enhancedPrompt = `${brandFriendlyPrompt}
-
-CLIENT-PRIORITY BRAND INTEGRATION:
-- LOGO PROMINENCE: Feature brand logo as primary visual anchor on multiple display surfaces
-- PRODUCT SHOWCASE: Position actual branded products as hero elements on every shelf level with front-facing labels
-- PRODUCT DENSITY: Fill each shelf 70-90% with products, creating abundant display without overcrowding
-- PRODUCT HIERARCHY: Arrange products by importance - hero products at eye level, volume products lower
-- BRAND COLOR DOMINANCE: Apply brand colors as structural design elements, not just accents
-- RETAIL IMPACT FOCUS: Design for maximum customer attention and purchase influence
-- BRAND CONSISTENCY: Ensure cohesive brand experience across all display angles and surfaces
-- COMMERCIAL VIABILITY: Balance strong branding with practical retail functionality${clientRequirements}`;
-
-      // Apply A/B testing if enabled
-      let abTestVariant = null;
-      if (request.enableABTesting && request.userId) {
-        abTestVariant = ABTestingService.getVariantForUser(request.userId);
-        enhancedPrompt = ABTestingService.applyVariantToPrompt(enhancedPrompt, abTestVariant);
-        console.log('🧪 A/B Test Variant Applied:', abTestVariant.name);
-      }
-
-      // Apply dynamic optimization if enabled
-      if (request.enableOptimization) {
-        enhancedPrompt = PromptOptimizationService.optimizePrompt(enhancedPrompt, request.formData);
-        console.log('🎯 Dynamic optimization applied');
-      }
-
-      // Apply A/B testing variant if enabled
-      if (request.enableABTesting) {
-        const { ABTestingService } = await import('./abTestingService');
-        const userVariant = ABTestingService.getVariantForUser(request.userId || 'anonymous');
-        enhancedPrompt = ABTestingService.applyVariantToPrompt(enhancedPrompt, userVariant);
-        console.log('🧪 A/B testing variant applied:', userVariant.name);
-
-        // Store variant assignment for feedback tracking
-        request._abTestVariant = userVariant;
-      }
-
-      // Apply intelligent form analysis if enabled
-      if (request.enableIntelligence && request.formData) {
-        const intelligentResult = IntelligentPromptService.generateIntelligentPrompt(enhancedPrompt, request.formData);
-        enhancedPrompt = intelligentResult.enhancedPrompt;
-        console.log('🧠 Intelligent form analysis applied:', {
-          primaryObjective: intelligentResult.intent.primaryObjective,
-          brandPriority: intelligentResult.analysis.brandPriority,
-          visualStyle: intelligentResult.analysis.visualStyle
-        });
-      }
-
-      // Apply evolved patterns if enabled
-      if (request.enableEvolution) {
-        const contexts = request.formData ? [
-          `${request.formData.standType || 'display'}-type`,
-          `${request.formData.materials?.join('-') || 'material'}-materials`,
-          'brand-integration'
-        ] : ['general'];
-        enhancedPrompt = PromptEvolutionService.generateEvolvedPrompt(enhancedPrompt, contexts);
-        console.log('🧬 Evolved patterns applied');
-      }
-
-      // Apply prompt compression to reduce token usage while maintaining quality
-      let finalPrompt = enhancedPrompt;
-      const enableCompression = request.enableCompression ?? true; // Default enabled
-
-      if (enableCompression) {
-        try {
-          console.log('🔄 Compressing prompt...', { originalLength: enhancedPrompt.length });
-          const compressionResult = await PromptCompressionService.compressPrompt(enhancedPrompt, {
-            targetReduction: 0.7, // 70% reduction
-            preserveKeywords: [
-              request.formData?.brand || '',
-              request.formData?.product || '',
-              request.formData?.materials?.[0] || '',
-              request.formData?.standType || ''
-            ].filter(Boolean),
-            style: 'structured'
-          });
-
-          finalPrompt = compressionResult.compressedPrompt;
-          console.log('✅ Prompt compressed:', {
-            reduction: `${(compressionResult.compressionRatio * 100).toFixed(1)}%`,
-            originalTokens: compressionResult.originalPrompt.length,
-            compressedTokens: compressionResult.compressedPrompt.length,
-            tokensReduced: compressionResult.tokensReduced
-          });
-        } catch (error) {
-          console.warn('⚠️ Prompt compression failed, using original:', error);
-          finalPrompt = enhancedPrompt;
-        }
-      } else {
-        console.log('⏭️ Prompt compression disabled, using original prompt');
-        finalPrompt = enhancedPrompt;
-      }
-
-      // Apply Empati Design DNA alignment for brand consistency
-      const empatiAlignedPrompt = EmpatiDesignDNAService.generateEmpatiAlignedPrompt(
-        finalPrompt,
-        request.formData || {},
-        'production', // Default to production mode if not specified
-        'moderate'
-      );
-
-      console.log('📝 SeedReam Final Prompt (Empati-aligned):', empatiAlignedPrompt);
-      console.log('🖼️ Brand Assets:', request.brand_asset_urls);
-      console.log('📏 Image Size:', request.image_size || 1024);
-
-      // Validate inputs
-      if (!request.brand_asset_urls || request.brand_asset_urls.length === 0) {
-        throw new Error('SeedReam v4 requires at least one brand asset image');
-      }
-
-      // Re-upload images to ensure Fal.ai compatibility
-      const accessibleImageUrls: string[] = [];
-      
-      for (let i = 0; i < request.brand_asset_urls.length; i++) {
-        const originalUrl = request.brand_asset_urls[i];
-        console.log(`📥 Processing brand asset ${i + 1}/${request.brand_asset_urls.length}`);
-        
-        try {
-          const response = await fetch(originalUrl);
-          if (!response.ok) {
-            console.warn(`⚠️ Skipping asset ${i + 1}: HTTP ${response.status}`);
-            continue;
-          }
-          
-          const blob = await response.blob();
-          if (!blob.type.startsWith('image/')) {
-            console.warn(`⚠️ Skipping asset ${i + 1}: Invalid content type`);
-            continue;
-          }
-          
-          const file = new File([blob], `brand-asset-${i + 1}.${blob.type.split('/')[1] || 'jpg'}`, {
-            type: blob.type
-          });
-          
-          const falUrl = await fal.storage.upload(file);
-          console.log(`✅ Uploaded brand asset ${i + 1} to Fal.ai`);
-          accessibleImageUrls.push(falUrl);
-        } catch (error) {
-          console.error(`❌ Failed to process brand asset ${i + 1}:`, error);
-          continue;
-        }
-      }
-      
-      if (accessibleImageUrls.length === 0) {
-        throw new Error('No valid brand assets could be processed for SeedReam v4');
-      }
-      
-      console.log(`✅ Using ${accessibleImageUrls.length} brand assets with SeedReam v4`);
-
-      // Call SeedReam v4 Edit API with correct parameters
-      const baseSize = request.image_size || 1024;
-      const aspectRatioSizes = {
-        "1:1": { width: baseSize, height: baseSize },
-        "9:16": { width: Math.round(baseSize * 9/16), height: baseSize },
-        "16:9": { width: baseSize, height: Math.round(baseSize * 9/16) },
-        "3:4": { width: Math.round(baseSize * 3/4), height: baseSize },
-        "4:3": { width: baseSize, height: Math.round(baseSize * 3/4) }
-      };
-      
-      const apiInput = {
-        prompt: empatiAlignedPrompt,
-        image_urls: accessibleImageUrls,
-        image_size: aspectRatioSizes[request.aspect_ratio] || aspectRatioSizes["1:1"],
-        num_images: request.num_images || 1,
-        enable_safety_checker: true
-      };
-      
-      console.log('🔧 SeedReam v4 API Input:', JSON.stringify(apiInput, null, 2));
-      
-      const result = await fal.subscribe("fal-ai/bytedance/seedream/v4/edit", {
-        input: apiInput,
-        logs: true,
-        onQueueUpdate: (update: import('../types').FalQueueUpdate) => {
-          console.log('🎯 SeedReam v4 Status:', update.status);
-          if (update.status === "IN_PROGRESS") {
-            update.logs?.map((log: import('../types').FalLog) => log.message).forEach(console.log);
-          }
-        }
-      });
-
-      console.log('✅ SeedReam v4 generation complete');
-
-      // Add A/B test metadata to result
-      const resultWithMetadata = {
-        ...result.data,
-        abTestVariant: abTestVariant ? {
-          id: abTestVariant.id,
-          name: abTestVariant.name,
-          promptVersion: abTestVariant.id
-        } : null
-      };
-
-      return resultWithMetadata;
-    } catch (error: unknown) {
-      console.error('❌ Error generating with SeedReam v4:', error);
-      
-      // Enhanced error reporting for validation issues
-      let errorMessage = 'Unknown error';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (error && typeof error === 'object') {
-        if (error.body) {
-          try {
-            const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
-            if (errorBody.detail) {
-              errorMessage = `Validation error: ${JSON.stringify(errorBody.detail)}`;
-            } else {
-              errorMessage = `API error: ${error.body}`;
-            }
-          } catch {
-            errorMessage = `API response error: ${error.body}`;
-          }
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      }
-      
-      throw new Error(`SeedReam v4 generation failed: ${errorMessage}`);
-    }
-  }
-
-  // Generate images with brand assets integrated from the start using Nano Banana Edit
-  static async generateWithBrandAssets(request: {
-    prompt: string;
-    brand_asset_urls: string[];
-    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Required for proper output dimensions
-    num_images?: number;
-    output_format?: 'jpeg' | 'png';
-    formData?: import('../types').FormData; // Optional form data for client requirements
-    userId?: string; // For A/B testing
-    enableABTesting?: boolean; // Whether to apply A/B testing
-    enableOptimization?: boolean; // Whether to apply dynamic optimization
-    enableIntelligence?: boolean; // Whether to apply intelligent form analysis
-    enableEvolution?: boolean; // Whether to apply evolved patterns
-  }): Promise<import('../types').FalImageResponse> {
-    try {
-      console.log('🍌 Primary generation with integrated brand assets using Nano Banana Edit');
-      
-      // Transform the prompt to be brand-friendly by removing negative branding instructions
-      let brandFriendlyPrompt = request.prompt
-        .replace(/no branding/gi, 'with strong branding')
-        .replace(/no products/gi, 'with featured products')
-        .replace(/no text/gi, 'with clear branding text and logos')
-        .replace(/no logos/gi, 'with prominent brand logos')
-        .replace(/no brand elements/gi, 'with integrated brand elements')
-        .replace(/without branding/gi, 'with comprehensive branding')
-        .replace(/empty shelves/gi, 'shelves stocked with products')
-        .replace(/clean display surfaces/gi, 'branded display surfaces')
-        .replace(/minimal branding/gi, 'prominent branding')
-        .replace(/subtle branding/gi, 'bold brand presence')
-        .replace(/plain/gi, 'branded')
-        .replace(/generic/gi, 'brand-specific');
-
-      // Add client requirement mapping if form data is provided
-      const clientRequirements = request.formData ? this.generateClientRequirementMapping(request.formData) : '';
-
-      // Create a comprehensive prompt that encourages brand integration
-      let integratedPrompt = `${brandFriendlyPrompt}
-
-CLIENT-PRIORITY BRAND INTEGRATION:
-- LOGO PROMINENCE: Feature brand logo as primary visual anchor on multiple display surfaces
-- PRODUCT SHOWCASE: Position actual branded products as hero elements on every shelf level with front-facing labels
-- PRODUCT DENSITY: Fill each shelf 70-90% with products, creating abundant display without overcrowding
-- PRODUCT HIERARCHY: Arrange products by importance - hero products at eye level, volume products lower
-- BRAND COLOR DOMINANCE: Apply brand colors as structural design elements, not just accents
-- RETAIL IMPACT FOCUS: Design for maximum customer attention and purchase influence
-- BRAND CONSISTENCY: Ensure cohesive brand experience across all display angles and surfaces
-- COMMERCIAL VIABILITY: Balance strong branding with practical retail functionality
-- ASSET UTILIZATION: Seamlessly integrate ALL provided brand assets (logo, product, key visual) as focal design elements
-- VISUAL HIERARCHY: Establish clear brand dominance while maintaining structural integrity${clientRequirements}`;
-
-      // Apply A/B testing if enabled
-      let abTestVariant = null;
-      if (request.enableABTesting && request.userId) {
-        abTestVariant = ABTestingService.getVariantForUser(request.userId);
-        integratedPrompt = ABTestingService.applyVariantToPrompt(integratedPrompt, abTestVariant);
-        console.log('🧪 A/B Test Variant Applied:', abTestVariant.name);
-      }
-
-      // Apply dynamic optimization if enabled
-      if (request.enableOptimization) {
-        integratedPrompt = PromptOptimizationService.optimizePrompt(integratedPrompt, request.formData);
-        console.log('🎯 Dynamic optimization applied');
-      }
-
-      // Apply intelligent form analysis if enabled
-      if (request.enableIntelligence && request.formData) {
-        const intelligentResult = IntelligentPromptService.generateIntelligentPrompt(integratedPrompt, request.formData);
-        integratedPrompt = intelligentResult.enhancedPrompt;
-        console.log('🧠 Intelligent form analysis applied:', {
-          primaryObjective: intelligentResult.intent.primaryObjective,
-          brandPriority: intelligentResult.analysis.brandPriority,
-          visualStyle: intelligentResult.analysis.visualStyle
-        });
-      }
-
-      // Apply evolved patterns if enabled
-      if (request.enableEvolution) {
-        const contexts = request.formData ? [
-          `${request.formData.standType || 'display'}-type`,
-          `${request.formData.materials?.join('-') || 'material'}-materials`,
-          'brand-integration'
-        ] : ['general'];
-        integratedPrompt = PromptEvolutionService.generateEvolvedPrompt(integratedPrompt, contexts);
-        console.log('🧬 Evolved patterns applied');
-      }
-
-      // Apply prompt compression to reduce token usage while maintaining quality
-      let finalIntegratedPrompt = integratedPrompt;
-      const enableCompression = request.enableCompression ?? true; // Default enabled
-
-      if (enableCompression) {
-        try {
-          console.log('🔄 Compressing integrated prompt...', { originalLength: integratedPrompt.length });
-          const compressionResult = await PromptCompressionService.compressPrompt(integratedPrompt, {
-            targetReduction: 0.7, // 70% reduction
-            preserveKeywords: [
-              request.formData?.brand || '',
-              request.formData?.product || '',
-              request.formData?.materials?.[0] || '',
-              request.formData?.standType || ''
-            ].filter(Boolean),
-            style: 'structured'
-          });
-
-          finalIntegratedPrompt = compressionResult.compressedPrompt;
-          console.log('✅ Integrated prompt compressed:', {
-            reduction: `${(compressionResult.compressionRatio * 100).toFixed(1)}%`,
-            originalTokens: compressionResult.originalPrompt.length,
-            compressedTokens: compressionResult.compressedPrompt.length,
-            tokensReduced: compressionResult.tokensReduced
-          });
-        } catch (error) {
-          console.warn('⚠️ Integrated prompt compression failed, using original:', error);
-          finalIntegratedPrompt = integratedPrompt;
-        }
-      } else {
-        console.log('⏭️ Integrated prompt compression disabled, using original prompt');
-        finalIntegratedPrompt = integratedPrompt;
-      }
-
-      // Apply Empati Design DNA alignment for brand consistency
-      const empatiAlignedIntegratedPrompt = EmpatiDesignDNAService.generateEmpatiAlignedPrompt(
-        finalIntegratedPrompt,
-        request.formData || {},
-        'hybrid', // Nano Banana is often used in hybrid approach
-        'moderate'
-      );
-
-      console.log('📝 Final Integrated Prompt (Empati-aligned):', empatiAlignedIntegratedPrompt);
-      console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
-      console.log('🎯 Aspect Ratio:', request.aspect_ratio);
-
-      // Use Nano Banana Edit with brand assets for initial generation
-      const result = await this.applyBrandAssetsWithNanaBanana({
-        image_urls: request.brand_asset_urls,
-        prompt: empatiAlignedIntegratedPrompt,
-        aspect_ratio: request.aspect_ratio,
-        num_images: request.num_images || 1,
-        output_format: request.output_format || "jpeg"
-      });
-
-      // Add A/B test metadata to result
-      return {
-        ...result,
-        abTestVariant: abTestVariant ? {
-          id: abTestVariant.id,
-          name: abTestVariant.name,
-          promptVersion: abTestVariant.id
-        } : null
-      };
-    } catch (error: unknown) {
-      console.error('❌ Error generating with brand assets:', error);
-      throw new Error(`Failed to generate with brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // EXPERIMENTAL: Generate images with refined brand integration framework
-  static async generateWithRefinedBrandAssets(request: {
-    prompt: string;
-    brand_asset_urls: string[];
-    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Required for proper output dimensions
-    num_images?: number;
-    output_format?: 'jpeg' | 'png';
-  }): Promise<import('../types').FalImageResponse> {
-    try {
-      console.log('🧪 EXPERIMENTAL: Refined brand integration approach using Nano Banana');
-      
-      // Create enhanced prompt with refined brand integration framework
-      const refinedPrompt = `${request.prompt}
-
-VISUAL INTEGRATION FRAMEWORK:
-- Apply provided brand assets (logo, product, key visual) strategically throughout design
-- Populate display areas with supplied product imagery at appropriate scale
-- Incorporate brand color palette naturally into display architecture
-- Maintain professional retail presentation standards
-- Balance brand presence with structural design integrity
-- Ensure visibility and accessibility of displayed products
-- Create cohesive visual hierarchy between branding and product placement
-- Design for versatile retail environments and lighting conditions`;
-
-      console.log('📝 Refined Prompt:', refinedPrompt);
-      console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
-      console.log('🎯 Aspect Ratio:', request.aspect_ratio);
-
-      // Use Nano Banana Edit with refined approach
-      return await this.applyBrandAssetsWithNanaBanana({
-        image_urls: request.brand_asset_urls,
-        prompt: refinedPrompt,
-        aspect_ratio: request.aspect_ratio,
-        num_images: request.num_images || 1,
-        output_format: request.output_format || "jpeg"
-      });
-    } catch (error: unknown) {
-      console.error('❌ Error generating with refined brand assets:', error);
-      throw new Error(`Failed to generate with refined brand assets: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // Apply brand assets using Nano Banana Edit (legacy method for secondary editing)
-  static async applyBrandAssetsWithNanaBanana(request: {
-    image_urls: string[]; 
-    prompt: string;
-    aspect_ratio: "9:16" | "16:9" | "3:4" | "1:1"; // Make aspect_ratio required
-    num_images?: number;
-    output_format?: 'jpeg' | 'png';
-  }): Promise<import('../types').FalImageResponse> {
-    try {
-      console.log('🍌 Applying brand assets with Nano Banana Edit');
-      const { image_urls, prompt, num_images, output_format, aspect_ratio } = request;
-      console.log('📝 Prompt:', request.prompt);
-      console.log('🖼️ Input images:', request.image_urls);
-      console.log('🎯 Target aspect ratio:', aspect_ratio);
-
-      // Validate inputs before API call
-      if (!request.image_urls || request.image_urls.length === 0) {
-        throw new Error('At least one image URL is required');
-      }
-      
-      if (!request.prompt || request.prompt.trim().length === 0) {
-        throw new Error('Prompt is required');
-      }
-      
-      // Process images, only re-uploading non-fal.ai images
-      const accessibleImageUrls: string[] = [];
-
-      for (let i = 0; i < request.image_urls.length; i++) {
-        const originalUrl = request.image_urls[i];
-        console.log(`📥 Processing image ${i + 1}/${request.image_urls.length}: ${originalUrl}`);
-
-        try {
-          // Check if image is already on fal.ai - if so, use it directly
-          if (originalUrl.includes('fal.media') || originalUrl.includes('fal.ai')) {
-            console.log(`✅ Image ${i + 1} already on fal.ai, using directly: ${originalUrl}`);
-            accessibleImageUrls.push(originalUrl);
-            continue;
-          }
-
-          // For external images, download and re-upload to fal.ai
-          const response = await fetch(originalUrl, {
-            headers: {
-              'User-Agent': 'FalAI-Client/1.0'
-            }
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`❌ Failed to download image ${i + 1}: HTTP ${response.status} - ${response.statusText}`);
-            console.error(`Response body:`, errorText);
-
-            // Check for specific Supabase bucket not found error
-            if (errorText.includes('Bucket not found')) {
-              console.warn(`⚠️ Skipping image ${i + 1}: Supabase 'uploads' bucket not found. Please create the bucket in your Supabase project.`);
-              continue; // Skip this image but continue with others
-            }
-
-            console.warn(`⚠️ Skipping image ${i + 1} due to download error: ${response.status}`);
-            continue; // Skip this image but continue with others
-          }
-
-          const blob = await response.blob();
-
-          // Verify we got actual image data
-          if (!blob.type.startsWith('image/')) {
-            console.error(`❌ Image ${i + 1} returned invalid content type: ${blob.type}`);
-            console.warn(`⚠️ Skipping image ${i + 1}: Invalid content type: ${blob.type}`);
-            continue; // Skip this image but continue with others
-          }
-
-          console.log(`✅ Downloaded image ${i + 1}, size: ${blob.size} bytes`);
-
-          // Create a File object for Fal.ai upload
-          const file = new File([blob], `image-${i + 1}.${blob.type.split('/')[1] || 'jpg'}`, {
-            type: blob.type
-          });
-
-          // Upload to Fal.ai storage
-          const falUrl = await fal.storage.upload(file);
-          console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai: ${falUrl}`);
-
-          accessibleImageUrls.push(falUrl);
-        } catch (error) {
-          console.error(`❌ Failed to process image ${i + 1}:`, error);
-          // Skip this image but continue with others
-          console.warn(`⚠️ Skipping image ${i + 1} due to processing error`);
-          continue;
-        }
-      }
-      
-      if (accessibleImageUrls.length === 0) {
-        throw new Error(`No valid images could be processed from ${request.image_urls.length} provided images. This may be because:\n\n1. The Supabase 'uploads' bucket doesn't exist - please create it in your Supabase project dashboard under Storage\n2. The images are not publicly accessible\n3. The image URLs are invalid\n\nPlease check your Supabase storage configuration and try again.`);
-      }
-      
-      console.log(`✅ Successfully processed ${accessibleImageUrls.length} out of ${request.image_urls.length} images`);
-      console.log('🔄 Final image URLs for API call:', accessibleImageUrls);
-
-      // Use the correct nano-banana/edit endpoint  
-      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
-        input: {
-          prompt: request.prompt,
-          image_urls: accessibleImageUrls, // Use re-uploaded URLs
-          num_images: request.num_images || 1,
-          output_format: request.output_format || "jpeg"
-        },
-        logs: true,
-        onQueueUpdate: (update: import('../types').FalQueueUpdate) => {
-          console.log('🍌 Nano Banana Status:', update.status);
-          if (update.status === "IN_PROGRESS") {
-            update.logs?.map((log: import('../types').FalLog) => log.message).forEach(console.log);
-          }
-        }
-      });
-
-      console.log('✅ Brand assets applied successfully');
-      if (result.data.description) {
-        console.log('📝 AI Description:', result.data.description);
-      }
-      
-      return result.data as any;
-    } catch (error: unknown) {
-      console.error('❌ Error applying brand assets with Nano Banana:', error);
-      
-      // Extract detailed error information
-      let errorMessage = 'Unknown error';
-      let errorDetails = '';
-      
-      // Handle ValidationError and other Fal.ai errors
-      if (error.name === 'ValidationError' || error.message?.includes('ValidationError')) {
-        errorMessage = 'Invalid input parameters for Nano Banana Edit API';
-        if (error.body) {
-          try {
-            const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
-            if (errorBody.detail) {
-              errorDetails = ` Details: ${JSON.stringify(errorBody.detail)}`;
-            }
-          } catch {
-            errorDetails = ` Raw response: ${error.body}`;
-          }
-        }
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-        if (error.stack) {
-          console.error('Full stack trace:', error.stack);
-        }
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error && typeof error === 'object') {
-        // Handle API response errors
-        if (error.body) {
-          errorDetails += ` API Response: ${error.body}`;
-        }
-        if (error.status) {
-          errorDetails += ` Status: ${error.status}`;
-        }
-        if (error.detail || error.message) {
-          errorMessage = error.detail || error.message;
-        }
-      }
-      
-      const fullErrorMessage = `Failed to apply brand assets: ${errorMessage}${errorDetails}`;
-      console.error('Full error details:', fullErrorMessage);
-      throw new Error(fullErrorMessage);
-    }
-  }
-
+  // Legacy exports for backward compatibility
+  static getImageSize = FalCoreService.getImageSize;
 }
 
-// DELETE ALL THE TRINITY PIPELINE STUFF - WE DON'T NEED IT
-// Simple test function for model verification
-export async function testFalModels() {
-  console.log("🧪 Testing Fal.ai FLUX DEV model...");
-  
-  const testPrompt = "modern retail display stand, photorealistic";
-  
-  try {
-    console.log("Testing fal-ai/flux/dev...");
-    const result = await fal.subscribe("fal-ai/flux/dev", {
-      input: {
-        prompt: testPrompt,
-        image_size: { width: 1024, height: 1024 },
-        num_inference_steps: 28,
-        guidance_scale: 7.5,
-        num_images: 1
-      }
-    });
-    console.log("✅ fal-ai/flux/dev WORKS!");
-    return result;
-  } catch (error: unknown) {
-    console.log("❌ fal-ai/flux/dev FAILED:", error?.message || error);
-    throw error;
-  }
-}
+// Re-export types and config for backward compatibility
+export { AVAILABLE_MODELS };
+export type { AIModel, ModelConfig, ImageGenerationRequest, FluxKontextRequest };

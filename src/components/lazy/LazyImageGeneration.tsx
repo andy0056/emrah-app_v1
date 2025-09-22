@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import LoadingSpinner from '../atoms/LoadingSpinner';
+import { LoadingSpinner } from '../ui';
 
 const ImageGeneration = React.lazy(() => import('../ImageGeneration'));
 

@@ -352,18 +352,27 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       const { GroundedGenerationService } = await import('../services/groundedGenerationService');
 
       // Configure generation options based on creative mode
-      // Force Nano Banana for grounded generation due to better SVG compatibility
       const options = {
-        model: 'nano-banana' as const,
+        // Advanced mode: Use Nano Banana with enhanced prompts (SeedReam v4 has compatibility issues with structure guides)
+        model: 'nano-banana' as const, // All modes use Nano Banana for structure guide compatibility
         preserveStructure: creativeMode === 'validated' || creativeMode === 'refined',
         includeBrandAssets: brandAssetUrls.length > 0,
-        showJoinery: true,
+        showJoinery: creativeMode === 'validated' || creativeMode === 'refined',
         perspective: '3quarter' as const,
-        enableDFMValidation: true
+        enableDFMValidation: creativeMode === 'validated',
+        creativeMode: creativeMode
       };
 
       console.log(`🧪 GROUNDED GENERATION: ${options.model} with ${creativeMode} mode`);
-      setExperimentalProgress(`🎯 Using ${options.model} with manufacturing-first approach...`);
+
+      const modeDescriptions = {
+        'advanced': 'enhanced photorealistic rendering',
+        'optimized': 'optimized for speed and compatibility',
+        'validated': 'strict manufacturing compliance',
+        'refined': 'balanced creative approach'
+      };
+
+      setExperimentalProgress(`🎯 Using ${options.model} with ${modeDescriptions[creativeMode]}...`);
 
       // Generate using grounded pipeline
       const result = await GroundedGenerationService.generateGroundedDisplay(
@@ -408,113 +417,6 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       }
 
       setExperimentalProgress('✅ Grounded generation complete!');
-      
-      // Choose generation method based on selected model
-      const frontResult = selectedModel === 'seedream-v4'
-        ? await FalService.generateWithSeedreamV4({
-            prompt: refinedPrompts.frontView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '9:16',
-            num_images: 1,
-            image_size: 1024,
-            formData: formData,
-            userId: 'demo-user',
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          })
-        : await FalService.generateWithBrandAssets({
-            prompt: refinedPrompts.frontView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '9:16',
-            num_images: 1,
-            formData: formData,
-            userId: 'demo-user',
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          });
-      const frontImageUrl = frontResult.images[0]?.url;
-      if (frontImageUrl) {
-        setExperimentalImages(prev => ({ ...prev, frontView: frontImageUrl }));
-        if (currentProjectId) {
-          await saveImageToSupabase(frontImageUrl, 'front_view', refinedPrompts.frontView, '9:16');
-        }
-      }
-
-      setExperimentalProgress(`🧪 Generating experimental store view with ${modelName}...`);
-      const storeResult = selectedModel === 'seedream-v4'
-        ? await FalService.generateWithSeedreamV4({
-            prompt: refinedPrompts.storeView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '16:9',
-            num_images: 1,
-            image_size: 1024,
-            formData: formData,
-            userId: 'demo-user',
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          })
-        : await FalService.generateWithBrandAssets({
-            prompt: refinedPrompts.storeView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '16:9',
-            num_images: 1,
-            formData: formData,
-            userId: 'demo-user',
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          });
-      const storeImageUrl = storeResult.images[0]?.url;
-      if (storeImageUrl) {
-        setExperimentalImages(prev => ({ ...prev, storeView: storeImageUrl }));
-        if (currentProjectId) {
-          await saveImageToSupabase(storeImageUrl, 'store_view', refinedPrompts.storeView, '16:9');
-        }
-      }
-
-      setExperimentalProgress(`🧪 Generating experimental 3/4 view with ${modelName}...`);
-      const threeQuarterResult = selectedModel === 'seedream-v4'
-        ? await FalService.generateWithSeedreamV4({
-            prompt: refinedPrompts.threeQuarterView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '3:4',
-            num_images: 1,
-            image_size: 1024,
-            formData: formData,
-            userId: 'demo-user',
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          })
-        : await FalService.generateWithBrandAssets({
-            prompt: refinedPrompts.threeQuarterView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '3:4',
-            num_images: 1,
-            formData: formData,
-            userId: 'demo-user',
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          });
-      const threeQuarterImageUrl = threeQuarterResult.images[0]?.url;
-      if (threeQuarterImageUrl) {
-        setExperimentalImages(prev => ({ ...prev, threeQuarterView: threeQuarterImageUrl }));
-        if (currentProjectId) {
-          await saveImageToSupabase(threeQuarterImageUrl, 'three_quarter_view', refinedPrompts.threeQuarterView, '3:4');
-        }
-      }
-
-      setExperimentalProgress(`✅ All experimental ${modelName} images generated successfully!`);
       setTimeout(() => setExperimentalProgress(''), 3000);
     } catch (error) {
       console.error('Experimental generation error:', error);

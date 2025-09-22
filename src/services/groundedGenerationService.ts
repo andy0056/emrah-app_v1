@@ -12,6 +12,7 @@ export interface GroundedGenerationOptions {
   showJoinery?: boolean;
   perspective?: '3quarter' | 'orthographic_front' | 'orthographic_side';
   enableDFMValidation?: boolean;
+  creativeMode?: 'refined' | 'advanced' | 'optimized' | 'validated';
 }
 
 export interface GroundedGenerationResponse {
@@ -228,7 +229,8 @@ export class GroundedGenerationService {
       formData,
       brandAssetUrls: brandAssetUrls.length > 0 ? brandAssetUrls : undefined,
       model,
-      preserveStructure: options.preserveStructure !== false
+      preserveStructure: options.preserveStructure !== false,
+      creativeMode: options.creativeMode || 'refined'
     };
   }
 

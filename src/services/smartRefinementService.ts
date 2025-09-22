@@ -6,7 +6,6 @@
 import { FormData } from '../types';
 import { DesignRefinement } from '../components/VoiceRefinementInput';
 import { FalService } from './falService';
-import { EmpatiDesignDNAService } from './empatiDesignDNAService';
 import { PromptCompressionService } from './promptCompressionService';
 
 export interface RefinementResult {
@@ -199,13 +198,8 @@ export class SmartRefinementService {
 
     const basePrompt = baseSections.join('\n');
 
-    // Apply Empati Design DNA alignment
-    const empatiAlignedPrompt = EmpatiDesignDNAService.generateEmpatiAlignedPrompt(
-      basePrompt,
-      formData,
-      'hybrid', // Refinements are typically hybrid approach
-      'moderate'
-    );
+    // Use base prompt directly for refinement
+    const empatiAlignedPrompt = basePrompt;
 
     // Compress for efficiency
     try {

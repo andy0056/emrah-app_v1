@@ -11,6 +11,7 @@ export interface GroundedGenerationRequest {
   referenceImages?: string[]; // Empati build photos of same archetype
   model: 'seedream-v4' | 'nano-banana' | 'flux-kontext';
   preserveStructure: boolean;
+  creativeMode?: 'refined' | 'advanced' | 'optimized' | 'validated';
 }
 
 export interface GroundedGenerationResult {
@@ -44,18 +45,28 @@ export class GroundedImageGeneration {
 
     let result: GroundedGenerationResult;
 
-    switch (safeRequest.model) {
-      case 'seedream-v4':
-        result = await this.generateWithSeedreamV4(structuredPrompt, safeRequest);
-        break;
-      case 'nano-banana':
-        result = await this.generateWithNanoBanana(structuredPrompt, safeRequest);
-        break;
-      case 'flux-kontext':
-        result = await this.generateWithFluxKontext(structuredPrompt, safeRequest);
-        break;
-      default:
-        throw new Error(`Unsupported model: ${safeRequest.model}`);
+    try {
+      switch (safeRequest.model) {
+        case 'seedream-v4':
+          result = await this.generateWithSeedreamV4(structuredPrompt, safeRequest);
+          break;
+        case 'nano-banana':
+          result = await this.generateWithNanoBanana(structuredPrompt, safeRequest);
+          break;
+        case 'flux-kontext':
+          result = await this.generateWithFluxKontext(structuredPrompt, safeRequest);
+          break;
+        default:
+          throw new Error(`Unsupported model: ${safeRequest.model}`);
+      }
+    } catch (error) {
+      // Fallback strategy: if advanced models fail, use Nano Banana
+      if (safeRequest.model !== 'nano-banana') {
+        console.warn(`⚠️ ${safeRequest.model} failed, falling back to Nano Banana:`, error);
+        result = await this.generateWithNanoBanana(structuredPrompt, { ...safeRequest, model: 'nano-banana' });
+      } else {
+        throw error; // Re-throw if Nano Banana itself fails
+      }
     }
 
     result.processing_time_ms = Date.now() - startTime;
@@ -91,7 +102,9 @@ export class GroundedImageGeneration {
         template: request.template.id,
         preserveStructure: request.preserveStructure,
         imageUrls: image_urls.length,
-        imageSize: payload.image_size
+        imageSize: payload.image_size,
+        guideImageFormat: guideImageUrl.substring(0, 50) + '...',
+        payloadKeys: Object.keys(payload)
       });
 
       const result = await fal.subscribe("fal-ai/bytedance/seedream/v4/edit", {
@@ -151,8 +164,16 @@ export class GroundedImageGeneration {
         logs: false
       });
 
+      console.log('🍌 Nano Banana API Response:', {
+        rawResult: result,
+        dataProperty: result.data,
+        imagesProperty: result.data?.images,
+        imageCount: result.data?.images?.length || 0,
+        resultKeys: Object.keys(result)
+      });
+
       return {
-        images: result.images || [],
+        images: result.data?.images || [],
         prompt_used: prompt,
         model_used: 'nano-banana',
         manufacturability_preserved: true, // Nano Banana respects input structure well
@@ -233,20 +254,30 @@ export class GroundedImageGeneration {
       `Dimensions: ${template.overall_dimensions.width_mm}×${template.overall_dimensions.height_mm}×${template.overall_dimensions.depth_mm}mm`,
       "",
 
+      // BRAND & PRODUCT DETAILS
+      `Brand: ${formData.brand}`,
+      `Product: ${formData.product}`,
+      `Product Description: ${formData.description || 'Premium retail product display'}`,
+      "",
+
       // BRAND INTEGRATION (only if assets provided)
       ...(request.brandAssetUrls?.length ? [
         "Brand Integration:",
-        `- Color palette: ${formData.standBaseColor || 'neutral'}`,
+        `- Primary brand color: ${formData.standBaseColor || '#bd2828'}`,
+        `- Integrate ${formData.brand} logo prominently on header/front panel`,
         "- Logo placement only within designated print zones",
         "- No logo warping or distortion",
         "- Respect safe margins around print areas",
+        `- Display authentic ${formData.product} packaging/products`,
         ""
       ] : []),
 
       // PRODUCT SHOWCASE
       `Product Display:`,
+      `- Display for ${formData.brand} ${formData.product}`,
       `- ${template.product_capacity.shelf_count} shelves each holding ${template.product_capacity.products_per_shelf} products`,
       `- Product boxes sized ${template.product_capacity.max_product_dimensions.width_mm}×${template.product_capacity.max_product_dimensions.height_mm}×${template.product_capacity.max_product_dimensions.depth_mm}mm`,
+      `- Show authentic ${formData.product} packages with ${formData.brand} branding`,
       "- Products clearly visible, not occluding headers or branding",
       "",
 
@@ -267,7 +298,59 @@ export class GroundedImageGeneration {
       "- No curves, overhangs, or elements not in original guide"
     ];
 
-    return promptSections.join("\n");
+    const finalPrompt = promptSections.join("\n");
+
+    // Add creative mode specific modifications
+    const modeSpecificPrompt = this.applyCreativeModePromptModifications(finalPrompt, request.creativeMode || 'refined');
+
+    console.log('🎯 Generated Prompt for', formData.brand, formData.product + ':', {
+      promptLength: modeSpecificPrompt.length,
+      hasBrandAssets: !!request.brandAssetUrls?.length,
+      brandColor: formData.standBaseColor,
+      template: template.id,
+      creativeMode: request.creativeMode
+    });
+
+    return modeSpecificPrompt;
+  }
+
+  // Apply creative mode specific prompt modifications
+  private static applyCreativeModePromptModifications(
+    basePrompt: string,
+    creativeMode: 'refined' | 'advanced' | 'optimized' | 'validated'
+  ): string {
+    switch (creativeMode) {
+      case 'advanced':
+        return basePrompt + "\n\nADVANCED MODE ENHANCEMENTS:\n" +
+               "- Apply sophisticated lighting and material rendering\n" +
+               "- Enhanced photorealistic details and textures\n" +
+               "- Professional product photography aesthetics\n" +
+               "- Advanced compositional techniques for visual impact\n" +
+               "- Premium finish quality with subtle material imperfections for realism";
+
+      case 'optimized':
+        // Shorter, more concise prompt for better model compatibility
+        const optimizedSections = basePrompt.split('\n')
+          .filter(line => !line.includes('Strict Prohibitions:') && !line.startsWith('- No '))
+          .slice(0, 12) // Limit to first 12 lines for 35% reduction
+          .join('\n');
+        return optimizedSections + "\nOptimized for speed and compatibility.";
+
+      case 'validated':
+        return basePrompt + "\n\nSTRICT COMPLIANCE MODE:\n" +
+               "- Mandatory adherence to all structural constraints\n" +
+               "- Manufacturing-ready specifications only\n" +
+               "- Zero deviation from template geometry\n" +
+               "- Industry-standard tolerances and materials\n" +
+               "- DFM (Design for Manufacturing) validation required";
+
+      case 'refined':
+      default:
+        return basePrompt + "\n\nREFINED MODE:\n" +
+               "- Balanced creative freedom with structural integrity\n" +
+               "- Flexible brand integration while maintaining form\n" +
+               "- Professional retail display aesthetics";
+    }
   }
 
   // Negative prompts are now handled by the API's built-in safety checker
@@ -298,6 +381,13 @@ export class GroundedImageGeneration {
   static selectOptimalModel(
     request: Partial<GroundedGenerationRequest>
   ): 'seedream-v4' | 'nano-banana' | 'flux-kontext' {
+    // If user explicitly requested a model (via creative mode), respect their choice
+    if (request.model) {
+      console.log('🎯 Respecting user model choice:', request.model);
+      return request.model;
+    }
+
+    // Fallback logic only when no model specified
     // Structure preservation with SVG guides -> Nano Banana (SeedReam v4 fails with SVG data URLs)
     if (request.preserveStructure) {
       return 'nano-banana';

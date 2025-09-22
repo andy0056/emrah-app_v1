@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import LoadingSpinner from '../atoms/LoadingSpinner';
+import { LoadingSpinner } from '../ui';
 import type { FormData, PromptSet } from '../../types';
 
 const ProjectManager = React.lazy(() => import('../ProjectManager'));

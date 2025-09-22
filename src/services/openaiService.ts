@@ -1,10 +1,7 @@
-import OpenAI from 'openai';
+import { apiProxy } from './apiProxy';
 
-// Configure OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // Note: In production, this should be done server-side
-});
+// SECURITY: Removed direct OpenAI client instantiation
+// API calls now go through secure proxy to avoid exposing keys in browser
 
 export interface PromptEnhancementRequest {
   basePrompt: string;
@@ -21,7 +18,7 @@ export class OpenAIService {
 
 CRITICAL RULES:
 1. Keep prompts under 60 words maximum
-2. Lead with EXACT specifications (dimensions, materials, colors)  
+2. Lead with EXACT specifications (dimensions, materials, colors)
 3. Ensure shelves are clearly described and functional
 4. Reference uploaded images when available
 5. Use simple, direct language - NO flowery descriptions
@@ -29,7 +26,7 @@ CRITICAL RULES:
 PROMPT STRUCTURE:
 [Stand Type] [Brand] display stand, [View].
 SPECS: [Exact dimensions/colors/materials]
-SHELVES: [Count] shelves, [Product arrangement]  
+SHELVES: [Count] shelves, [Product arrangement]
 STYLE: [Brief style note]
 
 INNOVATION: Add ONE unique feature that's buildable and brand-appropriate.`;
@@ -43,7 +40,7 @@ INNOVATION: Add ONE unique feature that's buildable and brand-appropriate.`;
 
 **REQUIREMENTS:**
 1. Keep under 60 words total
-2. Start with exact stand type and brand  
+2. Start with exact stand type and brand
 3. Include specific shelf details (count, product arrangement)
 4. Add ONE innovative feature
 5. End with view and style note
@@ -53,17 +50,22 @@ OUTPUT FORMAT:
 
 Be CONCISE and CLEAR - AI models work better with simple, direct instructions!`;
 
-      const completion = await openai.chat.completions.create({
+      // Use secure API proxy instead of direct OpenAI client
+      const response = await apiProxy.callOpenAI({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
         max_tokens: 150,
-        temperature: 0.6 // Reduced for more focused, consistent output
+        temperature: 0.6
       });
 
-      return completion.choices[0]?.message?.content || request.basePrompt;
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      return response.data.choices?.[0]?.message?.content || request.basePrompt;
     } catch (error) {
       console.error('Error enhancing prompt with OpenAI:', error);
       // Fallback to base prompt if enhancement fails
