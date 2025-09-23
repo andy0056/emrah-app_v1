@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Sparkles, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { PromptGenerator } from '../utils/promptGenerator';
+import { SmartPromptGenerator } from '../utils/smartPromptGenerator';
+import { mapToFormDataWithDimensions, validateDimensionalData, mergeWithDefaults } from '../utils/formDataMapper';
 import { SecurityUtils } from '../utils/security';
 import { PerformanceUtils } from '../utils/performance';
 import { DesignModeSelector, DesignMode } from './DesignModeSelector';
@@ -172,13 +174,55 @@ const StandRequestForm: React.FC = () => {
     }));
   }, []);
 
-  // Update prompts whenever form data changes
+  // Update prompts whenever form data changes using Dimensional Intelligence
   useEffect(() => {
     if (formData.brand && formData.product && formData.standType) {
-      const generatedPrompts = PromptGenerator.generateAllPrompts(formData);
-      setPrompts(generatedPrompts);
-      // Reset enhanced prompts when base data changes
-      setEnhancedPrompts(null);
+      try {
+        // Validate dimensional data
+        const validation = validateDimensionalData(formData);
+
+        if (validation.warnings.length > 0) {
+          console.warn('🚨 Dimensional validation warnings:', validation.warnings);
+        }
+
+        // Convert to dimensional format, using defaults for missing values
+        const dimensionalData = mergeWithDefaults(formData, formData.product);
+
+        // Generate intelligent prompts with dimensional analysis
+        const intelligentPrompts = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+
+        console.log('🧮 Dimensional Intelligence Results:', {
+          spaceEfficiency: intelligentPrompts.analysis.spaceUtilization.efficiency,
+          productCapacity: intelligentPrompts.analysis.calculatedLayout.totalProductCapacity,
+          productArrangement: `${intelligentPrompts.analysis.calculatedLayout.shelfRows}×${intelligentPrompts.analysis.calculatedLayout.shelfColumns}`,
+          issues: intelligentPrompts.analysis.issues.length,
+          manufacturingConstraints: intelligentPrompts.analysis.manufacturingConstraints.length
+        });
+
+        // Use intelligent prompts instead of basic ones
+        setPrompts({
+          frontView: intelligentPrompts.frontView,
+          storeView: intelligentPrompts.storeView,
+          threeQuarterView: intelligentPrompts.threeQuarterView
+        });
+
+        // Reset enhanced prompts when base data changes
+        setEnhancedPrompts(null);
+
+        // Show validation warnings if any critical issues
+        if (!validation.isValid) {
+          console.error('❌ Missing dimensional data:', validation.missingFields);
+          // Still use intelligent prompts but with defaults
+        }
+
+      } catch (error) {
+        console.error('Failed to generate intelligent prompts, falling back to basic generation:', error);
+
+        // Fallback to basic prompt generation if dimensional intelligence fails
+        const generatedPrompts = PromptGenerator.generateAllPrompts(formData);
+        setPrompts(generatedPrompts);
+        setEnhancedPrompts(null);
+      }
     }
   }, [formData]);
 

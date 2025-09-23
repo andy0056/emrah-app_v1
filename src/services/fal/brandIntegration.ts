@@ -4,7 +4,9 @@
  */
 
 import { fal } from "@fal-ai/client";
-import { generateClientRequirementMapping, makeBrandFriendlyPrompt, createBrandIntegrationPrompt } from './utils';
+import { generateClientRequirementMapping, makeBrandFriendlyPrompt, createBrandIntegrationPrompt, createDimensionalBrandIntegrationPrompt, generatePhysicsValidatedRequirements } from './utils';
+import { SmartPromptGenerator } from '../../utils/smartPromptGenerator';
+import { mapToFormDataWithDimensions, mergeWithDefaults } from '../../utils/formDataMapper';
 import type { BrandAssetGenerationRequest, FalImageResponse } from './types';
 
 export class FalBrandIntegrationService {
@@ -18,11 +20,51 @@ export class FalBrandIntegrationService {
       // Transform the prompt to be brand-friendly
       const brandFriendlyPrompt = makeBrandFriendlyPrompt(request.prompt);
 
-      // Add client requirement mapping if form data is provided
-      const clientRequirements = request.formData ? generateClientRequirementMapping(request.formData) : '';
+      let integratedPrompt: string;
 
-      // Create comprehensive brand integration prompt
-      const integratedPrompt = createBrandIntegrationPrompt(brandFriendlyPrompt, clientRequirements);
+      // Use dimensional intelligence if form data is available
+      if (request.formData) {
+        try {
+          console.log('🧮 Generating dimensional analysis for brand integration...');
+
+          // Convert to dimensional format
+          const dimensionalData = mergeWithDefaults(request.formData, request.formData.product);
+
+          // Generate dimensional analysis
+          const analysis = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+
+          // Generate physics-validated client requirements (replaces generic mapping)
+          const physicsValidatedRequirements = generatePhysicsValidatedRequirements(request.formData, analysis.analysis);
+
+          // Use dimensional brand integration with physics validation
+          integratedPrompt = createDimensionalBrandIntegrationPrompt(
+            brandFriendlyPrompt,
+            analysis.analysis,
+            physicsValidatedRequirements
+          );
+
+          console.log('✅ Using DIMENSIONAL-PRIORITY brand integration with physics validation');
+          console.log('📊 Layout Analysis:', {
+            productsPerShelf: analysis.analysis.calculatedLayout.productsPerShelf,
+            arrangement: `${analysis.analysis.calculatedLayout.shelfRows}×${analysis.analysis.calculatedLayout.shelfColumns}`,
+            efficiency: analysis.analysis.spaceUtilization.efficiency,
+            utilization: `${analysis.analysis.spaceUtilization.standUsagePercent}%`,
+            manufacturingConstraints: analysis.analysis.manufacturingConstraints.length,
+            physicsValid: analysis.analysis.issues.length === 0
+          });
+
+        } catch (error) {
+          console.warn('⚠️ Dimensional analysis failed, falling back to generic brand integration:', error);
+
+          // Fallback to generic requirements if dimensional analysis fails
+          const clientRequirements = generateClientRequirementMapping(request.formData);
+          integratedPrompt = createBrandIntegrationPrompt(brandFriendlyPrompt, clientRequirements);
+        }
+      } else {
+        // Fallback to generic brand integration when no form data
+        integratedPrompt = createBrandIntegrationPrompt(brandFriendlyPrompt, '');
+        console.log('ℹ️ Using generic CLIENT-PRIORITY brand integration (no form data)');
+      }
 
       console.log('📝 Final Integrated Prompt:', integratedPrompt);
       console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);

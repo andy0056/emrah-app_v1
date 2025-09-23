@@ -6,6 +6,7 @@ import { RefinedPromptGenerator } from '../utils/refinedPromptGenerator';
 import { AdvancedPromptGenerator } from '../utils/advancedPromptGenerator';
 import { OptimizedPromptGenerator } from '../utils/optimizedPromptGenerator';
 import ValidatedPromptGenerator from '../utils/validatedPromptGenerator';
+import { SmartPromptGenerator, type FormDataWithDimensions } from '../utils/smartPromptGenerator';
 import { FormData } from '../types';
 import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
@@ -67,8 +68,10 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [enableOptimization, setEnableOptimization] = useState(true);
   const [enableEvolution, setEnableEvolution] = useState(true);
   const [enableABTesting, setEnableABTesting] = useState(true);
+  const [enableDimensionalIntelligence, setEnableDimensionalIntelligence] = useState(true);
   const [modelRecommendation, setModelRecommendation] = useState<any>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [dimensionalAnalysis, setDimensionalAnalysis] = useState<any>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
@@ -124,6 +127,55 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   useEffect(() => {
     FalService.initializeIntelligence();
   }, []);
+
+  // Generate dimensional analysis when form data changes
+  useEffect(() => {
+    const generateDimensionalAnalysis = async () => {
+      if (formData && enableDimensionalIntelligence) {
+        try {
+          // Try to extract dimensional data from formData
+          const dimensionalData: FormDataWithDimensions = {
+            // Product specifications - get from formData or use defaults
+            productWidth: formData.productWidth || 13, // User's example: 13cm
+            productDepth: formData.productDepth || 2.5, // User's example: 2.5cm
+            productHeight: formData.productHeight || 5, // User's example: 5cm
+            productFrontFaceCount: formData.productFrontFaceCount || 1,
+            productBackToBackCount: formData.productBackToBackCount || 12,
+
+            // Stand specifications
+            standWidth: formData.standWidth || 15, // User's example: 15cm
+            standDepth: formData.standDepth || 30, // User's example: 30cm
+            standHeight: formData.standHeight || 30, // User's example: 30cm
+
+            // Shelf specifications
+            shelfWidth: formData.shelfWidth || 15, // User's example: 15cm
+            shelfDepth: formData.shelfDepth || 15, // User's example: 15cm
+            shelfCount: formData.shelfCount || 1,
+
+            // Brand information
+            brand: formData.brand,
+            product: formData.product,
+            standType: 'countertop display',
+            materials: ['wood', 'acrylic'],
+            standBaseColor: formData.standBaseColor
+          };
+
+          const analysis = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+          setDimensionalAnalysis(analysis);
+
+          console.log('🧮 Dimensional analysis generated:', {
+            spaceEfficiency: analysis.analysis.spaceUtilization.efficiency,
+            productCapacity: analysis.analysis.calculatedLayout.totalProductCapacity,
+            issues: analysis.analysis.issues.length
+          });
+        } catch (error) {
+          console.warn('Failed to generate dimensional analysis:', error);
+        }
+      }
+    };
+
+    generateDimensionalAnalysis();
+  }, [formData, enableDimensionalIntelligence]);
 
   const saveImageToSupabase = async (
     imageUrl: string, 
@@ -372,7 +424,21 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         'refined': 'balanced creative approach'
       };
 
-      setExperimentalProgress(`🎯 Using ${options.model} with ${modeDescriptions[creativeMode]}...`);
+      // Use dimensional intelligence if enabled and available
+      if (enableDimensionalIntelligence && dimensionalAnalysis) {
+        setExperimentalProgress(`🧮 Using dimensional intelligence with ${options.model} (${dimensionalAnalysis.analysis.spaceUtilization.efficiency} efficiency)...`);
+
+        // Override the experimental progress with dimensional analysis insights
+        const analysisInsights = [
+          `${dimensionalAnalysis.analysis.calculatedLayout.totalProductCapacity} product capacity`,
+          `${dimensionalAnalysis.analysis.spaceUtilization.standUsagePercent}% space utilization`,
+          dimensionalAnalysis.analysis.issues.length > 0 ? 'with dimensional constraints' : 'dimensionally optimized'
+        ].join(', ');
+
+        setExperimentalProgress(`🎯 Dimensional-aware generation: ${analysisInsights}`);
+      } else {
+        setExperimentalProgress(`🎯 Using ${options.model} with ${modeDescriptions[creativeMode]}...`);
+      }
 
       // Generate using grounded pipeline
       const result = await GroundedGenerationService.generateGroundedDisplay(
@@ -656,6 +722,16 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
                 />
                 <span className="text-sm font-medium text-gray-700">🧪 A/B Testing</span>
               </label>
+
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={enableDimensionalIntelligence}
+                  onChange={(e) => setEnableDimensionalIntelligence(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">📐 Dimensional Intelligence</span>
+              </label>
             </div>
           </div>
 
@@ -664,6 +740,40 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             <p>• <strong>Dynamic Optimization:</strong> Adjusts prompts based on previous client feedback patterns</p>
             <p>• <strong>Evolved Patterns:</strong> Uses genetic algorithms to improve prompt effectiveness over time</p>
             <p>• <strong>A/B Testing:</strong> Tests different prompt approaches to find the most effective ones</p>
+            <p>• <strong>Dimensional Intelligence:</strong> Analyzes product and stand dimensions to ensure physically accurate designs</p>
+          </div>
+        </div>
+      )}
+
+      {/* Dimensional Analysis Display */}
+      {dimensionalAnalysis && enableDimensionalIntelligence && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-green-800 flex items-center">
+                📐 Dimensional Intelligence Analysis
+              </h4>
+              <p className="text-green-700 text-sm mt-1">
+                Space efficiency: {dimensionalAnalysis.analysis.spaceUtilization.efficiency} ({dimensionalAnalysis.analysis.spaceUtilization.standUsagePercent}%)
+              </p>
+              <p className="text-green-600 text-xs mt-1">
+                Capacity: {dimensionalAnalysis.analysis.calculatedLayout.totalProductCapacity} products
+                ({dimensionalAnalysis.analysis.calculatedLayout.productsPerShelf} per shelf)
+              </p>
+              {dimensionalAnalysis.analysis.issues.length > 0 && (
+                <p className="text-orange-600 text-xs mt-1">
+                  Issues detected: {dimensionalAnalysis.analysis.issues.slice(0, 2).join(', ')}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-600">
+                Layout: {dimensionalAnalysis.analysis.calculatedLayout.shelfColumns}×{dimensionalAnalysis.analysis.calculatedLayout.shelfRows}
+              </div>
+              <div className="text-xs text-gray-600">
+                Wasted: {Math.round(dimensionalAnalysis.analysis.spaceUtilization.wastedSpace)} cm³
+              </div>
+            </div>
           </div>
         </div>
       )}

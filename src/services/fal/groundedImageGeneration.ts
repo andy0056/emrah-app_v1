@@ -2,6 +2,12 @@ import { fal } from "@fal-ai/client";
 import { DisplayTemplate } from '../../domain/templates/templateLibrary';
 import { StructureGuide } from '../guide/structureGuideGenerator';
 import { FormData } from '../../types';
+import { SmartPromptGenerator, type FormDataWithDimensions } from '../../utils/smartPromptGenerator';
+import { RefinedPromptGenerator } from '../../utils/refinedPromptGenerator';
+import { AdvancedPromptGenerator } from '../../utils/advancedPromptGenerator';
+import { OptimizedPromptGenerator } from '../../utils/optimizedPromptGenerator';
+import ValidatedPromptGenerator from '../../utils/validatedPromptGenerator';
+import { mergeWithDefaults } from '../../utils/formDataMapper';
 
 export interface GroundedGenerationRequest {
   template: DisplayTemplate;
@@ -228,9 +234,27 @@ export class GroundedImageGeneration {
     }
   }
 
-  // Generate manufacturing-aware prompt scaffold
+  // Generate manufacturing-aware prompt scaffold with dimensional intelligence
   private static generateStructuredPrompt(request: GroundedGenerationRequest): string {
     const { template, formData } = request;
+
+    // Extract dimensional data for intelligent prompting
+    const dimensionalData = this.extractDimensionalData(formData, template);
+
+    // Generate intelligent prompt if dimensional data is complete
+    if (dimensionalData && this.isDimensionalDataComplete(dimensionalData)) {
+      console.log('🧮 Using dimensional intelligence for prompt generation');
+      const intelligentPrompts = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+
+      // Use the three-quarter view for grounded generation as it shows full dimensionality
+      const dimensionalPrompt = intelligentPrompts.threeQuarterView;
+
+      // Combine with existing brand and template information
+      return this.combineDimensionalWithBrandPrompt(dimensionalPrompt, request, intelligentPrompts.analysis);
+    }
+
+    // Fallback to original prompt generation if dimensional data incomplete
+    console.log('⚠️ Insufficient dimensional data, using standard prompt generation');
 
     // Build prompt in priority order per your specification
     const promptSections = [
@@ -300,8 +324,13 @@ export class GroundedImageGeneration {
 
     const finalPrompt = promptSections.join("\n");
 
-    // Add creative mode specific modifications
-    const modeSpecificPrompt = this.applyCreativeModePromptModifications(finalPrompt, request.creativeMode || 'refined');
+    // Add creative mode specific modifications with form data and view type
+    const modeSpecificPrompt = this.applyCreativeModePromptModifications(
+      finalPrompt,
+      request.creativeMode || 'refined',
+      formData,
+      'three-quarter' // Grounded generation typically uses 3/4 view
+    );
 
     console.log('🎯 Generated Prompt for', formData.brand, formData.product + ':', {
       promptLength: modeSpecificPrompt.length,
@@ -314,8 +343,164 @@ export class GroundedImageGeneration {
     return modeSpecificPrompt;
   }
 
-  // Apply creative mode specific prompt modifications
+  // Apply creative mode specific prompt modifications using full generators
   private static applyCreativeModePromptModifications(
+    basePrompt: string,
+    creativeMode: 'refined' | 'advanced' | 'optimized' | 'validated',
+    formData?: FormData,
+    viewType: 'front' | 'store' | 'three-quarter' = 'three-quarter'
+  ): string {
+    // If no form data, fall back to simple text modifications
+    if (!formData) {
+      return this.applyLegacyCreativeModeModifications(basePrompt, creativeMode);
+    }
+
+    try {
+      console.log(`🎨 Applying ${creativeMode} mode using full generator implementation`);
+
+      // Generate dimensionally-aware prompts using appropriate generator
+      let creativePrompt: string;
+
+      // Add dimensional intelligence to form data
+      const dimensionalData = mergeWithDefaults(formData, formData.product);
+      const dimensionalAnalysis = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+
+      console.log('🧮 Creative Mode + Dimensional Intelligence:', {
+        mode: creativeMode,
+        spaceEfficiency: dimensionalAnalysis.analysis.spaceUtilization.efficiency,
+        productCapacity: dimensionalAnalysis.analysis.calculatedLayout.totalProductCapacity,
+        viewType: viewType
+      });
+
+      switch (creativeMode) {
+        case 'advanced':
+          creativePrompt = this.generateAdvancedPromptWithDimensions(formData, dimensionalAnalysis.analysis, viewType);
+          break;
+
+        case 'optimized':
+          creativePrompt = this.generateOptimizedPromptWithDimensions(formData, dimensionalAnalysis.analysis, viewType);
+          break;
+
+        case 'validated':
+          creativePrompt = this.generateValidatedPromptWithDimensions(formData, dimensionalAnalysis.analysis, viewType);
+          break;
+
+        case 'refined':
+        default:
+          creativePrompt = this.generateRefinedPromptWithDimensions(formData, dimensionalAnalysis.analysis, viewType);
+          break;
+      }
+
+      console.log(`✅ Generated ${creativeMode} prompt with dimensional intelligence`);
+      return creativePrompt;
+
+    } catch (error) {
+      console.warn(`⚠️ Creative mode generation failed for ${creativeMode}, falling back to legacy:`, error);
+      return this.applyLegacyCreativeModeModifications(basePrompt, creativeMode);
+    }
+  }
+
+  // Individual generator methods with dimensional intelligence
+  private static generateRefinedPromptWithDimensions(
+    formData: FormData,
+    dimensionalAnalysis: any,
+    viewType: 'front' | 'store' | 'three-quarter'
+  ): string {
+    const layout = dimensionalAnalysis.calculatedLayout;
+    const utilization = dimensionalAnalysis.spaceUtilization;
+
+    switch (viewType) {
+      case 'front':
+        return RefinedPromptGenerator.generateFrontViewPrompt(formData) +
+               `\n\nDIMENSIONAL PRECISION: ${layout.productsPerShelf} products in ${layout.shelfRows}×${layout.shelfColumns} arrangement, ${utilization.efficiency} efficiency`;
+      case 'store':
+        return RefinedPromptGenerator.generateStoreViewPrompt(formData) +
+               `\n\nSPACE UTILIZATION: ${utilization.standUsagePercent}% calculated efficiency with ${layout.totalProductCapacity} total capacity`;
+      case 'three-quarter':
+      default:
+        return RefinedPromptGenerator.generateThreeQuarterViewPrompt(formData) +
+               `\n\nSTRUCTURAL INTELLIGENCE: Validated ${utilization.efficiency} design with precise ${layout.productSpacing}cm spacing`;
+    }
+  }
+
+  private static generateAdvancedPromptWithDimensions(
+    formData: FormData,
+    dimensionalAnalysis: any,
+    viewType: 'front' | 'store' | 'three-quarter'
+  ): string {
+    const layout = dimensionalAnalysis.calculatedLayout;
+    const constraints = dimensionalAnalysis.manufacturingConstraints;
+
+    switch (viewType) {
+      case 'front':
+        return AdvancedPromptGenerator.generateFrontViewPrompt(formData) +
+               `\n\nADVANCED DIMENSIONAL RENDERING: Precisely calculated ${layout.productsPerShelf} product layout with ${constraints.length} structural constraints addressed`;
+      case 'store':
+        return AdvancedPromptGenerator.generateStoreViewPrompt(formData) +
+               `\n\nPHOTOREALISTIC ACCURACY: ${layout.totalProductCapacity} products in verified spatial arrangement`;
+      case 'three-quarter':
+      default:
+        return AdvancedPromptGenerator.generateThreeQuarterViewPrompt(formData) +
+               `\n\nPROFESSIONAL DOCUMENTATION: Museum-quality rendering with calculated ${layout.shelfRows}×${layout.shelfColumns} grid precision`;
+    }
+  }
+
+  private static generateOptimizedPromptWithDimensions(
+    formData: FormData,
+    dimensionalAnalysis: any,
+    viewType: 'front' | 'store' | 'three-quarter'
+  ): string {
+    const layout = dimensionalAnalysis.calculatedLayout;
+
+    // Generate base prompt and optimize it
+    let basePrompt: string;
+    switch (viewType) {
+      case 'front':
+        basePrompt = OptimizedPromptGenerator.generateFrontViewPrompt(formData);
+        break;
+      case 'store':
+        basePrompt = OptimizedPromptGenerator.generateStoreViewPrompt(formData);
+        break;
+      case 'three-quarter':
+      default:
+        basePrompt = OptimizedPromptGenerator.generateThreeQuarterViewPrompt(formData);
+        break;
+    }
+
+    // Add essential dimensional info only
+    return basePrompt + `\n\nDIMENSIONS: ${layout.productsPerShelf} products, ${layout.shelfRows}×${layout.shelfColumns} grid. Optimized.`;
+  }
+
+  private static generateValidatedPromptWithDimensions(
+    formData: FormData,
+    dimensionalAnalysis: any,
+    viewType: 'front' | 'store' | 'three-quarter'
+  ): string {
+    const layout = dimensionalAnalysis.calculatedLayout;
+    const utilization = dimensionalAnalysis.spaceUtilization;
+    const issues = dimensionalAnalysis.issues;
+
+    let basePrompt: string;
+    switch (viewType) {
+      case 'front':
+        basePrompt = ValidatedPromptGenerator.generateFrontViewPrompt(formData);
+        break;
+      case 'store':
+        basePrompt = ValidatedPromptGenerator.generateStoreViewPrompt(formData);
+        break;
+      case 'three-quarter':
+      default:
+        basePrompt = ValidatedPromptGenerator.generateThreeQuarterViewPrompt(formData);
+        break;
+    }
+
+    const validationStatus = issues.length === 0 ? 'VALIDATED' : `${issues.length} ISSUES DETECTED`;
+    return basePrompt +
+           `\n\nMANUFACTURING VALIDATION: ${validationStatus}. Precise ${layout.productsPerShelf} product capacity, ${utilization.efficiency} efficiency. Structural compliance verified.`;
+  }
+
+  // Legacy fallback for simple text modifications
+  private static applyLegacyCreativeModeModifications(
     basePrompt: string,
     creativeMode: 'refined' | 'advanced' | 'optimized' | 'validated'
   ): string {
@@ -329,7 +514,6 @@ export class GroundedImageGeneration {
                "- Premium finish quality with subtle material imperfections for realism";
 
       case 'optimized':
-        // Shorter, more concise prompt for better model compatibility
         const optimizedSections = basePrompt.split('\n')
           .filter(line => !line.includes('Strict Prohibitions:') && !line.startsWith('- No '))
           .slice(0, 12) // Limit to first 12 lines for 35% reduction
@@ -418,5 +602,113 @@ export class GroundedImageGeneration {
       isValid: true,
       issues: []
     };
+  }
+
+  /**
+   * Extract dimensional data from form and template for intelligent prompting
+   */
+  private static extractDimensionalData(formData: FormData, template: DisplayTemplate): FormDataWithDimensions | null {
+    try {
+      // Map FormData to FormDataWithDimensions
+      return {
+        // Product specifications - try to extract from form data or use defaults
+        productWidth: formData.productWidth || template.product_capacity.max_product_dimensions.width_mm / 10, // Convert mm to cm
+        productDepth: formData.productDepth || template.product_capacity.max_product_dimensions.depth_mm / 10,
+        productHeight: formData.productHeight || template.product_capacity.max_product_dimensions.height_mm / 10,
+        productFrontFaceCount: formData.productFrontFaceCount || 1,
+        productBackToBackCount: formData.productBackToBackCount || template.product_capacity.products_per_shelf,
+
+        // Stand specifications
+        standWidth: formData.standWidth || template.overall_dimensions.width_mm / 10, // Convert mm to cm
+        standDepth: formData.standDepth || template.overall_dimensions.depth_mm / 10,
+        standHeight: formData.standHeight || template.overall_dimensions.height_mm / 10,
+
+        // Shelf specifications
+        shelfWidth: formData.shelfWidth || template.overall_dimensions.width_mm / 10 - 2, // Assume 2cm margin
+        shelfDepth: formData.shelfDepth || template.overall_dimensions.depth_mm / 10 - 2,
+        shelfCount: formData.shelfCount || template.product_capacity.shelf_count,
+
+        // Brand information
+        brand: formData.brand,
+        product: formData.product,
+        standType: template.id,
+        materials: [template.material.type],
+        standBaseColor: formData.standBaseColor
+      };
+    } catch (error) {
+      console.warn('Failed to extract dimensional data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if dimensional data is complete enough for intelligent prompting
+   */
+  private static isDimensionalDataComplete(data: FormDataWithDimensions): boolean {
+    return !!(
+      data.productWidth && data.productWidth > 0 &&
+      data.productDepth && data.productDepth > 0 &&
+      data.productHeight && data.productHeight > 0 &&
+      data.standWidth && data.standWidth > 0 &&
+      data.standDepth && data.standDepth > 0 &&
+      data.standHeight && data.standHeight > 0 &&
+      data.shelfWidth && data.shelfWidth > 0 &&
+      data.shelfDepth && data.shelfDepth > 0 &&
+      data.shelfCount && data.shelfCount > 0
+    );
+  }
+
+  /**
+   * Combine dimensional intelligence prompt with brand and template information
+   */
+  private static combineDimensionalWithBrandPrompt(
+    dimensionalPrompt: string,
+    request: GroundedGenerationRequest,
+    analysis: any
+  ): string {
+    const { template, formData } = request;
+
+    // Add manufacturing and brand context to the dimensional prompt
+    const enhancedPrompt = `${dimensionalPrompt}
+
+MANUFACTURING CONTEXT:
+- Material: ${template.material.type} ${template.material.thickness_mm}mm thickness
+- Construction: ${template.joinery.type} joinery with visible connections
+- Template: ${template.id}
+
+BRAND INTEGRATION:${request.brandAssetUrls?.length ? `
+- Primary brand color: ${formData.standBaseColor || '#bd2828'}
+- Integrate ${formData.brand} logo prominently on header/front panel
+- Display authentic ${formData.product} packaging/products
+- Logo placement only within designated print zones` : `
+- Basic branding for ${formData.brand} ${formData.product}`}
+
+STRUCTURE GUIDE INTEGRATION:
+- Strictly preserve edges, planes, and proportions from structure guide
+- No curves or overhangs beyond guide geometry
+- Keep mounting points, tabs, and fold lines visible
+- All joinery hints visible (slots, tabs, material thickness)
+
+DIMENSIONAL ANALYSIS INSIGHTS:
+- Space efficiency: ${analysis.spaceUtilization.efficiency} (${analysis.spaceUtilization.standUsagePercent}%)
+- Product capacity: ${analysis.calculatedLayout.totalProductCapacity} products
+- Products per shelf: ${analysis.calculatedLayout.productsPerShelf} products
+${analysis.issues.length > 0 ? `- Identified issues: ${analysis.issues.slice(0, 2).join(', ')}` : ''}
+
+VISUAL OUTPUT:
+- Photorealistic retail photography style
+- Neutral studio lighting with subtle shadows
+- 3/4 hero angle aligned with structure guide
+- Clean background, professional product photography aesthetic`;
+
+    console.log('🎯 Enhanced dimensional prompt generated:', {
+      originalLength: dimensionalPrompt.length,
+      enhancedLength: enhancedPrompt.length,
+      spaceEfficiency: analysis.spaceUtilization.efficiency,
+      productCapacity: analysis.calculatedLayout.totalProductCapacity,
+      hasIssues: analysis.issues.length > 0
+    });
+
+    return enhancedPrompt;
   }
 }

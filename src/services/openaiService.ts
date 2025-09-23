@@ -1,5 +1,6 @@
 import { apiProxy } from './apiProxy';
 import { SecureService } from '../security/secureService';
+import { SmartPromptGenerator, type FormDataWithDimensions } from '../utils/smartPromptGenerator';
 
 // SECURITY: Enhanced with comprehensive LLM security protections
 // - Prompt injection prevention
@@ -14,11 +15,56 @@ export interface PromptEnhancementRequest {
   targetView: 'front' | 'store' | 'three-quarter';
   innovationHint: string;
   clientId?: string; // For security tracking
+  dimensionalData?: FormDataWithDimensions; // For dimensional intelligence
+  enableDimensionalIntelligence?: boolean;
 }
 
 export class OpenAIService {
   static async enhancePrompt(request: PromptEnhancementRequest): Promise<string> {
     const clientId = request.clientId || 'anonymous';
+
+    // Check if dimensional intelligence is enabled and data is available
+    if (request.enableDimensionalIntelligence && request.dimensionalData) {
+      console.log('🧮 Using dimensional intelligence for OpenAI prompt enhancement');
+
+      try {
+        // Generate intelligent prompts using dimensional analysis
+        const intelligentPrompts = SmartPromptGenerator.generateIntelligentPrompts(request.dimensionalData);
+
+        // Select the appropriate view-specific prompt
+        const dimensionalPrompt = request.targetView === 'front'
+          ? intelligentPrompts.frontView
+          : request.targetView === 'store'
+          ? intelligentPrompts.storeView
+          : intelligentPrompts.threeQuarterView;
+
+        // Add brand context and innovation to the dimensional prompt
+        const enhancedPrompt = `${dimensionalPrompt}
+
+BRAND ENHANCEMENT:
+- Brand: ${request.brandContext}
+- Product: ${request.productContext}
+- Innovation: ${request.innovationHint}
+
+DIMENSIONAL INSIGHTS:
+- Space efficiency: ${intelligentPrompts.analysis.spaceUtilization.efficiency} (${intelligentPrompts.analysis.spaceUtilization.standUsagePercent}%)
+- Product capacity: ${intelligentPrompts.analysis.calculatedLayout.totalProductCapacity} products
+- Layout: ${intelligentPrompts.analysis.calculatedLayout.shelfColumns}×${intelligentPrompts.analysis.calculatedLayout.shelfRows} grid
+${intelligentPrompts.analysis.issues.length > 0 ? `- Issues addressed: ${intelligentPrompts.analysis.issues.slice(0, 2).join(', ')}` : ''}`;
+
+        console.log('🎯 Enhanced dimensional prompt generated:', {
+          targetView: request.targetView,
+          spaceEfficiency: intelligentPrompts.analysis.spaceUtilization.efficiency,
+          productCapacity: intelligentPrompts.analysis.calculatedLayout.totalProductCapacity,
+          promptLength: enhancedPrompt.length
+        });
+
+        return enhancedPrompt;
+      } catch (error) {
+        console.warn('⚠️ Dimensional intelligence failed, falling back to standard enhancement:', error);
+        // Fall through to standard enhancement
+      }
+    }
 
     // Use secure service layer for comprehensive protection
     const secureResponse = await SecureService.processSecureRequest(

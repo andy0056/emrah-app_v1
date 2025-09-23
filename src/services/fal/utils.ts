@@ -101,3 +101,107 @@ CLIENT-PRIORITY BRAND INTEGRATION:
 - ASSET UTILIZATION: Seamlessly integrate ALL provided brand assets (logo, product, key visual) as focal design elements
 - VISUAL HIERARCHY: Establish clear brand dominance while maintaining structural integrity${clientRequirements}`;
 }
+
+/**
+ * Create dimensionally-aware brand integration prompt using calculated layouts
+ */
+export function createDimensionalBrandIntegrationPrompt(
+  basePrompt: string,
+  dimensionalAnalysis: any,
+  clientRequirements: string = ''
+): string {
+  const layout = dimensionalAnalysis.calculatedLayout;
+  const utilization = dimensionalAnalysis.spaceUtilization;
+  const constraints = dimensionalAnalysis.manufacturingConstraints;
+
+  return `${basePrompt}
+
+DIMENSIONAL-PRIORITY BRAND INTEGRATION:
+- LOGO PROMINENCE: Feature brand logo as primary visual anchor on multiple display surfaces
+- CALCULATED PRODUCT ARRANGEMENT: ${layout.productsPerShelf} products per shelf in ${layout.shelfRows}×${layout.shelfColumns} grid layout
+- PHYSICS-VALIDATED DENSITY: ${utilization.shelfUsagePercent}% calculated shelf utilization (${utilization.efficiency} efficiency)
+- EXACT PRODUCT CAPACITY: Total ${layout.totalProductCapacity} products across all shelves with ${layout.productSpacing}cm spacing
+- STRUCTURAL REQUIREMENTS: ${constraints.length} manufacturing constraints must be addressed
+- BRAND COLOR DOMINANCE: Apply brand colors as structural design elements, not just accents
+- RETAIL IMPACT FOCUS: Design for maximum customer attention within physical constraints
+- BRAND CONSISTENCY: Ensure cohesive brand experience across all display angles and surfaces
+- MANUFACTURING VIABILITY: Balance strong branding with proven structural integrity
+- ASSET UTILIZATION: Seamlessly integrate ALL provided brand assets within calculated dimensions
+- DIMENSIONAL ACCURACY: ${utilization.standUsagePercent}% space utilization ensures buildable design${clientRequirements}`;
+}
+
+/**
+ * Generate physics-validated client requirements using dimensional analysis
+ */
+export function generatePhysicsValidatedRequirements(
+  formData: FormData,
+  dimensionalAnalysis: any
+): string {
+  const requirements: string[] = [];
+  const layout = dimensionalAnalysis.calculatedLayout;
+  const utilization = dimensionalAnalysis.spaceUtilization;
+  const constraints = dimensionalAnalysis.manufacturingConstraints;
+
+  // Brand priority with dimensional constraints
+  if (formData.brand) {
+    requirements.push(`BRAND: ${formData.brand} must dominate visual hierarchy within structural limits`);
+  }
+
+  // Product specificity with calculated layout
+  if (formData.product && formData.description) {
+    requirements.push(`PRODUCT FOCUS: ${formData.product} (${formData.description}) positioned in calculated ${layout.shelfRows}×${layout.shelfColumns} arrangement on every shelf`);
+  }
+
+  // Physics-validated shelf density (not generic 70-90%)
+  if (formData.shelfCount) {
+    const actualDensity = utilization.shelfUsagePercent;
+    const productCapacity = layout.productsPerShelf;
+
+    const productPlacement = formData.shelfCount === 1
+      ? `single shelf with exactly ${productCapacity} products in optimal ${layout.shelfRows}×${layout.shelfColumns} grid`
+      : formData.shelfCount === 2
+      ? `top shelf: ${productCapacity} premium products, bottom shelf: ${productCapacity} volume products in grid layout`
+      : formData.shelfCount === 3
+      ? `top shelf: ${productCapacity} hero products, middle: ${productCapacity} variety, bottom: ${productCapacity} volume`
+      : `all ${formData.shelfCount} shelves with ${productCapacity} products each in ${layout.shelfRows}×${layout.shelfColumns} arrangement`;
+
+    requirements.push(`CALCULATED PLACEMENT: ${productPlacement}`);
+    requirements.push(`PHYSICS-VALIDATED DENSITY: ${actualDensity}% calculated shelf utilization (${utilization.efficiency} efficiency), not generic estimates`);
+    requirements.push(`SPACING REQUIREMENTS: ${layout.productSpacing}cm minimum spacing between products for access and stability`);
+  }
+
+  // Material requirements with structural validation
+  if (formData.materials && formData.materials.length > 0) {
+    const materialConstraints = constraints.filter(c => c.type === 'STRUCTURAL');
+    const structuralNote = materialConstraints.length > 0
+      ? ` with ${materialConstraints.length} structural constraints addressed`
+      : ' with validated structural integrity';
+    requirements.push(`MATERIAL AUTHENTICITY: Display must clearly show ${formData.materials.join(' and ')} construction${structuralNote}`);
+  }
+
+  // Stand type with dimensional accuracy
+  if (formData.standType) {
+    const aspectRatio = `${formData.standWidth}×${formData.standDepth}×${formData.standHeight}cm`;
+    requirements.push(`DISPLAY TYPE: Must be recognizable as ${formData.standType} with exact ${aspectRatio} proportions`);
+  }
+
+  // Color scheme with space utilization note
+  if (formData.standBaseColor) {
+    requirements.push(`COLOR SCHEME: ${formData.standBaseColor} base color must be prominently featured in structural elements (${utilization.standUsagePercent}% space utilization)`);
+  }
+
+  // Manufacturing warnings if any
+  const criticalConstraints = constraints.filter((c: any) => c.severity === 'CRITICAL');
+  if (criticalConstraints.length > 0) {
+    requirements.push(`CRITICAL CONSTRAINTS: ${criticalConstraints.length} manufacturing issues must be resolved: ${criticalConstraints.map((c: any) => c.suggestion).join(', ')}`);
+  }
+
+  // Dimensional validation summary
+  if (dimensionalAnalysis.issues.length > 0) {
+    requirements.push(`PHYSICS VALIDATION: ${dimensionalAnalysis.issues.length} dimensional issues detected - design may not be physically buildable`);
+  } else {
+    requirements.push(`PHYSICS VALIDATION: Design validated as physically buildable with ${layout.totalProductCapacity} total product capacity`);
+  }
+
+  return requirements.length > 0 ? '\n\nCLIENT REQUIREMENTS:\n' + requirements.map(req => `- ${req}`).join('\n') : '';
+}
