@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Calendar, Palette, Package, Ruler, FileText, Send, Sparkles, CheckCircle } from 'lucide-react';
@@ -18,6 +18,9 @@ import { UserPreferencesService } from '../services/userPreferencesService';
 import LazyImageGeneration from './lazy/LazyImageGeneration';
 import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
+import Scene3DConfigurator from './Scene3DConfigurator';
+import { Visual3DPromptService, type Visual3DPromptResult } from '../services/visual3DPromptService';
+import type { CapturedViews } from '../hooks/useSceneCapture';
 import { ProjectService } from '../services/projectService';
 import type { FormData as FormDataType, StandType, Material } from '../types';
 import { Button, Card, Input, LoadingSpinner, showToast } from './ui';
@@ -79,27 +82,27 @@ const StandRequestForm: React.FC = () => {
     submissionId: '',
     respondentId: '',
     submittedAt: '',
-    brand: 'Coca-Cola',
+    brand: 'Ülker',
     brandLogo: null,
-    product: 'Coca-Cola 1 litre',
+    product: 'Çikolatalı Gofret',
     productImage: null,
-    productWidth: 8.5,
-    productDepth: 8.5,
-    productHeight: 27,
-    frontFaceCount: 4,
-    backToBackCount: 3,
+    productWidth: 13,
+    productDepth: 2.5,
+    productHeight: 5,
+    frontFaceCount: 1,
+    backToBackCount: 12,
     keyVisual: null,
     exampleStands: [],
-    standType: 'Ayaklı Stant (Floor Stand)',
-    materials: ['Metal', 'Ahşap (Wood)'],
-    standBaseColor: '#ffffff',
-    standWidth: 40,
+    standType: 'Masa Üstü Stant (Tabletop Stand)',
+    materials: ['Plastik (Plastic)', 'Akrilik (Acrylic)'],
+    standBaseColor: '#3a0448',
+    standWidth: 15,
     standDepth: 30,
-    standHeight: 160,
-    shelfWidth: 35,
-    shelfDepth: 28,
+    standHeight: 30,
+    shelfWidth: 15,
+    shelfDepth: 30,
     shelfCount: 1,
-    description: '1 litre Coca-Cola ürünümüz için ilgi çekici, standardın dışında, yenilikçi bir FSU tasarımı istiyoruz. 300 adet üretme hedefimiz var. Işıklı ve ışıksız versiyonlarını alternatifli olarak çalışın lütfen.'
+    description: 'Yıllardır en çok satılan ve sevilen ürünümüz olan Ülker Çikolatalı gofret için ürünü satış noktalarında öne çıkaracak yenilikçi bir masa üstü stant tasarımı rica ediyoruz.'
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -124,6 +127,13 @@ const StandRequestForm: React.FC = () => {
     storeView: string;
     threeQuarterView: string;
   } | null>(null);
+
+  // 3D Configurator state
+  const [showPrecisionMode, setShowPrecisionMode] = useState(false);
+  const [configuratorMode, setConfiguratorMode] = useState<'beginner' | 'advanced'>('beginner');
+  const [capturedViews, setCapturedViews] = useState<CapturedViews | null>(null);
+  const [visual3DPrompts, setVisual3DPrompts] = useState<Visual3DPromptResult | null>(null);
+  const [isGeneratingVisual3D, setIsGeneratingVisual3D] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
@@ -225,6 +235,68 @@ const StandRequestForm: React.FC = () => {
       }
     }
   }, [formData]);
+
+  // 3D Configurator handlers
+  const handleSceneCapture = useCallback(async (views: CapturedViews) => {
+    console.log('🎯 Scene captured, generating visual 3D prompts...');
+    setCapturedViews(views);
+    setIsGeneratingVisual3D(true);
+
+    try {
+      // Generate visual 3D prompts for all view types
+      const frontPrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+        formData,
+        capturedViews: views,
+        viewType: 'front',
+        creativeMode: 'refined'
+      });
+
+      const storePrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+        formData,
+        capturedViews: views,
+        viewType: 'store',
+        creativeMode: 'refined'
+      });
+
+      const threeQuarterPrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+        formData,
+        capturedViews: views,
+        viewType: 'three-quarter',
+        creativeMode: 'refined'
+      });
+
+      // Set enhanced prompts with visual 3D intelligence
+      setEnhancedPrompts({
+        frontView: frontPrompt.enhancedPrompt,
+        storeView: storePrompt.enhancedPrompt,
+        threeQuarterView: threeQuarterPrompt.enhancedPrompt
+      });
+
+      // Store the full analysis for debugging
+      setVisual3DPrompts(frontPrompt);
+
+      console.log('✅ Visual 3D prompts generated successfully', {
+        scaleAccuracy: frontPrompt.scaleAccuracy.overallConfidence,
+        promptEnhancement: 'Visual scale references integrated'
+      });
+
+    } catch (error) {
+      console.error('Failed to generate visual 3D prompts:', error);
+      // Fallback to regular enhanced prompts
+    } finally {
+      setIsGeneratingVisual3D(false);
+    }
+  }, [formData]);
+
+  const handleTogglePrecisionMode = useCallback(() => {
+    setShowPrecisionMode(!showPrecisionMode);
+
+    if (showPrecisionMode) {
+      // Reset 3D data when exiting precision mode
+      setCapturedViews(null);
+      setVisual3DPrompts(null);
+    }
+  }, [showPrecisionMode]);
 
   // Check form validity
   useEffect(() => {
@@ -859,7 +931,7 @@ const StandRequestForm: React.FC = () => {
                 value={formData.brand}
                 onChange={(e) => handleInputChange('brand', e.target.value)}
                 error={errors.brand}
-                placeholder="Coca-Cola"
+                placeholder="Ülker"
               />
             </motion.div>
 
@@ -897,7 +969,7 @@ const StandRequestForm: React.FC = () => {
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   errors.product ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="Coca-Cola 1 litre"
+                placeholder="Çikolatalı Gofret"
               />
               {errors.product && <p className="text-red-500 text-sm mt-1">{errors.product}</p>}
             </div>
@@ -1280,7 +1352,7 @@ const StandRequestForm: React.FC = () => {
               className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                 errors.description ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="1 litre Coca-Cola ürünümüz için ilgi çekici, standardın dışında, yenilikçi bir FSU tasarımı istiyoruz. 300 adet üretme hedefimiz var. Işıklı ve ışıksız versiyonlarını alternatifli olarak çalışın lütfen."
+              placeholder="Yıllardır en çok satılan ve sevilen ürünümüz olan Ülker Çikolatalı gofret için ürünü satış noktalarında öne çıkaracak yenilikçi bir masa üstü stant tasarımı rica ediyoruz."
             />
             {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
           </div>
@@ -1460,18 +1532,167 @@ const StandRequestForm: React.FC = () => {
         />
       </Suspense>
 
+      {/* 3D Precision Mode Configurator */}
+      <Card className="p-6 md:p-8 bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                <Ruler className="w-6 h-6 mr-3 text-purple-600" />
+                🎯 Precision Mode
+                <span className="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">
+                  New
+                </span>
+              </h3>
+              <p className="text-gray-600 mt-1 text-sm">
+                Use 3D scale references to ensure AI generates dimensionally accurate displays
+              </p>
+            </div>
 
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleTogglePrecisionMode}
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                showPrecisionMode
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'bg-white text-purple-600 border border-purple-200 hover:bg-purple-50'
+              }`}
+            >
+              {showPrecisionMode ? 'Exit Precision Mode' : 'Enable Precision Mode'}
+            </motion.button>
+          </div>
+
+          {/* Benefits explanation */}
+          {!showPrecisionMode && (
+            <div className="bg-white/70 rounded-lg p-4 border border-purple-100">
+              <h4 className="font-medium text-purple-800 mb-2">Why Use Precision Mode?</h4>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>• <strong>Visual Scale References:</strong> Place human, product, and reference objects to define exact scale</li>
+                <li>• <strong>Dimensional Accuracy:</strong> AI receives visual context instead of relying on text descriptions</li>
+                <li>• <strong>Better Results:</strong> Solves the "dimensions not matching inputs" problem with visual proof</li>
+                <li>• <strong>Professional Quality:</strong> Museum-grade accuracy for client presentations</li>
+              </ul>
+            </div>
+          )}
+
+          {/* 3D Configurator */}
+          <AnimatePresence mode="wait">
+            {showPrecisionMode && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.5 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-6 space-y-4">
+                  {/* Status indicator */}
+                  {capturedViews && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                        <span className="text-green-800 font-medium">
+                          Scale references captured successfully
+                        </span>
+                        {visual3DPrompts && (
+                          <span className="ml-2 text-green-600 text-sm">
+                            ({(visual3DPrompts.scaleAccuracy.overallConfidence * 100).toFixed(1)}% scale accuracy)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading indicator */}
+                  {isGeneratingVisual3D && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
+                        <span className="text-blue-800 font-medium">
+                          Generating visual 3D prompts with dimensional intelligence...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode Toggle */}
+                  <div className="mb-4 flex justify-end">
+                    <div className="bg-white rounded-lg p-1 border border-gray-200 flex">
+                      <button
+                        onClick={() => setConfiguratorMode('beginner')}
+                        className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                          configuratorMode === 'beginner'
+                            ? 'bg-blue-500 text-white'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        Smart Mode
+                      </button>
+                      <button
+                        onClick={() => setConfiguratorMode('advanced')}
+                        className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                          configuratorMode === 'advanced'
+                            ? 'bg-blue-500 text-white'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        Advanced
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3D Configurator Component */}
+                  <Scene3DConfigurator
+                    mode={configuratorMode}
+                    onSceneCapture={handleSceneCapture}
+                    productDimensions={formData.productWidth && formData.productHeight && formData.productDepth ? {
+                      width: formData.productWidth,
+                      height: formData.productHeight,
+                      depth: formData.productDepth
+                    } : undefined}
+                    displayDimensions={formData.standWidth && formData.standHeight && formData.standDepth ? {
+                      width: formData.standWidth,
+                      height: formData.standHeight,
+                      depth: formData.standDepth
+                    } : undefined}
+                  />
+
+                  {/* Instructions */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="font-medium text-purple-800 mb-2">How to Use:</h4>
+                    <ol className="text-sm text-purple-700 space-y-1 list-decimal list-inside">
+                      <li>Drag the <strong>product box</strong> to position your actual product</li>
+                      <li>Adjust the <strong>display bounds</strong> to match your stand dimensions</li>
+                      <li>Keep the <strong>human figure</strong> for scale reference (175cm)</li>
+                      <li>Use different view modes to check proportions</li>
+                      <li>Click <strong>"Capture Views"</strong> when satisfied with the arrangement</li>
+                      <li>Generated images will use these exact scale relationships</li>
+                    </ol>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </Card>
 
       {/* Image Generation Section */}
       <Suspense fallback={<LoadingSpinner size="lg" text="Loading image generation..." />}>
-        <LazyImageGeneration 
-          prompts={prompts} 
+        <LazyImageGeneration
+          prompts={prompts}
           enhancedPrompts={enhancedPrompts}
-          isFormValid={isFormValid} 
+          isFormValid={isFormValid}
           currentProjectId={currentProjectId}
           formData={formData} // Now all files are already URLs
           initialImages={generatedImages}
           onImagesUpdated={setGeneratedImages}
+          capturedViews={capturedViews}
+          visual3DPrompts={visual3DPrompts}
         />
       </Suspense>
     </motion.div>

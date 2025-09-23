@@ -12,6 +12,8 @@ import ImageModal from './ImageModal';
 import ImageEditModal from './ImageEditModal';
 import ImageFeedback from './ImageFeedback';
 import { RealAnalyticsService } from '../services/realAnalyticsService';
+import type { CapturedViews } from '../hooks/useSceneCapture';
+import type { Visual3DPromptResult } from '../services/visual3DPromptService';
 
 interface ImageGenerationProps {
   prompts: {
@@ -33,6 +35,9 @@ interface ImageGenerationProps {
     threeQuarterView?: string;
   };
   onImagesUpdated?: (images: GeneratedImageSet) => void;
+  // New props for 3D visual references
+  capturedViews?: CapturedViews | null;
+  visual3DPrompts?: Visual3DPromptResult | null;
 }
 
 interface GeneratedImageSet {
@@ -41,14 +46,16 @@ interface GeneratedImageSet {
   threeQuarterView?: string;
 }
 
-const ImageGeneration: React.FC<ImageGenerationProps> = ({ 
-  prompts, 
-  enhancedPrompts, 
-  isFormValid, 
+const ImageGeneration: React.FC<ImageGenerationProps> = ({
+  prompts,
+  enhancedPrompts,
+  isFormValid,
   currentProjectId,
   formData,
   initialImages,
-  onImagesUpdated
+  onImagesUpdated,
+  capturedViews,
+  visual3DPrompts
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>(initialImages || {});
@@ -237,8 +244,20 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     try {
       // Track session activity
       RealAnalyticsService.recordClientSession('image_generation_started');
-      // Use the base prompts (no enhancement needed)
-      const finalPrompts = prompts;
+
+      // Use enhanced prompts (which include 3D visual enhancements) if available, otherwise fall back to basic prompts
+      const finalPrompts = enhancedPrompts || prompts;
+
+      // Log prompt source for debugging
+      if (enhancedPrompts && visual3DPrompts) {
+        console.log('🎯 Using Visual 3D enhanced prompts with scale references');
+        console.log('📊 Scale accuracy:', visual3DPrompts.scaleAccuracy.overallConfidence);
+        console.log('📷 Reference images included:', visual3DPrompts.referenceImages.length);
+      } else if (enhancedPrompts) {
+        console.log('📝 Using enhanced prompts (dimensional intelligence)');
+      } else {
+        console.log('📋 Using basic prompts');
+      }
 
       // MODEL SELECTION: Use selected AI model for brand-integrated generation
       const modelName = selectedModel === 'seedream-v4' ? 'SeedReam v4' : 'Nano Banana';

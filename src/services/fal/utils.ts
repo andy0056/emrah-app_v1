@@ -131,6 +131,59 @@ DIMENSIONAL-PRIORITY BRAND INTEGRATION:
 }
 
 /**
+ * Compress prompt to stay within FAL API limits while preserving key information
+ */
+export function compressPrompt(prompt: string, maxLength: number = 4800): string {
+  if (prompt.length <= maxLength) return prompt;
+
+  console.log(`⚠️ Compressing prompt from ${prompt.length} to ${maxLength} characters`);
+
+  // Priority preservation order (most important content first)
+  const sections = prompt.split('\n\n');
+  let compressed = '';
+
+  // Always keep the base prompt (first section)
+  if (sections[0]) {
+    compressed = sections[0];
+  }
+
+  // Add sections in priority order until we hit the limit
+  const prioritySections = sections.slice(1).sort((a, b) => {
+    // Prioritize sections with key information
+    const aScore = (a.includes('BRAND:') ? 10 : 0) +
+                   (a.includes('PRODUCT FOCUS:') ? 9 : 0) +
+                   (a.includes('CALCULATED PLACEMENT:') ? 8 : 0) +
+                   (a.includes('DIMENSIONAL ACCURACY:') ? 7 : 0) +
+                   (a.includes('MATERIAL AUTHENTICITY:') ? 6 : 0);
+
+    const bScore = (b.includes('BRAND:') ? 10 : 0) +
+                   (b.includes('PRODUCT FOCUS:') ? 9 : 0) +
+                   (b.includes('CALCULATED PLACEMENT:') ? 8 : 0) +
+                   (b.includes('DIMENSIONAL ACCURACY:') ? 7 : 0) +
+                   (b.includes('MATERIAL AUTHENTICITY:') ? 6 : 0);
+
+    return bScore - aScore;
+  });
+
+  for (const section of prioritySections) {
+    const testLength = compressed.length + section.length + 2; // +2 for \n\n
+    if (testLength <= maxLength) {
+      compressed += '\n\n' + section;
+    } else {
+      // Try to fit abbreviated version of this section
+      const abbreviated = section.split('\n').slice(0, 3).join('\n');
+      if (compressed.length + abbreviated.length + 2 <= maxLength) {
+        compressed += '\n\n' + abbreviated;
+      }
+      break;
+    }
+  }
+
+  console.log(`✅ Compressed prompt to ${compressed.length} characters`);
+  return compressed;
+}
+
+/**
  * Generate physics-validated client requirements using dimensional analysis
  */
 export function generatePhysicsValidatedRequirements(

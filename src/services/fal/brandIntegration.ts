@@ -4,7 +4,7 @@
  */
 
 import { fal } from "@fal-ai/client";
-import { generateClientRequirementMapping, makeBrandFriendlyPrompt, createBrandIntegrationPrompt, createDimensionalBrandIntegrationPrompt, generatePhysicsValidatedRequirements } from './utils';
+import { generateClientRequirementMapping, makeBrandFriendlyPrompt, createBrandIntegrationPrompt, createDimensionalBrandIntegrationPrompt, generatePhysicsValidatedRequirements, compressPrompt } from './utils';
 import { SmartPromptGenerator } from '../../utils/smartPromptGenerator';
 import { mapToFormDataWithDimensions, mergeWithDefaults } from '../../utils/formDataMapper';
 import type { BrandAssetGenerationRequest, FalImageResponse } from './types';
@@ -66,14 +66,17 @@ export class FalBrandIntegrationService {
         console.log('ℹ️ Using generic CLIENT-PRIORITY brand integration (no form data)');
       }
 
-      console.log('📝 Final Integrated Prompt:', integratedPrompt);
+      // Compress prompt to stay within API limits
+      const compressedPrompt = compressPrompt(integratedPrompt);
+
+      console.log('📝 Final Integrated Prompt Length:', compressedPrompt.length);
       console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
       console.log('🎯 Aspect Ratio:', request.aspect_ratio);
 
       // Use Nano Banana Edit with brand assets for initial generation
       const result = await this.applyBrandAssetsWithNanaBanana({
         image_urls: request.brand_asset_urls,
-        prompt: integratedPrompt,
+        prompt: compressedPrompt,
         aspect_ratio: request.aspect_ratio,
         num_images: request.num_images || 1,
         output_format: request.output_format || "jpeg"
@@ -164,12 +167,37 @@ export class FalBrandIntegrationService {
 
       console.log(`✅ Successfully processed ${accessibleImageUrls.length} out of ${request.image_urls.length} images`);
 
+      // Validate prompt length (3-5000 characters required)
+      const trimmedPrompt = request.prompt.trim();
+      if (trimmedPrompt.length < 3) {
+        throw new Error('Prompt must be at least 3 characters long');
+      }
+      if (trimmedPrompt.length > 5000) {
+        throw new Error('Prompt must be no more than 5000 characters long');
+      }
+
+      // Validate image URLs (1-10 images required)
+      if (accessibleImageUrls.length > 10) {
+        console.warn(`⚠️ Too many images (${accessibleImageUrls.length}), using first 10`);
+        accessibleImageUrls.splice(10);
+      }
+
+      // Validate num_images (1-4 range)
+      const numImages = Math.min(Math.max(request.num_images || 1, 1), 4);
+
+      console.log('🔍 Request validation:', {
+        promptLength: trimmedPrompt.length,
+        imageCount: accessibleImageUrls.length,
+        numImages,
+        outputFormat: request.output_format || "jpeg"
+      });
+
       // Use the correct nano-banana/edit endpoint
       const result = await fal.subscribe("fal-ai/nano-banana/edit", {
         input: {
-          prompt: request.prompt,
+          prompt: trimmedPrompt,
           image_urls: accessibleImageUrls,
-          num_images: request.num_images || 1,
+          num_images: numImages,
           output_format: request.output_format || "jpeg"
         },
         logs: true,
