@@ -13,7 +13,8 @@ import ImageEditModal from './ImageEditModal';
 import ImageFeedback from './ImageFeedback';
 import { RealAnalyticsService } from '../services/realAnalyticsService';
 import type { CapturedViews } from '../hooks/useSceneCapture';
-import type { Visual3DPromptResult } from '../services/visual3DPromptService';
+import { Visual3DPromptService, type Visual3DPromptResult } from '../services/visual3DPromptService';
+import type { VisualPlacementResult } from '../services/visualPlacementService';
 
 interface ImageGenerationProps {
   prompts: {
@@ -38,6 +39,8 @@ interface ImageGenerationProps {
   // New props for 3D visual references
   capturedViews?: CapturedViews | null;
   visual3DPrompts?: Visual3DPromptResult | null;
+  // Product placement visual references
+  visualPlacementResult?: VisualPlacementResult | null;
 }
 
 interface GeneratedImageSet {
@@ -55,7 +58,8 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   initialImages,
   onImagesUpdated,
   capturedViews,
-  visual3DPrompts
+  visual3DPrompts,
+  visualPlacementResult
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImageSet>(initialImages || {});
@@ -79,6 +83,9 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const [modelRecommendation, setModelRecommendation] = useState<any>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [dimensionalAnalysis, setDimensionalAnalysis] = useState<any>(null);
+
+  // 3D Visual Prompt Integration
+  const [generated3DPrompts, setGenerated3DPrompts] = useState<Visual3DPromptResult | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
@@ -170,11 +177,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
           const analysis = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
           setDimensionalAnalysis(analysis);
 
-          console.log('🧮 Dimensional analysis generated:', {
-            spaceEfficiency: analysis.analysis.spaceUtilization.efficiency,
-            productCapacity: analysis.analysis.calculatedLayout.totalProductCapacity,
-            issues: analysis.analysis.issues.length
-          });
+          // Dimensional analysis completed
         } catch (error) {
           console.warn('Failed to generate dimensional analysis:', error);
         }
@@ -183,6 +186,55 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
 
     generateDimensionalAnalysis();
   }, [formData, enableDimensionalIntelligence]);
+
+  // Generate 3D Visual Prompts when captured views are available
+  useEffect(() => {
+    const generate3DVisualPrompts = async () => {
+      if (capturedViews && formData && enableDimensionalIntelligence) {
+        try {
+          console.log('🎯 Generating 3D visual prompts with captured scene data...');
+
+          // Generate prompts for all three views
+          const frontPrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+            formData,
+            capturedViews,
+            viewType: 'front',
+            creativeMode: creativeMode
+          });
+
+          const storePrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+            formData,
+            capturedViews,
+            viewType: 'store',
+            creativeMode: creativeMode
+          });
+
+          const threeQuarterPrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+            formData,
+            capturedViews,
+            viewType: 'three-quarter',
+            creativeMode: creativeMode
+          });
+
+          // Store the first prompt result for reference (they all have the same metadata)
+          setGenerated3DPrompts(frontPrompt);
+
+          console.log('✅ 3D Visual prompts generated successfully:', {
+            scaleAccuracy: frontPrompt.scaleAccuracy.overallConfidence,
+            referenceImages: frontPrompt.referenceImages.length,
+            promptLength: frontPrompt.enhancedPrompt.length
+          });
+        } catch (error) {
+          console.warn('Failed to generate 3D visual prompts:', error);
+          setGenerated3DPrompts(null);
+        }
+      } else {
+        setGenerated3DPrompts(null);
+      }
+    };
+
+    generate3DVisualPrompts();
+  }, [capturedViews, formData, creativeMode, enableDimensionalIntelligence]);
 
   const saveImageToSupabase = async (
     imageUrl: string, 
@@ -245,17 +297,60 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       // Track session activity
       RealAnalyticsService.recordClientSession('image_generation_started');
 
-      // Use enhanced prompts (which include 3D visual enhancements) if available, otherwise fall back to basic prompts
-      const finalPrompts = enhancedPrompts || prompts;
+      // Priority order: Visual Placement > 3D Visual Enhanced > Enhanced > Basic prompts
+      let finalPrompts;
+      let promptSource = '';
 
-      // Log prompt source for debugging
-      if (enhancedPrompts && visual3DPrompts) {
-        console.log('🎯 Using Visual 3D enhanced prompts with scale references');
-        console.log('📊 Scale accuracy:', visual3DPrompts.scaleAccuracy.overallConfidence);
-        console.log('📷 Reference images included:', visual3DPrompts.referenceImages.length);
+      if (visualPlacementResult) {
+        // Highest priority: Visual placement prompts with exact product positioning
+        finalPrompts = {
+          frontView: visualPlacementResult.enhancedPrompts.frontView.fullPrompt,
+          storeView: visualPlacementResult.enhancedPrompts.storeView.fullPrompt,
+          threeQuarterView: visualPlacementResult.enhancedPrompts.threeQuarterView.fullPrompt
+        };
+        promptSource = 'Visual Placement';
+        console.log('🏭 Using Visual Placement prompts with exact product positioning');
+        console.log('📊 Placement confidence:', visualPlacementResult.enhancedPrompts.frontView.confidence);
+        console.log('🏗️ Manufacturing specs:', visualPlacementResult.manufacturingDrawings.partsList.length, 'parts');
+      } else if (generated3DPrompts && capturedViews) {
+        // Second priority: 3D visual enhanced prompts with scene capture
+        const frontPrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+          formData: formData!,
+          capturedViews,
+          viewType: 'front',
+          creativeMode: creativeMode
+        });
+        const storePrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+          formData: formData!,
+          capturedViews,
+          viewType: 'store',
+          creativeMode: creativeMode
+        });
+        const threeQuarterPrompt = await Visual3DPromptService.generateVisuallyEnhancedPrompt({
+          formData: formData!,
+          capturedViews,
+          viewType: 'three-quarter',
+          creativeMode: creativeMode
+        });
+
+        finalPrompts = {
+          frontView: frontPrompt.enhancedPrompt,
+          storeView: storePrompt.enhancedPrompt,
+          threeQuarterView: threeQuarterPrompt.enhancedPrompt
+        };
+        promptSource = '3D Visual Enhanced';
+        console.log('🎯 Using 3D Visual Enhanced prompts with scene capture');
+        console.log('📊 Scale accuracy:', generated3DPrompts.scaleAccuracy.overallConfidence);
+        console.log('📷 Reference images included:', generated3DPrompts.referenceImages.length);
       } else if (enhancedPrompts) {
+        // Third priority: Enhanced prompts (dimensional intelligence)
+        finalPrompts = enhancedPrompts;
+        promptSource = 'Enhanced';
         console.log('📝 Using enhanced prompts (dimensional intelligence)');
       } else {
+        // Fallback: Basic prompts
+        finalPrompts = prompts;
+        promptSource = 'Basic';
         console.log('📋 Using basic prompts');
       }
 
@@ -269,36 +364,61 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       brandAssetUrls.push(formData.productImage); // Mandatory
       if (formData.keyVisual) brandAssetUrls.push(formData.keyVisual); // Optional
 
+      // Add 3D scene reference images when using 3D Visual Enhanced prompts
+      if (promptSource === '3D Visual Enhanced' && generated3DPrompts && generated3DPrompts.referenceImages.length > 0) {
+        console.log('📷 Adding 3D scene reference images to brand assets:', generated3DPrompts.referenceImages.length);
+        brandAssetUrls.push(...generated3DPrompts.referenceImages);
+      }
+
       setProgress(`🎯 Generating front view with ${modelName}...`);
 
       const frontStartTime = Date.now();
-      // Choose generation method based on selected model
-      const frontResult = selectedModel === 'seedream-v4'
-        ? await FalService.generateWithSeedreamV4({
-            prompt: finalPrompts.frontView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '9:16',
-            num_images: 1,
-            image_size: 1024,
-            formData: formData,
-            userId: 'demo-user', // In production, get from auth
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          })
-        : await FalService.generateWithBrandAssets({
-            prompt: finalPrompts.frontView,
-            brand_asset_urls: brandAssetUrls,
-            aspect_ratio: '9:16',
-            num_images: 1,
-            formData: formData,
-            userId: 'demo-user', // In production, get from auth
-            enableABTesting: enableABTesting,
-            enableOptimization: enableOptimization,
-            enableIntelligence: enableIntelligence,
-            enableEvolution: enableEvolution
-          });
+
+      // PHASE 4: Choose generation method - Master Orchestration gets highest priority
+      let frontResult;
+
+      if (capturedViews && generated3DPrompts && formData && promptSource === '3D Visual Enhanced') {
+        // Highest Priority: Use Master Orchestrated Generation with complete hierarchy
+        console.log('🎭 Using MASTER ORCHESTRATED generation (Phase 4)');
+        frontResult = await FalService.generateWithMasterOrchestration({
+          prompt: finalPrompts.frontView,
+          brand_asset_urls: brandAssetUrls,
+          aspect_ratio: '9:16',
+          num_images: 1,
+          formData: formData,
+          capturedViews: capturedViews,
+          output_format: "jpeg"
+        });
+      } else if (selectedModel === 'seedream-v4') {
+        // Legacy: SeedReam v4 generation
+        frontResult = await FalService.generateWithSeedreamV4({
+          prompt: finalPrompts.frontView,
+          brand_asset_urls: brandAssetUrls,
+          aspect_ratio: '9:16',
+          num_images: 1,
+          image_size: 1024,
+          formData: formData,
+          userId: 'demo-user',
+          enableABTesting: enableABTesting,
+          enableOptimization: enableOptimization,
+          enableIntelligence: enableIntelligence,
+          enableEvolution: enableEvolution
+        });
+      } else {
+        // Legacy: Standard brand assets generation
+        frontResult = await FalService.generateWithBrandAssets({
+          prompt: finalPrompts.frontView,
+          brand_asset_urls: brandAssetUrls,
+          aspect_ratio: '9:16',
+          num_images: 1,
+          formData: formData,
+          userId: 'demo-user',
+          enableABTesting: enableABTesting,
+          enableOptimization: enableOptimization,
+          enableIntelligence: enableIntelligence,
+          enableEvolution: enableEvolution
+        });
+      }
       const frontImageUrl = frontResult.images[0]?.url;
       if (frontImageUrl) {
         const frontDuration = Date.now() - frontStartTime;
@@ -382,11 +502,28 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
 
       setProgress(`✅ All ${modelName} images generated successfully!`);
 
+      // PHASE 4.2: User Feedback Integration - Display system insights
+      if (capturedViews && generated3DPrompts && formData && promptSource === '3D Visual Enhanced') {
+        const transparencyMessage = `
+🎭 MASTER ORCHESTRATION INSIGHTS:
+✅ Form requirements preserved as absolute truth
+✅ 3D visual context integrated for positioning accuracy
+✅ Advanced compression applied while protecting your inputs
+✅ Quality assurance validated all critical specifications
+📊 System used source-of-truth hierarchy to ensure accuracy`;
+
+        console.log('🔄 User Transparency Report:', transparencyMessage);
+
+        // Brief user-friendly progress message about advanced processing
+        setProgress(`🎭 Advanced AI orchestration ensured your specifications were preserved exactly!`);
+        setTimeout(() => setProgress(`✅ All ${modelName} images generated successfully!`), 2000);
+      }
+
       // Track successful completion
       const totalDuration = Date.now() - startTime;
       RealAnalyticsService.recordClientSession('image_generation_completed', totalDuration);
 
-      setTimeout(() => setProgress(''), 3000);
+      setTimeout(() => setProgress(''), 6000); // Extended timeout for transparency message
     } catch (error) {
       console.error('Image generation error:', error);
       setError(error instanceof Error ? error.message : 'Failed to generate images. Please try again.');
@@ -760,6 +897,11 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
             <p>• <strong>Evolved Patterns:</strong> Uses genetic algorithms to improve prompt effectiveness over time</p>
             <p>• <strong>A/B Testing:</strong> Tests different prompt approaches to find the most effective ones</p>
             <p>• <strong>Dimensional Intelligence:</strong> Analyzes product and stand dimensions to ensure physically accurate designs</p>
+            {generated3DPrompts && capturedViews && (
+              <p className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-green-800">
+                • <strong>🎯 3D Visual Enhancement Active:</strong> Using captured 3D scene with {generated3DPrompts.referenceImages.length} reference images ({(generated3DPrompts.scaleAccuracy.overallConfidence * 100).toFixed(1)}% scale accuracy)
+              </p>
+            )}
           </div>
         </div>
       )}

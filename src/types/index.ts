@@ -48,23 +48,23 @@ export interface FormData {
   description: string;
 }
 
-export type StandType = 
-  | 'Ayaklı Stant (Floor Stand)'
-  | 'Masa Üstü Stant (Tabletop Stand)'
-  | 'Duvar Stantı (Wall Mount Stand)'
-  | 'Köşe Stantı (Corner Stand)'
-  | 'Dönen Stant (Rotating Stand)'
-  | 'Çok Katlı Stant (Multi-tier Stand)';
+export type StandType =
+  | 'Floor Stand'
+  | 'Tabletop Stand'
+  | 'Wall Mount Stand'
+  | 'Corner Stand'
+  | 'Rotating Stand'
+  | 'Multi-tier Stand';
 
-export type Material = 
+export type Material =
   | 'Metal'
-  | 'Ahşap (Wood)'
-  | 'Plastik (Plastic)'
-  | 'Cam (Glass)'
-  | 'Karton (Cardboard)'
-  | 'Akrilik (Acrylic)'
+  | 'Wood'
+  | 'Plastic'
+  | 'Glass'
+  | 'Cardboard'
+  | 'Acrylic'
   | 'MDF'
-  | 'Alüminyum (Aluminum)';
+  | 'Aluminum';
 
 export interface PromptSet {
   frontView: string;

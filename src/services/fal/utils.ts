@@ -133,22 +133,52 @@ DIMENSIONAL-PRIORITY BRAND INTEGRATION:
 /**
  * Compress prompt to stay within FAL API limits while preserving key information
  */
-export function compressPrompt(prompt: string, maxLength: number = 4800): string {
+export function compressPrompt(prompt: string, maxLength: number = 4800, protectedContent: string[] = []): string {
   if (prompt.length <= maxLength) return prompt;
 
   console.log(`⚠️ Compressing prompt from ${prompt.length} to ${maxLength} characters`);
-
-  // Priority preservation order (most important content first)
-  const sections = prompt.split('\n\n');
-  let compressed = '';
-
-  // Always keep the base prompt (first section)
-  if (sections[0]) {
-    compressed = sections[0];
+  if (protectedContent.length > 0) {
+    console.log('🛡️ Protecting critical form content:', protectedContent);
   }
 
-  // Add sections in priority order until we hit the limit
-  const prioritySections = sections.slice(1).sort((a, b) => {
+  // First, ensure all protected content is preserved
+  const protectedSections = [];
+  const regularSections = [];
+
+  const sections = prompt.split('\n\n');
+
+  for (const section of sections) {
+    let isProtected = false;
+
+    // Check if section contains any protected content
+    for (const protected_phrase of protectedContent) {
+      if (section.includes(protected_phrase)) {
+        protectedSections.push(section);
+        isProtected = true;
+        break;
+      }
+    }
+
+    if (!isProtected) {
+      regularSections.push(section);
+    }
+  }
+
+  // Start with base prompt (first section is always included)
+  let compressed = sections[0] || '';
+
+  // Add all protected sections (these cannot be compressed or removed)
+  for (const protectedSection of protectedSections) {
+    const testLength = compressed.length + protectedSection.length + 2;
+    if (testLength <= maxLength) {
+      compressed += '\n\n' + protectedSection;
+    } else {
+      console.warn('⚠️ Protected content too long, truncating other sections to fit');
+    }
+  }
+
+  // Add regular sections in priority order until we hit the limit
+  const prioritySections = regularSections.slice(1).sort((a, b) => {
     // Prioritize sections with key information
     const aScore = (a.includes('BRAND:') ? 10 : 0) +
                    (a.includes('PRODUCT FOCUS:') ? 9 : 0) +
@@ -180,6 +210,23 @@ export function compressPrompt(prompt: string, maxLength: number = 4800): string
   }
 
   console.log(`✅ Compressed prompt to ${compressed.length} characters`);
+
+  // Final validation: Ensure protected content survived compression
+  if (protectedContent.length > 0) {
+    const missingProtected = [];
+    for (const protected_phrase of protectedContent) {
+      if (!compressed.includes(protected_phrase)) {
+        missingProtected.push(protected_phrase);
+      }
+    }
+
+    if (missingProtected.length > 0) {
+      console.error('❌ Critical form content lost during compression:', missingProtected);
+    } else {
+      console.log('✅ All protected form content preserved in compressed prompt');
+    }
+  }
+
   return compressed;
 }
 

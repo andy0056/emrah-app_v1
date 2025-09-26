@@ -21,6 +21,13 @@ import { SavedProject } from '../services/projectService';
 import Scene3DConfigurator from './Scene3DConfigurator';
 import { Visual3DPromptService, type Visual3DPromptResult } from '../services/visual3DPromptService';
 import type { CapturedViews } from '../hooks/useSceneCapture';
+import type { PlacementResult } from '../services/productPlacementService';
+import type { VisualPlacementResult } from '../services/visualPlacementService';
+// Phase 3: Advanced features imports
+import type { PhysicsSimulationResult } from '../services/physicsEngine';
+import type { ManufacturingValidationResult } from '../services/manufacturingValidator';
+import type { AdvancedMaterialResult } from '../services/advancedMaterialService';
+import type { ManufacturingPackage } from '../services/cadExportService';
 import { ProjectService } from '../services/projectService';
 import type { FormData as FormDataType, StandType, Material } from '../types';
 import { Button, Card, Input, LoadingSpinner, showToast } from './ui';
@@ -57,23 +64,23 @@ type FormData = FormDataType;
 }*/
 
 const STAND_TYPES: StandType[] = [
-  'Ayaklı Stant (Floor Stand)',
-  'Masa Üstü Stant (Tabletop Stand)',
-  'Duvar Stantı (Wall Mount Stand)',
-  'Köşe Stantı (Corner Stand)',
-  'Dönen Stant (Rotating Stand)',
-  'Çok Katlı Stant (Multi-tier Stand)'
+  'Floor Stand',
+  'Tabletop Stand',
+  'Wall Mount Stand',
+  'Corner Stand',
+  'Rotating Stand',
+  'Multi-tier Stand'
 ];
 
 const MATERIALS: Material[] = [
   'Metal',
-  'Ahşap (Wood)',
-  'Plastik (Plastic)',
-  'Cam (Glass)',
-  'Karton (Cardboard)',
-  'Akrilik (Acrylic)',
+  'Wood',
+  'Plastic',
+  'Glass',
+  'Cardboard',
+  'Acrylic',
   'MDF',
-  'Alüminyum (Aluminum)'
+  'Aluminum'
 ];
 
 const StandRequestForm: React.FC = () => {
@@ -93,8 +100,8 @@ const StandRequestForm: React.FC = () => {
     backToBackCount: 12,
     keyVisual: null,
     exampleStands: [],
-    standType: 'Masa Üstü Stant (Tabletop Stand)',
-    materials: ['Plastik (Plastic)', 'Akrilik (Acrylic)'],
+    standType: 'Tabletop Stand',
+    materials: ['Plastic', 'Acrylic'],
     standBaseColor: '#3a0448',
     standWidth: 15,
     standDepth: 30,
@@ -102,7 +109,7 @@ const StandRequestForm: React.FC = () => {
     shelfWidth: 15,
     shelfDepth: 30,
     shelfCount: 1,
-    description: 'Yıllardır en çok satılan ve sevilen ürünümüz olan Ülker Çikolatalı gofret için ürünü satış noktalarında öne çıkaracak yenilikçi bir masa üstü stant tasarımı rica ediyoruz.'
+    description: 'We request an innovative tabletop stand design for our best-selling and beloved Ülker Chocolate Wafer product to make it stand out at points of sale.'
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -134,6 +141,16 @@ const StandRequestForm: React.FC = () => {
   const [capturedViews, setCapturedViews] = useState<CapturedViews | null>(null);
   const [visual3DPrompts, setVisual3DPrompts] = useState<Visual3DPromptResult | null>(null);
   const [isGeneratingVisual3D, setIsGeneratingVisual3D] = useState(false);
+  const [productPlacement, setProductPlacement] = useState<PlacementResult | null>(null);
+  const [visualPlacementResult, setVisualPlacementResult] = useState<VisualPlacementResult | null>(null);
+  const [isGeneratingVisualRefs, setIsGeneratingVisualRefs] = useState(false);
+
+  // Phase 3: Advanced features state
+  const [physicsResult, setPhysicsResult] = useState<PhysicsSimulationResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ManufacturingValidationResult | null>(null);
+  const [materialResult, setMaterialResult] = useState<AdvancedMaterialResult | null>(null);
+  const [cadPackage, setCADPackage] = useState<ManufacturingPackage | null>(null);
+
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
@@ -201,13 +218,7 @@ const StandRequestForm: React.FC = () => {
         // Generate intelligent prompts with dimensional analysis
         const intelligentPrompts = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
 
-        console.log('🧮 Dimensional Intelligence Results:', {
-          spaceEfficiency: intelligentPrompts.analysis.spaceUtilization.efficiency,
-          productCapacity: intelligentPrompts.analysis.calculatedLayout.totalProductCapacity,
-          productArrangement: `${intelligentPrompts.analysis.calculatedLayout.shelfRows}×${intelligentPrompts.analysis.calculatedLayout.shelfColumns}`,
-          issues: intelligentPrompts.analysis.issues.length,
-          manufacturingConstraints: intelligentPrompts.analysis.manufacturingConstraints.length
-        });
+        // Dimensional intelligence calculated (reduced logging)
 
         // Use intelligent prompts instead of basic ones
         setPrompts({
@@ -288,6 +299,74 @@ const StandRequestForm: React.FC = () => {
     }
   }, [formData]);
 
+  // Product placement handler
+  const handlePlacementUpdate = useCallback((placement: PlacementResult) => {
+    console.log('🏭 Product placement updated:', {
+      totalProducts: placement.totalProducts,
+      utilization: `${placement.overallUtilization.toFixed(1)}%`,
+      shelves: placement.shelves.length
+    });
+    setProductPlacement(placement);
+  }, []);
+
+  // Visual placement references handler
+  const handleVisualReferencesGenerated = useCallback((visualReferences: VisualPlacementResult) => {
+    console.log('📊 Visual placement references generated:', {
+      diagrams: Object.keys(visualReferences.diagrams).length,
+      prompts: Object.keys(visualReferences.enhancedPrompts).length,
+      confidence: visualReferences.enhancedPrompts.frontView.confidence
+    });
+
+    setVisualPlacementResult(visualReferences);
+
+    // Update enhanced prompts with placement-aware prompts
+    setEnhancedPrompts({
+      frontView: visualReferences.enhancedPrompts.frontView.fullPrompt,
+      storeView: visualReferences.enhancedPrompts.storeView.fullPrompt,
+      threeQuarterView: visualReferences.enhancedPrompts.threeQuarterView.fullPrompt
+    });
+
+    setIsGeneratingVisualRefs(false);
+  }, []);
+
+  // Phase 3: Advanced features handlers
+  const handlePhysicsAnalysis = useCallback((physics: PhysicsSimulationResult) => {
+    console.log('🔬 Physics analysis completed:', {
+      certified: physics.structural.certified,
+      safetyFactor: physics.structural.safetyFactor,
+      collisions: physics.collisions.hasCollisions
+    });
+    setPhysicsResult(physics);
+  }, []);
+
+  const handleManufacturingValidation = useCallback((validation: ManufacturingValidationResult) => {
+    console.log('🏭 Manufacturing validation completed:', {
+      passed: validation.overall.passed,
+      grade: validation.overall.grade,
+      score: validation.overall.score
+    });
+    setValidationResult(validation);
+  }, []);
+
+  const handleMaterialAnalysis = useCallback((material: AdvancedMaterialResult) => {
+    console.log('🔬 Material analysis completed:', {
+      sustainability: material.sustainability.environmentalImpact,
+      recyclability: material.sustainability.recyclabilityScore,
+      cost: material.selectedMaterial.cost.totalCostPerPart
+    });
+    setMaterialResult(material);
+  }, []);
+
+  const handleCADExport = useCallback((cadData: ManufacturingPackage) => {
+    console.log('📦 CAD package generated:', {
+      geometryFiles: Object.keys(cadData.geometryFiles).length,
+      documentation: Object.keys(cadData.documentation).length,
+      specifications: Object.keys(cadData.specifications).length
+    });
+    setCADPackage(cadData);
+    showToast.success('Manufacturing package generated successfully!');
+  }, []);
+
   const handleTogglePrecisionMode = useCallback(() => {
     setShowPrecisionMode(!showPrecisionMode);
 
@@ -295,6 +374,13 @@ const StandRequestForm: React.FC = () => {
       // Reset 3D data when exiting precision mode
       setCapturedViews(null);
       setVisual3DPrompts(null);
+      setProductPlacement(null);
+      setVisualPlacementResult(null);
+      // Reset Phase 3 advanced features
+      setPhysicsResult(null);
+      setValidationResult(null);
+      setMaterialResult(null);
+      setCADPackage(null);
     }
   }, [showPrecisionMode]);
 
@@ -426,9 +512,7 @@ const StandRequestForm: React.FC = () => {
   // Upload single file and convert to URL immediately
   const uploadSingleFile = async (file: File, field: keyof FormData) => {
     try {
-      console.log(`📤 Uploading ${field}:`, file.name);
       const url = await ProjectService.uploadFile(file);
-      console.log(`✅ ${field} uploaded:`, url);
       
       setFormData(prev => ({
         ...prev,
@@ -459,9 +543,7 @@ const StandRequestForm: React.FC = () => {
   // Upload multiple files and convert to URLs immediately
   const uploadFiles = async (files: File[], field: keyof FormData) => {
     try {
-      console.log(`📤 Uploading ${files.length} files for ${field}`);
       const urls = await ProjectService.uploadFiles(files);
-      console.log(`✅ ${field} uploaded:`, urls);
       
       setFormData(prev => ({
         ...prev,
@@ -854,7 +936,7 @@ const StandRequestForm: React.FC = () => {
               transition={{ delay: 0.5 }}
             >
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Submission ID (Başvuru Kimliği)
+                Submission ID
               </label>
               <div className="relative">
                 <input
@@ -875,7 +957,7 @@ const StandRequestForm: React.FC = () => {
               transition={{ delay: 0.6 }}
             >
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Respondent ID (Yanıtlayan Kimliği) *
+                Respondent ID *
               </label>
               <Input
                 type="text"
@@ -890,7 +972,7 @@ const StandRequestForm: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
-                Submitted at (Gönderim Zamanı)
+                Submitted At
               </label>
               <input
                 type="datetime-local"
@@ -960,7 +1042,7 @@ const StandRequestForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ürün (Product) *
+                Product *
               </label>
               <input
                 type="text"
@@ -977,7 +1059,7 @@ const StandRequestForm: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Upload className="w-4 h-4 inline mr-1" />
-                Ürün Görseli (Product Image)
+                Product Image
               </label>
               <input
                 type="file"
@@ -1009,7 +1091,7 @@ const StandRequestForm: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ürün Genişlik (cm) *
+                Product Width (cm) *
               </label>
               <input
                 type="number"
@@ -1027,7 +1109,7 @@ const StandRequestForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ürün Derinlik (cm) *
+                Product Depth (cm) *
               </label>
               <input
                 type="number"
@@ -1045,7 +1127,7 @@ const StandRequestForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ürün Yükseklik (cm) *
+                Product Height (cm) *
               </label>
               <input
                 type="number"
@@ -1063,7 +1145,7 @@ const StandRequestForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ürün Ön Yüz Sayısı *
+                Product Front Face Count *
               </label>
               <input
                 type="number"
@@ -1080,7 +1162,7 @@ const StandRequestForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Arka Arkaya Ürün Sayısı *
+                Back-to-Back Product Count *
               </label>
               <input
                 type="number"
@@ -1129,7 +1211,7 @@ const StandRequestForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Örnek Stantlar (Example Stands)
+                Example Stands
               </label>
               <input
                 type="file"
@@ -1164,7 +1246,7 @@ const StandRequestForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stand Type (Stant Tipi) *
+                  Stand Type *
                 </label>
                 <select
                   value={formData.standType}
@@ -1184,7 +1266,7 @@ const StandRequestForm: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Palette className="w-4 h-4 inline mr-1" />
-                  Standın Genel Rengi (Stand Base Color)
+                  Stand Base Color
                 </label>
                 <div className="flex items-center space-x-3">
                   <input
@@ -1227,10 +1309,10 @@ const StandRequestForm: React.FC = () => {
 
             {/* Stand Dimensions */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Stant Boyutları (Stand Dimensions)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Stand Dimensions</label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Stant Genişlik (cm) *</label>
+                  <label className="block text-xs text-gray-600 mb-1">Stand Width (cm) *</label>
                   <input
                     type="number"
                     min="0.1"
@@ -1246,7 +1328,7 @@ const StandRequestForm: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Stant Derinlik (cm) *</label>
+                  <label className="block text-xs text-gray-600 mb-1">Stand Depth (cm) *</label>
                   <input
                     type="number"
                     min="0.1"
@@ -1262,7 +1344,7 @@ const StandRequestForm: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Stant Yükseklik (cm) *</label>
+                  <label className="block text-xs text-gray-600 mb-1">Stand Height (cm) *</label>
                   <input
                     type="number"
                     min="0.1"
@@ -1281,10 +1363,10 @@ const StandRequestForm: React.FC = () => {
 
             {/* Shelf Specifications */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Raf Özellikleri (Shelf Specifications)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Shelf Specifications</label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Raf Genişlik (cm) *</label>
+                  <label className="block text-xs text-gray-600 mb-1">Shelf Width (cm) *</label>
                   <input
                     type="number"
                     min="0.1"
@@ -1300,7 +1382,7 @@ const StandRequestForm: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Raf Derinlik (cm) *</label>
+                  <label className="block text-xs text-gray-600 mb-1">Shelf Depth (cm) *</label>
                   <input
                     type="number"
                     min="0.1"
@@ -1316,7 +1398,7 @@ const StandRequestForm: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Raf Sayısı (Shelf Count) *</label>
+                  <label className="block text-xs text-gray-600 mb-1">Shelf Count *</label>
                   <input
                     type="number"
                     min="1"
@@ -1343,7 +1425,7 @@ const StandRequestForm: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Açıklama (Description) *
+              Description *
             </label>
             <textarea
               value={formData.description}
@@ -1352,7 +1434,7 @@ const StandRequestForm: React.FC = () => {
               className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                 errors.description ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="Yıllardır en çok satılan ve sevilen ürünümüz olan Ülker Çikolatalı gofret için ürünü satış noktalarında öne çıkaracak yenilikçi bir masa üstü stant tasarımı rica ediyoruz."
+              placeholder="We request an innovative tabletop stand design for our best-selling and beloved Ülker Chocolate Wafer product to make it stand out at points of sale."
             />
             {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
           </div>
@@ -1650,6 +1732,14 @@ const StandRequestForm: React.FC = () => {
                   <Scene3DConfigurator
                     mode={configuratorMode}
                     onSceneCapture={handleSceneCapture}
+                    formData={formData}
+                    onPlacementUpdate={handlePlacementUpdate}
+                    onVisualReferencesGenerated={handleVisualReferencesGenerated}
+                    // Phase 3: Advanced features callbacks
+                    onPhysicsAnalysis={handlePhysicsAnalysis}
+                    onManufacturingValidation={handleManufacturingValidation}
+                    onMaterialAnalysis={handleMaterialAnalysis}
+                    onCADExport={handleCADExport}
                     productDimensions={formData.productWidth && formData.productHeight && formData.productDepth ? {
                       width: formData.productWidth,
                       height: formData.productHeight,
@@ -1693,6 +1783,7 @@ const StandRequestForm: React.FC = () => {
           onImagesUpdated={setGeneratedImages}
           capturedViews={capturedViews}
           visual3DPrompts={visual3DPrompts}
+          visualPlacementResult={visualPlacementResult}
         />
       </Suspense>
     </motion.div>

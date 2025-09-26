@@ -8,10 +8,10 @@ import { AVAILABLE_MODELS, DEFAULT_GENERATION_CONFIG } from './config';
 import { getImageSize } from './utils';
 import type { FalGenerationRequest, FalImageResponse, ModelConfig, AIModel } from './types';
 
-// Configure Fal.ai client with secure proxy
-fal.config({
-  credentials: import.meta.env.VITE_FAL_KEY // TODO: Move to secure proxy
-});
+// SECURITY UPDATE: API keys removed from client-side
+// All Fal.ai calls now go through secure backend proxy
+// DO NOT add API keys here - use the proxy service instead
+console.warn('⚠️ Fal.ai client configuration removed for security. Using secure proxy.');
 
 export class FalCoreService {
   /**

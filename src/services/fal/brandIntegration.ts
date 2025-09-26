@@ -4,14 +4,110 @@
  */
 
 import { fal } from "@fal-ai/client";
-import { generateClientRequirementMapping, makeBrandFriendlyPrompt, createBrandIntegrationPrompt, createDimensionalBrandIntegrationPrompt, generatePhysicsValidatedRequirements, compressPrompt } from './utils';
+import { generateClientRequirementMapping, makeBrandFriendlyPrompt, createBrandIntegrationPrompt, compressPrompt } from './utils';
+import { createFormPriorityBrandPrompt, validateFormRequirementsInPrompt, getProtectedFormContent } from './formPriorityPromptUtils';
+import { advancedCompressPrompt, type CompressionConfig } from './advancedCompressionUtils';
+import { assessPromptQuality, generateCompressionReport } from './promptQualityAssessment';
+import { MasterPromptOrchestrator, type SourceOfTruthHierarchy } from './masterPromptOrchestrator';
+import { EndToEndQualityAssurance } from './endToEndQualityAssurance';
 import { SmartPromptGenerator } from '../../utils/smartPromptGenerator';
-import { mapToFormDataWithDimensions, mergeWithDefaults } from '../../utils/formDataMapper';
+import { mergeWithDefaults } from '../../utils/formDataMapper';
 import type { BrandAssetGenerationRequest, FalImageResponse } from './types';
 
 export class FalBrandIntegrationService {
   /**
-   * Generate images with brand assets using Nano Banana Edit
+   * PHASE 4: Master Orchestrated Generation with Source-of-Truth Hierarchy
+   */
+  static async generateWithMasterOrchestration(request: BrandAssetGenerationRequest & { capturedViews?: any }): Promise<FalImageResponse> {
+    try {
+      console.log('🎭 PHASE 4: Master Orchestrated Generation Starting...');
+
+      // Transform the prompt to be brand-friendly
+      const brandFriendlyPrompt = makeBrandFriendlyPrompt(request.prompt);
+
+      // Set up source-of-truth hierarchy
+      const sourceHierarchy: SourceOfTruthHierarchy = {
+        formData: request.formData!,
+        capturedViews: request.capturedViews,
+        aiEnhancements: {}, // Can be expanded later
+        compressionOptimizations: {}
+      };
+
+      // Use Master Orchestrator for perfect integration
+      const orchestrationResult = await MasterPromptOrchestrator.orchestratePromptGeneration(
+        sourceHierarchy,
+        brandFriendlyPrompt
+      );
+
+      console.log('🎭 Master Orchestration Results:', {
+        integrityScore: `${orchestrationResult.integrityScore}/100`,
+        conflictsResolved: orchestrationResult.conflictResolutions.length,
+        finalLength: orchestrationResult.finalPrompt.length
+      });
+
+      // Generate user-friendly report
+      const userReport = MasterPromptOrchestrator.generateUserReport(orchestrationResult);
+      console.log('📋 User Report:', userReport);
+
+      // Ensure final prompt meets FAL API length requirements
+      let finalPrompt = orchestrationResult.finalPrompt;
+      if (finalPrompt.length > 5000) {
+        console.warn(`⚠️ Final prompt too long (${finalPrompt.length} chars), applying emergency compression...`);
+
+        // Emergency compression - simply truncate to 4900 chars to leave room for any additional processing
+        finalPrompt = finalPrompt.substring(0, 4900);
+
+        // Try to end at a reasonable point (end of sentence or word)
+        const lastPeriod = finalPrompt.lastIndexOf('.');
+        const lastSpace = finalPrompt.lastIndexOf(' ');
+        const cutPoint = lastPeriod > 4800 ? lastPeriod + 1 : (lastSpace > 4800 ? lastSpace : finalPrompt.length);
+        finalPrompt = finalPrompt.substring(0, cutPoint);
+
+        console.log(`🔧 Emergency compression applied: ${orchestrationResult.finalPrompt.length} → ${finalPrompt.length} chars`);
+      }
+
+      // Use the orchestrated prompt for generation
+      const result = await this.applyBrandAssetsWithNanaBanana({
+        image_urls: request.brand_asset_urls,
+        prompt: finalPrompt,
+        aspect_ratio: request.aspect_ratio,
+        num_images: request.num_images || 1,
+        output_format: request.output_format || "jpeg"
+      });
+
+      // PHASE 4.1: End-to-End Quality Assurance
+      console.log('🔍 Running End-to-End Quality Assurance...');
+      const qaReport = EndToEndQualityAssurance.runComprehensiveQA(
+        request.formData!,
+        request.capturedViews,
+        orchestrationResult,
+        orchestrationResult.finalPrompt
+      );
+
+      // Generate comprehensive QA report
+      const qaReportText = EndToEndQualityAssurance.generateQAReport(qaReport);
+      console.log('📋 End-to-End Quality Report:', qaReportText);
+
+      // Log quality insights for user transparency
+      console.log('📊 Final Quality Metrics:', {
+        overallScore: `${qaReport.overallScore}/100`,
+        formDataIntegrity: `${qaReport.detailedMetrics.formDataIntegrity.toFixed(1)}%`,
+        hierarchyCompliance: `${qaReport.detailedMetrics.hierarchyCompliance.toFixed(1)}%`,
+        testsPassed: qaReport.passedTests.length,
+        warnings: qaReport.warnings.length,
+        recommendations: qaReport.recommendations.length
+      });
+
+      return result;
+
+    } catch (error: unknown) {
+      console.error('❌ Error in master orchestrated generation:', error);
+      throw new Error(`Failed to generate with master orchestration: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * LEGACY: Generate images with brand assets using Nano Banana Edit
    */
   static async generateWithBrandAssets(request: BrandAssetGenerationRequest): Promise<FalImageResponse> {
     try {
@@ -22,41 +118,46 @@ export class FalBrandIntegrationService {
 
       let integratedPrompt: string;
 
-      // Use dimensional intelligence if form data is available
+      // NEW: Form-priority approach - treat form inputs as absolute truth
       if (request.formData) {
         try {
-          console.log('🧮 Generating dimensional analysis for brand integration...');
+          console.log('🎯 Using FORM-PRIORITY brand integration (Phase 2)...');
 
-          // Convert to dimensional format
-          const dimensionalData = mergeWithDefaults(request.formData, request.formData.product);
+          // Step 1: Create form-priority prompt that treats user inputs as absolute requirements
+          integratedPrompt = createFormPriorityBrandPrompt(brandFriendlyPrompt, request.formData);
 
-          // Generate dimensional analysis
-          const analysis = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+          // Step 2: Validate that critical form requirements are preserved
+          const validation = validateFormRequirementsInPrompt(integratedPrompt, request.formData);
+          if (!validation.isValid) {
+            console.warn('⚠️ Form requirements validation failed:', validation.missingRequirements);
+          }
 
-          // Generate physics-validated client requirements (replaces generic mapping)
-          const physicsValidatedRequirements = generatePhysicsValidatedRequirements(request.formData, analysis.analysis);
-
-          // Use dimensional brand integration with physics validation
-          integratedPrompt = createDimensionalBrandIntegrationPrompt(
-            brandFriendlyPrompt,
-            analysis.analysis,
-            physicsValidatedRequirements
-          );
-
-          console.log('✅ Using DIMENSIONAL-PRIORITY brand integration with physics validation');
-          console.log('📊 Layout Analysis:', {
-            productsPerShelf: analysis.analysis.calculatedLayout.productsPerShelf,
-            arrangement: `${analysis.analysis.calculatedLayout.shelfRows}×${analysis.analysis.calculatedLayout.shelfColumns}`,
-            efficiency: analysis.analysis.spaceUtilization.efficiency,
-            utilization: `${analysis.analysis.spaceUtilization.standUsagePercent}%`,
-            manufacturingConstraints: analysis.analysis.manufacturingConstraints.length,
-            physicsValid: analysis.analysis.issues.length === 0
+          console.log('✅ Using FORM-PRIORITY brand integration');
+          console.log('📊 Critical Form Values Preserved:', {
+            frontFaceCount: request.formData.frontFaceCount,
+            backToBackCount: request.formData.backToBackCount,
+            shelfCount: request.formData.shelfCount,
+            brand: request.formData.brand,
+            validationPassed: validation.isValid
           });
 
-        } catch (error) {
-          console.warn('⚠️ Dimensional analysis failed, falling back to generic brand integration:', error);
+          // Optional: Also run dimensional analysis for supplementary insights (not to override form data)
+          try {
+            const dimensionalData = mergeWithDefaults(request.formData, request.formData.product);
+            const analysis = SmartPromptGenerator.generateIntelligentPrompts(dimensionalData);
+            console.log('📐 Supplementary dimensional analysis:', {
+              calculatedProductsPerShelf: analysis.analysis.calculatedLayout.productsPerShelf,
+              userSpecifiedArrangement: `${request.formData.frontFaceCount}×${request.formData.backToBackCount}`,
+              dimensionalEfficiency: analysis.analysis.spaceUtilization.efficiency
+            });
+          } catch (dimensionalError) {
+            console.log('📐 Dimensional analysis skipped (not critical for form-priority mode)');
+          }
 
-          // Fallback to generic requirements if dimensional analysis fails
+        } catch (error) {
+          console.warn('⚠️ Form-priority integration failed, falling back to legacy mode:', error);
+
+          // Fallback to legacy system if form-priority fails
           const clientRequirements = generateClientRequirementMapping(request.formData);
           integratedPrompt = createBrandIntegrationPrompt(brandFriendlyPrompt, clientRequirements);
         }
@@ -66,8 +167,50 @@ export class FalBrandIntegrationService {
         console.log('ℹ️ Using generic CLIENT-PRIORITY brand integration (no form data)');
       }
 
-      // Compress prompt to stay within API limits
-      const compressedPrompt = compressPrompt(integratedPrompt);
+      // Advanced compression with intelligent content preservation (Phase 3)
+      const protectedContent = request.formData ? getProtectedFormContent(request.formData) : [];
+
+      // Phase 3: Quality-based compression strategy
+      const qualityMetrics = assessPromptQuality(integratedPrompt);
+      console.log('📊 Prompt Quality Assessment:', {
+        contentDensity: `${(qualityMetrics.contentDensity * 100).toFixed(1)}%`,
+        redundancyScore: `${(qualityMetrics.redundancyScore * 100).toFixed(1)}%`,
+        formSpecificity: `${(qualityMetrics.formSpecificityScore * 100).toFixed(1)}%`,
+        overallQuality: qualityMetrics.overallQuality,
+        recommendedCompression: qualityMetrics.compressionRecommendation
+      });
+
+      const compressionConfig: CompressionConfig = {
+        maxLength: 4800,
+        protectedContent,
+        compressionLevel: qualityMetrics.compressionRecommendation,
+        preserveCreativeContext: qualityMetrics.creativeContentRatio > 0.1, // Preserve if significant creative content
+        maintainFormPriority: qualityMetrics.formSpecificityScore > 0.3 // High priority if form-specific
+      };
+
+      console.log(`🧠 Using ${qualityMetrics.compressionRecommendation} compression based on quality analysis`);
+
+      const compressionResult = advancedCompressPrompt(integratedPrompt, compressionConfig);
+      let compressedPrompt = compressionResult.compressedPrompt;
+
+      // Fallback: If advanced compression fails or doesn't preserve protected content, use legacy
+      if (!compressionResult.protectedContentPreserved || compressionResult.compressedLength > 4800) {
+        console.warn('⚠️ Advanced compression failed, falling back to legacy compression');
+        compressedPrompt = compressPrompt(integratedPrompt, 4800, protectedContent);
+      }
+
+      console.log('🧠 Advanced Compression Results:', {
+        originalLength: compressionResult.originalLength,
+        compressedLength: compressionResult.compressedLength,
+        compressionRatio: `${(compressionResult.compressionRatio * 100).toFixed(1)}%`,
+        protectedContentPreserved: compressionResult.protectedContentPreserved,
+        sectionsRemoved: compressionResult.sectionsRemoved.length,
+        sectionsAbbreviated: compressionResult.sectionsAbbreviated.length
+      });
+
+      // Generate detailed compression report for monitoring
+      const compressionReport = generateCompressionReport(integratedPrompt, compressedPrompt, qualityMetrics);
+      console.log('📋 Detailed Compression Report:', compressionReport);
 
       console.log('📝 Final Integrated Prompt Length:', compressedPrompt.length);
       console.log('🖼️ Brand Asset URLs:', request.brand_asset_urls);
@@ -119,11 +262,61 @@ export class FalBrandIntegrationService {
         console.log(`📥 Processing image ${i + 1}/${request.image_urls.length}: ${originalUrl}`);
 
         try {
-          // Check if image is already on fal.ai - if so, use it directly
-          if (originalUrl.includes('fal.media') || originalUrl.includes('fal.ai')) {
-            console.log(`✅ Image ${i + 1} already on fal.ai, using directly`);
+          // Check if image is already on fal.ai or supabase (accessible URLs) - if so, use it directly
+          if (originalUrl.includes('fal.media') || originalUrl.includes('fal.ai') || originalUrl.includes('supabase.co')) {
+            console.log(`✅ Image ${i + 1} already accessible, using directly`);
             accessibleImageUrls.push(originalUrl);
             continue;
+          }
+
+          // Handle data URLs (base64 encoded images)
+          if (originalUrl.startsWith('data:image/')) {
+            console.log(`📷 Processing data URL image ${i + 1}`);
+
+            try {
+              // Parse data URL manually to avoid CSP issues
+              const [header, base64Data] = originalUrl.split(',');
+              const mimeMatch = header.match(/data:(image\/[^;]+)/);
+              const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+              // Convert base64 to Uint8Array
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let j = 0; j < binaryString.length; j++) {
+                bytes[j] = binaryString.charCodeAt(j);
+              }
+
+              // Create blob from bytes
+              const blob = new Blob([bytes], { type: mimeType });
+
+              // Create a File object for Fal.ai upload
+              const file = new File([blob], `image-${i + 1}.${mimeType.split('/')[1]}`, {
+                type: mimeType
+              });
+
+              // Upload to Fal.ai storage via secure proxy
+              const formData = new FormData();
+              formData.append('file', file);
+
+              const uploadResponse = await fetch('http://localhost:3001/api/proxy/fal/storage/upload', {
+                method: 'POST',
+                body: formData
+              });
+
+              if (!uploadResponse.ok) {
+                throw new Error(`Failed to upload via proxy: ${uploadResponse.status}`);
+              }
+
+              const { url: falUrl } = await uploadResponse.json();
+              console.log(`✅ Converted data URL to fal.ai image ${i + 1}`);
+
+              accessibleImageUrls.push(falUrl);
+              continue;
+            } catch (dataUrlError) {
+              console.error(`❌ Failed to process data URL image ${i + 1}:`, dataUrlError);
+              console.warn(`⚠️ Skipping data URL image ${i + 1} due to processing error`);
+              continue;
+            }
           }
 
           // For external images, download and re-upload to fal.ai
@@ -149,9 +342,21 @@ export class FalBrandIntegrationService {
             type: blob.type
           });
 
-          // Upload to Fal.ai storage
-          const falUrl = await fal.storage.upload(file);
-          console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai`);
+          // Upload to Fal.ai storage via secure proxy
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const uploadResponse = await fetch('http://localhost:3001/api/proxy/fal/storage/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload via proxy: ${uploadResponse.status}`);
+          }
+
+          const { url: falUrl } = await uploadResponse.json();
+          console.log(`✅ Re-uploaded image ${i + 1} to Fal.ai via proxy`);
 
           accessibleImageUrls.push(falUrl);
         } catch (error) {
@@ -192,29 +397,38 @@ export class FalBrandIntegrationService {
         outputFormat: request.output_format || "jpeg"
       });
 
-      // Use the correct nano-banana/edit endpoint
-      const result = await fal.subscribe("fal-ai/nano-banana/edit", {
-        input: {
-          prompt: trimmedPrompt,
-          image_urls: accessibleImageUrls,
-          num_images: numImages,
-          output_format: request.output_format || "jpeg"
+      // Use secure backend proxy for generation
+      console.log('🔐 Using secure backend proxy for generation');
+      const proxyResponse = await fetch('http://localhost:3001/api/proxy/fal/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        logs: true,
-        onQueueUpdate: (update) => {
-          console.log('🍌 Nano Banana Status:', update.status);
-          if (update.status === "IN_PROGRESS") {
-            update.logs?.map((log) => log.message).forEach(console.log);
+        body: JSON.stringify({
+          model: 'fal-ai/nano-banana/edit',
+          payload: {
+            prompt: trimmedPrompt,
+            image_urls: accessibleImageUrls,
+            num_images: numImages,
+            output_format: request.output_format || "jpeg"
           }
-        }
+        })
       });
 
-      console.log('✅ Brand assets applied successfully');
-      if (result.data.description) {
-        console.log('📝 AI Description:', result.data.description);
+      if (!proxyResponse.ok) {
+        const error = await proxyResponse.json();
+        throw new Error(`Proxy generation failed: ${error.details || error.error}`);
       }
 
-      return result.data as FalImageResponse;
+      const { data: result } = await proxyResponse.json();
+      console.log('🍌 Generation complete via proxy');
+
+      console.log('✅ Brand assets applied successfully');
+      if (result.description) {
+        console.log('📝 AI Description:', result.description);
+      }
+
+      return result as FalImageResponse;
     } catch (error: unknown) {
       console.error('❌ Error applying brand assets with Nano Banana:', error);
 

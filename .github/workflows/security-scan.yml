@@ -1,0 +1,129 @@
+name: 🔒 Daily Security Scan
+
+on:
+  schedule:
+    # Run daily security scans at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  security-audit:
+    name: 🛡️ Comprehensive Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      # Dependency vulnerability scanning
+      - name: 🔍 NPM Security Audit
+        run: |
+          echo "## NPM Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=moderate --json > audit-results.json || true
+          if [ -s audit-results.json ]; then
+            echo "### Vulnerabilities Found:" >> $GITHUB_STEP_SUMMARY
+            cat audit-results.json | jq -r '.vulnerabilities | to_entries[] | "- **\(.key)**: \(.value.severity)"' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # CodeQL Analysis for JavaScript/TypeScript
+      - name: 🔍 Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+
+      - name: 🔍 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+      # SAST (Static Application Security Testing)
+      - name: 🔍 Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+            p/javascript
+            p/typescript
+            p/react
+
+      # Secret scanning
+      - name: 🔐 Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+
+      # Container scanning (for API proxy)
+      - name: 🐳 Build and scan API proxy container
+        run: |
+          cd api-proxy
+          docker build -t emrah-api-proxy:security-scan .
+
+      - name: 🔍 Trivy container scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'emrah-api-proxy:security-scan'
+          format: 'sarif'
+          output: 'trivy-container-results.sarif'
+
+      - name: 📤 Upload container scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-container-results.sarif'
+
+      # License compliance check
+      - name: ⚖️ License compliance check
+        run: |
+          npx license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;Unlicense' --summary > license-report.txt
+          echo "## License Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "### Allowed Licenses: MIT, Apache-2.0, BSD-2/3-Clause, ISC, Unlicense" >> $GITHUB_STEP_SUMMARY
+          cat license-report.txt >> $GITHUB_STEP_SUMMARY
+
+      # OWASP Dependency Check
+      - name: 🔍 OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'emrah-app'
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --failOnCVSS 7
+
+      - name: 📤 Upload OWASP results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'reports/dependency-check-report.sarif'
+
+  notify-security-team:
+    name: 📧 Security Notification
+    needs: [security-audit]
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+      - name: 📧 Send security alert
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#security-alerts'
+          username: 'Security Bot'
+          icon_emoji: ':warning:'
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SECURITY_SLACK_WEBHOOK }}

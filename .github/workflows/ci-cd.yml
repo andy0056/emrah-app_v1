@@ -1,0 +1,226 @@
+name: 🚀 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  CACHE_KEY: 'node-modules-${{ github.ref }}-${{ hashFiles(''**/package-lock.json'') }}'
+
+jobs:
+  # Security and Dependency Analysis
+  security-scan:
+    name: 🔒 Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📤 Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🛡️ Run npm audit
+        run: npm audit --audit-level=high --production
+
+      - name: 🔍 Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+
+  # Code Quality and Linting
+  code-quality:
+    name: 📊 Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎯 Run ESLint
+        run: npm run lint -- --format=json --output-file=eslint-report.json
+        continue-on-error: true
+
+      - name: 🎨 Run Prettier check
+        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,css,md}"
+
+      - name: 🔍 TypeScript type checking
+        run: npx tsc --noEmit
+
+  # Testing
+  test:
+    name: 🧪 Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run unit tests
+        run: npm test -- --coverage --watchAll=false --passWithNoTests
+
+      - name: 📊 Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # API Proxy Testing
+  api-proxy-test:
+    name: 🔗 API Proxy Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./api-proxy
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: api-proxy/package-lock.json
+
+      - name: 📦 Install proxy dependencies
+        run: npm ci
+
+      - name: 🧪 Run proxy tests
+        run: npm test
+
+      - name: 🔍 Security audit for proxy
+        run: npm audit --audit-level=moderate
+
+  # Build and Deploy (Production)
+  build-deploy:
+    name: 🏗️ Build & Deploy
+    needs: [security-scan, code-quality, test, api-proxy-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build application
+        run: npm run build
+        env:
+          VITE_API_PROXY_URL: ${{ secrets.PRODUCTION_API_PROXY_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: 🧪 Test build integrity
+        run: |
+          if [ ! -f "dist/index.html" ]; then
+            echo "Build failed: index.html not found"
+            exit 1
+          fi
+          echo "Build integrity check passed"
+
+      - name: 📤 Deploy to Vercel
+        uses: vercel/action@v1
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.ORG_ID }}
+          vercel-project-id: ${{ secrets.PROJECT_ID }}
+          vercel-args: '--prod'
+
+      - name: 🏗️ Build API Proxy Docker Image
+        run: |
+          cd api-proxy
+          docker build -t emrah-api-proxy:${{ github.sha }} .
+
+      - name: 🐳 Deploy API Proxy to Production
+        run: |
+          echo "API Proxy built successfully"
+          echo "Image: emrah-api-proxy:${{ github.sha }}"
+          # Add your container deployment steps here
+
+  # Performance Testing
+  lighthouse:
+    name: 🚦 Lighthouse Performance
+    needs: [build-deploy]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚦 Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: './lighthouserc.json'
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  # Notification
+  notify:
+    name: 📢 Notifications
+    needs: [security-scan, code-quality, test, build-deploy]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: 📢 Slack Notification
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          username: 'GitHub Actions'
+          icon_emoji: ':rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

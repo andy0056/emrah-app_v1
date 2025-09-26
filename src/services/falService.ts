@@ -4,6 +4,7 @@
  */
 
 import { FalCoreService, FalBrandIntegrationService, AVAILABLE_MODELS } from './fal';
+import { ReplicateBrandIntegrationService } from './replicate/replicateBrandIntegration';
 import { ABTestingService } from './abTestingService';
 import { PromptOptimizationService } from './promptOptimizationService';
 import { IntelligentPromptService } from './intelligentPromptService';
@@ -88,7 +89,7 @@ export class FalService {
   }
 
   /**
-   * Generate image using core service
+   * Generate image using Replicate service
    */
   static async generateImage(request: {
     prompt: string;
@@ -97,46 +98,84 @@ export class FalService {
     model?: AIModel;
     inputImages?: string[];
   }) {
-    return FalCoreService.generateImage(request);
+    console.log('🎯 Generating basic image with Replicate Nano Banana...');
+    return await ReplicateBrandIntegrationService.generateWithBrandAssets({
+      prompt: request.prompt,
+      aspect_ratio: request.aspect_ratio,
+      num_images: request.num_images || 1,
+      brand_asset_urls: request.inputImages || []
+    });
   }
 
   /**
-   * Generate with brand assets (primary method)
+   * Generate with Master Orchestration using Replicate only
+   */
+  static async generateWithMasterOrchestration(request: BrandAssetGenerationRequest & { capturedViews?: any }) {
+    console.log('🎭 Master Orchestration with Replicate Nano Banana...');
+    return await ReplicateBrandIntegrationService.generateWithBrandAssets(request);
+  }
+
+  /**
+   * Generate with brand assets using Replicate only
    */
   static async generateWithBrandAssets(request: BrandAssetGenerationRequest) {
-    return FalBrandIntegrationService.generateWithBrandAssets(request);
+    console.log('🎯 Generating with Replicate Nano Banana...');
+    return await ReplicateBrandIntegrationService.generateWithBrandAssets(request);
   }
 
   /**
-   * Generate with SeedReam v4 (advanced method)
+   * Generate with SeedReam v4 (advanced method) using Replicate
    */
   static async generateWithSeedreamV4(request: SeedreamGenerationRequest) {
-    // For now, delegate to brand assets generation
-    // TODO: Implement SeedReam v4 specific logic
-    console.log('🎯 SeedReam v4 generation - delegating to brand assets for now');
-    return FalBrandIntegrationService.generateWithBrandAssets(request);
+    console.log('🎯 SeedReam v4 generation with Replicate Nano Banana');
+    return ReplicateBrandIntegrationService.generateWithBrandAssets(request);
   }
 
   /**
-   * Get model by ID
+   * Get model by ID - now returns Replicate Nano Banana config
    */
   static getModelById(modelId: AIModel): ModelConfig | undefined {
-    return FalCoreService.getModelById(modelId);
+    // Always return nano-banana config since we're using Replicate only
+    return {
+      id: 'nano-banana' as AIModel,
+      name: 'Nano Banana (Replicate)',
+      description: 'Google Nano Banana via Replicate',
+      maxImages: 4,
+      supportsBrandAssets: true,
+      supportsAspectRatio: true,
+      defaultAspectRatio: '1:1' as const
+    };
   }
 
   /**
-   * Generate multiple images
+   * Generate multiple images using Replicate
    */
   static async generateMultipleImages(requests: ImageGenerationRequest[]): Promise<any[]> {
-    return FalCoreService.generateMultipleImages(requests.map(req => ({
-      prompt: req.prompt,
-      aspect_ratio: req.aspect_ratio,
-      num_images: req.num_images
-    })));
+    console.log('🎯 Generating multiple images with Replicate Nano Banana...');
+    const results = [];
+    for (const request of requests) {
+      const result = await ReplicateBrandIntegrationService.generateWithBrandAssets({
+        prompt: request.prompt,
+        aspect_ratio: request.aspect_ratio,
+        num_images: request.num_images || 1,
+        brand_asset_urls: []
+      });
+      results.push(result);
+    }
+    return results;
   }
 
-  // Legacy exports for backward compatibility
-  static getImageSize = FalCoreService.getImageSize;
+  // Legacy function for backward compatibility - returns standard image size
+  static getImageSize(aspectRatio: string) {
+    const sizes = {
+      '1:1': { width: 1024, height: 1024 },
+      '16:9': { width: 1344, height: 768 },
+      '9:16': { width: 768, height: 1344 },
+      '3:4': { width: 896, height: 1152 },
+      '4:3': { width: 1152, height: 896 }
+    };
+    return sizes[aspectRatio as keyof typeof sizes] || sizes['1:1'];
+  }
 }
 
 // Re-export types and config for backward compatibility

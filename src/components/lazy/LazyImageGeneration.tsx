@@ -5,6 +5,7 @@ const ImageGeneration = React.lazy(() => import('../ImageGeneration'));
 
 import type { CapturedViews } from '../hooks/useSceneCapture';
 import type { Visual3DPromptResult } from '../services/visual3DPromptService';
+import type { VisualPlacementResult } from '../services/visualPlacementService';
 
 interface LazyImageGenerationProps {
   prompts: {
@@ -29,6 +30,8 @@ interface LazyImageGenerationProps {
   // New props for 3D visual references
   capturedViews?: CapturedViews | null;
   visual3DPrompts?: Visual3DPromptResult | null;
+  // Product placement visual references
+  visualPlacementResult?: VisualPlacementResult | null;
 }
 
 const LazyImageGeneration: React.FC<LazyImageGenerationProps> = (props) => {

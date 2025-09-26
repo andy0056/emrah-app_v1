@@ -11,8 +11,16 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Ruler, Download, RotateCcw, Eye, Camera, Grid3x3, Sparkles, CheckCircle } from 'lucide-react';
+import { Ruler, Download, RotateCcw, Eye, Camera, Grid3x3, Sparkles, CheckCircle, Package, Layout, Cpu, Shield, FileText, Settings } from 'lucide-react';
 import type { CapturedViews } from '../hooks/useSceneCapture';
+import { ProductPlacementService, type PlacementResult, type ProductInstance, type ShelfStructure } from '../services/productPlacementService';
+import { VisualPlacementService, type VisualPlacementResult } from '../services/visualPlacementService';
+import { PhysicsEngine, type PhysicsSimulationResult } from '../services/physicsEngine';
+import { ManufacturingValidator, type ManufacturingValidationResult } from '../services/manufacturingValidator';
+import { AdvancedMaterialService, type AdvancedMaterialResult } from '../services/advancedMaterialService';
+import { CADExportService, type ManufacturingPackage, type CADExportOptions } from '../services/cadExportService';
+import { SmartPositioningService, type SmartPositionResult } from '../services/smartPositioningService';
+import type { FormData } from '../types';
 
 // Reference object dimensions (in cm) - now mutable for dynamic updates
 const REFERENCE_OBJECTS = {
@@ -72,6 +80,14 @@ interface Scene3DConfiguratorProps {
   productDimensions?: { width: number; height: number; depth: number };
   displayDimensions?: { width: number; height: number; depth: number };
   mode?: 'beginner' | 'advanced'; // New prop for user experience level
+  formData?: FormData; // For product placement generation
+  onPlacementUpdate?: (placement: PlacementResult) => void; // Callback for placement changes
+  onVisualReferencesGenerated?: (visualReferences: VisualPlacementResult) => void; // Callback for visual references
+  // Phase 3: Advanced features
+  onPhysicsAnalysis?: (physics: PhysicsSimulationResult) => void;
+  onManufacturingValidation?: (validation: ManufacturingValidationResult) => void;
+  onMaterialAnalysis?: (material: AdvancedMaterialResult) => void;
+  onCADExport?: (cadPackage: ManufacturingPackage) => void;
 }
 
 // Individual reference object component with enhanced drag mechanics
@@ -236,12 +252,135 @@ const GridHelper: React.FC = () => {
   return <gridHelper args={[20, 40, '#6b7280', '#9ca3af']} position={[0, 0, 0]} />;
 };
 
+// 3D Product component
+interface Product3DProps {
+  product: ProductInstance;
+  productDims: { width: number; height: number; depth: number };
+  isSelected: boolean;
+  onSelect: (productId: string) => void;
+  onPositionChange: (productId: string, position: [number, number, number]) => void;
+}
+
+const Product3D: React.FC<Product3DProps> = ({
+  product,
+  productDims,
+  isSelected,
+  onSelect,
+  onPositionChange
+}) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const { camera, raycaster } = useThree();
+
+  // Convert cm to scene units
+  const scaleX = productDims.width / 10;
+  const scaleY = productDims.height / 10;
+  const scaleZ = productDims.depth / 10;
+
+  const handlePointerDown = useCallback((event: any) => {
+    event.stopPropagation();
+    setIsDragging(true);
+    onSelect(product.id);
+  }, [onSelect, product.id]);
+
+  const handlePointerUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handlePointerMove = useCallback((event: any) => {
+    if (isDragging && meshRef.current) {
+      event.stopPropagation();
+
+      // Simple horizontal movement for now
+      const newPosition: [number, number, number] = [
+        event.point.x,
+        product.position[1], // Keep Y fixed
+        event.point.z
+      ];
+
+      onPositionChange(product.id, newPosition);
+    }
+  }, [isDragging, onPositionChange, product.id, product.position]);
+
+  return (
+    <group>
+      <mesh
+        ref={meshRef}
+        position={product.position}
+        rotation={product.rotation}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerMove={handlePointerMove}
+      >
+        <boxGeometry args={[scaleX, scaleY, scaleZ]} />
+        <meshStandardMaterial
+          color="#059669"
+          transparent
+          opacity={isSelected ? 0.9 : 0.7}
+          emissive={isSelected ? "#022c22" : "#000000"}
+        />
+      </mesh>
+
+      {/* Product label */}
+      {isSelected && (
+        <Html position={[product.position[0], product.position[1] + scaleY/2 + 0.3, product.position[2]]}>
+          <div className="px-1 py-0.5 rounded text-xs font-medium bg-green-500 text-white pointer-events-none">
+            {product.id}
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+};
+
+// 3D Shelf component
+interface Shelf3DProps {
+  shelf: ShelfStructure;
+  isVisible: boolean;
+}
+
+const Shelf3D: React.FC<Shelf3DProps> = ({ shelf, isVisible }) => {
+  if (!isVisible) return null;
+
+  const scaleX = shelf.dimensions.width / 10;
+  const scaleY = shelf.dimensions.height / 10;
+  const scaleZ = shelf.dimensions.depth / 10;
+
+  return (
+    <group>
+      <mesh position={shelf.position}>
+        <boxGeometry args={[scaleX, scaleY, scaleZ]} />
+        <meshStandardMaterial
+          color="#8B4513"
+          transparent
+          opacity={0.6}
+        />
+      </mesh>
+
+      {/* Shelf info */}
+      <Html position={[shelf.position[0] - scaleX/2, shelf.position[1] + scaleY/2 + 0.2, shelf.position[2]]}>
+        <div className="px-1 py-0.5 rounded text-xs bg-brown-600 text-white pointer-events-none">
+          Shelf {shelf.id} ({shelf.products.length}/{shelf.capacity})
+        </div>
+      </Html>
+    </group>
+  );
+};
+
 // Main 3D scene component
 const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
   onSceneCapture,
   productDimensions,
   displayDimensions,
-  mode = 'beginner'
+  mode = 'beginner',
+  formData,
+  onPlacementUpdate,
+  onVisualReferencesGenerated,
+  // Phase 3: Advanced features callbacks
+  onPhysicsAnalysis,
+  onManufacturingValidation,
+  onMaterialAnalysis,
+  onCADExport
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [objectPositions, setObjectPositions] = useState<Record<ObjectType, [number, number, number]>>({
@@ -256,6 +395,28 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
   const [isCapturing, setIsCapturing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // For beginner mode guidance
   const [hasCompletedSetup, setHasCompletedSetup] = useState(false);
+
+  // Product placement system state
+  const [productPlacement, setProductPlacement] = useState<PlacementResult | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [showProducts, setShowProducts] = useState(true);
+  const [showShelves, setShowShelves] = useState(true);
+  const [placementMode, setPlacementMode] = useState<'reference' | 'placement'>('reference');
+
+  // Phase 3: Advanced features state
+  const [physicsResult, setPhysicsResult] = useState<PhysicsSimulationResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ManufacturingValidationResult | null>(null);
+  const [materialResult, setMaterialResult] = useState<AdvancedMaterialResult | null>(null);
+  const [cadPackage, setCADPackage] = useState<ManufacturingPackage | null>(null);
+  const [isRunningPhysics, setIsRunningPhysics] = useState(false);
+  const [isRunningValidation, setIsRunningValidation] = useState(false);
+  const [isRunningMaterialAnalysis, setIsRunningMaterialAnalysis] = useState(false);
+  const [isExportingCAD, setIsExportingCAD] = useState(false);
+  const [showAdvancedPanel, setShowAdvancedPanel] = useState(false);
+
+  // Smart positioning state
+  const [smartPositionResult, setSmartPositionResult] = useState<SmartPositionResult | null>(null);
+  const [isAutoPositioning, setIsAutoPositioning] = useState(false);
 
   // Beginner mode guided steps
   const beginnerSteps = [
@@ -293,12 +454,299 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
     setObjectPositions(prev => ({ ...prev }));
   }, [productDimensions, displayDimensions]);
 
+  // Generate product placement when form data changes
+  useEffect(() => {
+    if (formData && placementMode === 'placement') {
+      try {
+        console.log('🏭 Generating product placement from form data...');
+        const placement = ProductPlacementService.generatePlacement(formData);
+        setProductPlacement(placement);
+
+        if (onPlacementUpdate) {
+          onPlacementUpdate(placement);
+        }
+
+        console.log('✅ Product placement generated:', {
+          totalProducts: placement.totalProducts,
+          utilization: `${placement.overallUtilization.toFixed(1)}%`,
+          shelves: placement.shelves.length
+        });
+      } catch (error) {
+        console.error('❌ Failed to generate product placement:', error);
+      }
+    }
+  }, [formData, placementMode, onPlacementUpdate]);
+
   const handlePositionChange = useCallback((type: ObjectType, position: [number, number, number]) => {
     setObjectPositions(prev => ({
       ...prev,
       [type]: position
     }));
   }, []);
+
+  // Handle product position changes in placement mode
+  const handleProductPositionChange = useCallback((productId: string, position: [number, number, number]) => {
+    if (productPlacement) {
+      const updatedPlacement = ProductPlacementService.updateProductPosition(
+        productPlacement,
+        productId,
+        position
+      );
+      setProductPlacement(updatedPlacement);
+
+      if (onPlacementUpdate) {
+        onPlacementUpdate(updatedPlacement);
+      }
+    }
+  }, [productPlacement, onPlacementUpdate]);
+
+  const handleProductSelect = useCallback((productId: string) => {
+    setSelectedProduct(productId);
+  }, []);
+
+  const generatePlacement = useCallback(() => {
+    if (formData) {
+      setPlacementMode('placement');
+    }
+  }, [formData]);
+
+  const generateVisualReferences = useCallback(async () => {
+    if (productPlacement && formData && onVisualReferencesGenerated) {
+      try {
+        console.log('📊 Generating visual placement references...');
+
+        const visualReferences = await VisualPlacementService.generateVisualReferences(
+          productPlacement,
+          formData
+        );
+
+        onVisualReferencesGenerated(visualReferences);
+
+        console.log('✅ Visual references generated:', {
+          diagrams: Object.keys(visualReferences.diagrams).length,
+          prompts: Object.keys(visualReferences.enhancedPrompts).length,
+          confidence: visualReferences.enhancedPrompts.frontView.confidence
+        });
+
+      } catch (error) {
+        console.error('❌ Failed to generate visual references:', error);
+      }
+    }
+  }, [productPlacement, formData, onVisualReferencesGenerated]);
+
+  // Phase 3: Advanced feature functions
+  const runPhysicsSimulation = useCallback(async () => {
+    if (!productPlacement || !formData) return;
+
+    setIsRunningPhysics(true);
+    try {
+      console.log('🔬 Running physics simulation...');
+      const physics = await PhysicsEngine.runSimulation(productPlacement, formData);
+      setPhysicsResult(physics);
+
+      if (onPhysicsAnalysis) {
+        onPhysicsAnalysis(physics);
+      }
+
+      console.log('✅ Physics simulation complete:', {
+        certified: physics.structural.certified,
+        collisions: physics.collisions.hasCollisions,
+        safetyFactor: physics.structural.safetyFactor
+      });
+    } catch (error) {
+      console.error('❌ Physics simulation failed:', error);
+    } finally {
+      setIsRunningPhysics(false);
+    }
+  }, [productPlacement, formData, onPhysicsAnalysis]);
+
+  const runManufacturingValidation = useCallback(async () => {
+    if (!productPlacement || !formData) return;
+
+    setIsRunningValidation(true);
+    try {
+      console.log('🏭 Running manufacturing validation...');
+      const validation = await ManufacturingValidator.validateManufacturing(
+        formData,
+        productPlacement,
+        physicsResult || undefined
+      );
+      setValidationResult(validation);
+
+      if (onManufacturingValidation) {
+        onManufacturingValidation(validation);
+      }
+
+      console.log('✅ Manufacturing validation complete:', {
+        passed: validation.overall.passed,
+        grade: validation.overall.grade,
+        score: validation.overall.score
+      });
+    } catch (error) {
+      console.error('❌ Manufacturing validation failed:', error);
+    } finally {
+      setIsRunningValidation(false);
+    }
+  }, [productPlacement, formData, physicsResult, onManufacturingValidation]);
+
+  const runMaterialAnalysis = useCallback(async () => {
+    if (!formData) return;
+
+    setIsRunningMaterialAnalysis(true);
+    try {
+      console.log('🔬 Running material analysis...');
+      const requirements = {
+        structuralLoad: 50, // N - typical display load
+        operatingTemp: 25, // °C - room temperature
+        outdoorUse: false,
+        foodContact: formData.productName?.toLowerCase().includes('food') || false,
+        budgetConstraint: 10, // $ per part
+        sustainabilityPriority: 'medium' as const,
+        quantityRequired: 1
+      };
+
+      const material = await AdvancedMaterialService.selectOptimalMaterial(requirements, formData);
+      setMaterialResult(material);
+
+      if (onMaterialAnalysis) {
+        onMaterialAnalysis(material);
+      }
+
+      console.log('✅ Material analysis complete:', {
+        selectedMaterial: Object.keys(material.selectedMaterial)[0],
+        sustainabilityScore: material.sustainability.recyclabilityScore,
+        costOptimization: material.analysis.optimization.costSavings
+      });
+    } catch (error) {
+      console.error('❌ Material analysis failed:', error);
+    } finally {
+      setIsRunningMaterialAnalysis(false);
+    }
+  }, [formData, onMaterialAnalysis]);
+
+  const exportCADPackage = useCallback(async () => {
+    if (!productPlacement || !formData || !physicsResult || !validationResult || !materialResult) {
+      console.warn('⚠️ Missing required data for CAD export');
+      return;
+    }
+
+    setIsExportingCAD(true);
+    try {
+      console.log('📦 Generating CAD export package...');
+      const options: CADExportOptions = {
+        format: 'STEP',
+        includeAssembly: true,
+        includeTechnicalDrawings: true,
+        includeManufacturingSpecs: true,
+        includeBOM: true,
+        precision: 'standard',
+        units: 'mm'
+      };
+
+      const cadData = await CADExportService.generateManufacturingPackage(
+        formData,
+        productPlacement,
+        physicsResult,
+        materialResult,
+        validationResult,
+        options
+      );
+      setCADPackage(cadData);
+
+      if (onCADExport) {
+        onCADExport(cadData);
+      }
+
+      console.log('✅ CAD package generated:', {
+        geometryFiles: Object.keys(cadData.geometryFiles).length,
+        documentation: Object.keys(cadData.documentation).length,
+        specifications: Object.keys(cadData.specifications).length
+      });
+    } catch (error) {
+      console.error('❌ CAD export failed:', error);
+    } finally {
+      setIsExportingCAD(false);
+    }
+  }, [productPlacement, formData, physicsResult, validationResult, materialResult, onCADExport]);
+
+  // Auto-run analyses when data becomes available
+  useEffect(() => {
+    if (productPlacement && formData && mode === 'advanced') {
+      // Auto-run physics simulation
+      if (!physicsResult && !isRunningPhysics) {
+        runPhysicsSimulation();
+      }
+    }
+  }, [productPlacement, formData, mode, physicsResult, isRunningPhysics, runPhysicsSimulation]);
+
+  useEffect(() => {
+    if (productPlacement && formData && mode === 'advanced') {
+      // Auto-run manufacturing validation
+      if (!validationResult && !isRunningValidation) {
+        runManufacturingValidation();
+      }
+    }
+  }, [productPlacement, formData, mode, validationResult, isRunningValidation, runManufacturingValidation]);
+
+  useEffect(() => {
+    if (formData && mode === 'advanced') {
+      // Auto-run material analysis
+      if (!materialResult && !isRunningMaterialAnalysis) {
+        runMaterialAnalysis();
+      }
+    }
+  }, [formData, mode, materialResult, isRunningMaterialAnalysis, runMaterialAnalysis]);
+
+  // Smart positioning function for client-friendly product placement
+  const runSmartPositioning = useCallback(async () => {
+    if (!productPlacement || !formData) return;
+
+    setIsAutoPositioning(true);
+    try {
+      console.log('🎯 Running smart positioning for client-friendly experience...');
+
+      const smartResult = SmartPositioningService.autoPositionForClient(productPlacement, formData);
+
+      // Update the product placement with smart positioning
+      const updatedPlacement: PlacementResult = {
+        ...productPlacement,
+        shelves: smartResult.shelves
+      };
+
+      setProductPlacement(updatedPlacement);
+      setSmartPositionResult(smartResult);
+
+      if (onPlacementUpdate) {
+        onPlacementUpdate(updatedPlacement);
+      }
+
+      console.log('✅ Smart positioning complete:', {
+        improvements: smartResult.improvements.length,
+        autoAdjustments: smartResult.autoAdjustments,
+        clientTips: smartResult.clientTips.length
+      });
+
+      // Show user-friendly notification
+      if (smartResult.autoAdjustments > 0) {
+        console.log(`🚀 Made ${smartResult.autoAdjustments} automatic improvements for better client experience`);
+      }
+
+    } catch (error) {
+      console.error('❌ Smart positioning failed:', error);
+    } finally {
+      setIsAutoPositioning(false);
+    }
+  }, [productPlacement, formData, onPlacementUpdate]);
+
+  // Auto-run smart positioning when placement is first generated
+  useEffect(() => {
+    if (productPlacement && formData && placementMode === 'placement' && !smartPositionResult) {
+      // Delay slightly to allow placement to settle
+      setTimeout(() => {
+        runSmartPositioning();
+      }, 100);
+    }
+  }, [productPlacement, formData, placementMode, smartPositionResult, runSmartPositioning]);
 
   const handleObjectSelect = useCallback((type: ObjectType) => {
     setSelectedObject(type);
@@ -498,8 +946,92 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Mode Toggle */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm">
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setPlacementMode('reference')}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  placementMode === 'reference'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <Ruler className="w-3 h-3 mr-1 inline" />
+                Scale
+              </button>
+              <button
+                onClick={() => setPlacementMode('placement')}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  placementMode === 'placement'
+                    ? 'bg-green-500 text-white'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <Package className="w-3 h-3 mr-1 inline" />
+                Products
+              </button>
+            </div>
+          </div>
+
+          {/* Product Placement Controls */}
+          {placementMode === 'placement' && (
+            <div className="bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm">
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={generatePlacement}
+                  disabled={!formData}
+                  className="bg-green-500 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Layout className="w-3 h-3 mr-1 inline" />
+                  Generate
+                </button>
+                {productPlacement && (
+                  <>
+                    <button
+                      onClick={runSmartPositioning}
+                      disabled={isAutoPositioning}
+                      className="bg-blue-500 text-white px-3 py-1 rounded text-xs font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Fix product positioning automatically"
+                    >
+                      {isAutoPositioning ? (
+                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1 inline-block" />
+                      ) : (
+                        <Sparkles className="w-3 h-3 mr-1 inline" />
+                      )}
+                      {isAutoPositioning ? 'Fixing...' : 'Smart Fix'}
+                    </button>
+                    <button
+                      onClick={generateVisualReferences}
+                      className="bg-purple-500 text-white px-3 py-1 rounded text-xs font-medium hover:bg-purple-600 transition-colors"
+                    >
+                      <Camera className="w-3 h-3 mr-1 inline" />
+                      Capture
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setShowShelves(!showShelves)}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    showShelves ? 'bg-brown-500 text-white' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Shelves
+                </button>
+                <button
+                  onClick={() => setShowProducts(!showProducts)}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    showProducts ? 'bg-green-500 text-white' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Products
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Beginner Mode: Simplified Controls */}
-          {mode === 'beginner' ? (
+          {mode === 'beginner' && placementMode === 'reference' ? (
             <>
               {!hasCompletedSetup && (
                 <button
@@ -610,8 +1142,8 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
         <GroundPlane />
         <GridHelper />
 
-        {/* Reference Objects */}
-        {(Object.keys(REFERENCE_OBJECTS) as ObjectType[]).map((type) => (
+        {/* Reference Objects - only show in reference mode */}
+        {placementMode === 'reference' && (Object.keys(REFERENCE_OBJECTS) as ObjectType[]).map((type) => (
           <ReferenceObject
             key={type}
             type={type}
@@ -621,6 +1153,38 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
             onSelect={handleObjectSelect}
           />
         ))}
+
+        {/* Product Placement System - only show in placement mode */}
+        {placementMode === 'placement' && productPlacement && (
+          <>
+            {/* Render Shelves */}
+            {showShelves && productPlacement.shelves.map((shelf) => (
+              <Shelf3D
+                key={shelf.id}
+                shelf={shelf}
+                isVisible={showShelves}
+              />
+            ))}
+
+            {/* Render Products */}
+            {showProducts && productPlacement.shelves.map((shelf) =>
+              shelf.products.map((product) => (
+                <Product3D
+                  key={product.id}
+                  product={product}
+                  productDims={{
+                    width: formData?.productWidth || 13,
+                    height: formData?.productHeight || 5,
+                    depth: formData?.productDepth || 2.5
+                  }}
+                  isSelected={selectedProduct === product.id}
+                  onSelect={handleProductSelect}
+                  onPositionChange={handleProductPositionChange}
+                />
+              ))
+            )}
+          </>
+        )}
 
         {/* Controls */}
         {viewMode === '3d' && (
@@ -633,9 +1197,9 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
         )}
       </Canvas>
 
-      {/* Object Info Panel */}
+      {/* Object Info Panel - Reference Mode */}
       <AnimatePresence>
-        {selectedObject && (
+        {placementMode === 'reference' && selectedObject && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -659,6 +1223,69 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
               <p className="text-xs text-blue-600 mt-2">
                 💡 Drag to reposition this reference object
               </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Product Placement Info Panel */}
+        {placementMode === 'placement' && productPlacement && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-4 shadow-lg max-w-sm"
+          >
+            <h4 className="font-semibold text-gray-800 mb-2 flex items-center">
+              <Package className="w-4 h-4 mr-2 text-green-600" />
+              Product Placement
+            </h4>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>
+                <strong>Total Products:</strong> {productPlacement.totalProducts}
+              </p>
+              <p>
+                <strong>Shelves:</strong> {productPlacement.shelves.length}
+              </p>
+              <p>
+                <strong>Utilization:</strong> {productPlacement.overallUtilization.toFixed(1)}%
+              </p>
+              <p>
+                <strong>Spacing:</strong> {productPlacement.manufacturingSpecs.productSpacing.x.toFixed(1)}cm
+              </p>
+              {selectedProduct && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <p className="text-xs font-medium text-green-600">Selected: {selectedProduct}</p>
+                  <p className="text-xs text-gray-500 mt-1">💡 Drag to reposition product</p>
+                </div>
+              )}
+              {productPlacement.placementErrors.length > 0 && !smartPositionResult && (
+                <div className="mt-2 pt-2 border-t border-red-200">
+                  <p className="text-xs font-medium text-red-600 mb-1">⚠️ Issues:</p>
+                  {productPlacement.placementErrors.slice(0, 2).map((error, index) => (
+                    <p key={index} className="text-xs text-red-500">{error}</p>
+                  ))}
+                  <button
+                    onClick={runSmartPositioning}
+                    disabled={isAutoPositioning}
+                    className="mt-2 bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  >
+                    {isAutoPositioning ? 'Fixing...' : '🎯 Auto Fix'}
+                  </button>
+                </div>
+              )}
+
+              {/* Smart Positioning Results */}
+              {smartPositionResult && smartPositionResult.autoAdjustments > 0 && (
+                <div className="mt-2 pt-2 border-t border-green-200">
+                  <p className="text-xs font-medium text-green-600 mb-1">✅ Smart Positioning Applied</p>
+                  <p className="text-xs text-green-700 mb-1">
+                    Made {smartPositionResult.autoAdjustments} improvements
+                  </p>
+                  {smartPositionResult.clientTips.slice(0, 2).map((tip, index) => (
+                    <p key={index} className="text-xs text-gray-600 mb-1">{tip}</p>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -710,6 +1337,215 @@ const Scene3DConfigurator: React.FC<Scene3DConfiguratorProps> = ({
             Your scale references look great. Click "Capture Scale References" to continue.
           </p>
         </div>
+      )}
+
+      {/* Phase 3: Advanced Features Panel */}
+      {mode === 'advanced' && placementMode === 'placement' && (
+        <>
+          {/* Advanced Features Toggle */}
+          <button
+            onClick={() => setShowAdvancedPanel(!showAdvancedPanel)}
+            className="absolute top-4 right-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all flex items-center space-x-2 z-20"
+          >
+            <Cpu className="w-4 h-4" />
+            <span className="text-sm font-medium">Advanced Analysis</span>
+            {(physicsResult || validationResult || materialResult) && (
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            )}
+          </button>
+
+          {/* Advanced Features Panel */}
+          <AnimatePresence>
+            {showAdvancedPanel && (
+              <motion.div
+                initial={{ opacity: 0, x: 400 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 400 }}
+                className="absolute top-16 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-4 shadow-xl max-w-md z-10"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-800 flex items-center">
+                    <Settings className="w-5 h-5 mr-2 text-purple-600" />
+                    Manufacturing Intelligence
+                  </h3>
+                  <button
+                    onClick={() => setShowAdvancedPanel(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Physics Simulation */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-blue-800 flex items-center">
+                        <Cpu className="w-4 h-4 mr-2" />
+                        Physics Analysis
+                      </h4>
+                      {physicsResult && (
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          physicsResult.structural.certified
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {physicsResult.structural.certified ? 'Certified' : 'Review Needed'}
+                        </div>
+                      )}
+                    </div>
+                    {physicsResult ? (
+                      <div className="text-xs text-blue-700 space-y-1">
+                        <p>Safety Factor: {physicsResult.structural.safetyFactor}x</p>
+                        <p>Max Stress: {physicsResult.structural.shelfStress.toLocaleString()} Pa</p>
+                        <p>Deflection: {physicsResult.structural.deflection}mm</p>
+                        {physicsResult.collisions.hasCollisions && (
+                          <p className="text-red-600 font-medium">
+                            ⚠️ {physicsResult.collisions.collisionPairs.length} collision(s) detected
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={runPhysicsSimulation}
+                        disabled={isRunningPhysics}
+                        className="w-full bg-blue-500 text-white px-3 py-2 rounded text-xs font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
+                      >
+                        {isRunningPhysics ? 'Analyzing...' : 'Run Physics Simulation'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Manufacturing Validation */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-green-800 flex items-center">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Manufacturing Validation
+                      </h4>
+                      {validationResult && (
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          validationResult.overall.passed
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          Grade {validationResult.overall.grade}
+                        </div>
+                      )}
+                    </div>
+                    {validationResult ? (
+                      <div className="text-xs text-green-700 space-y-1">
+                        <p>Overall Score: {validationResult.overall.score}/100</p>
+                        <p>Standards: {validationResult.standards.filter(s => s.compliance).length}/{validationResult.standards.length} passed</p>
+                        <p>Quality Checks: {validationResult.qualityChecks.filter(q => q.passed).length}/{validationResult.qualityChecks.length} passed</p>
+                        {validationResult.overall.certification.length > 0 && (
+                          <p className="text-green-600 font-medium">
+                            ✅ {validationResult.overall.certification.length} certification(s)
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={runManufacturingValidation}
+                        disabled={isRunningValidation}
+                        className="w-full bg-green-500 text-white px-3 py-2 rounded text-xs font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                      >
+                        {isRunningValidation ? 'Validating...' : 'Run Manufacturing Validation'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Material Analysis */}
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-purple-800 flex items-center">
+                        <Package className="w-4 h-4 mr-2" />
+                        Material Analysis
+                      </h4>
+                      {materialResult && (
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          materialResult.sustainability.environmentalImpact === 'Low'
+                            ? 'bg-green-100 text-green-800'
+                            : materialResult.sustainability.environmentalImpact === 'Medium'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {materialResult.sustainability.environmentalImpact} Impact
+                        </div>
+                      )}
+                    </div>
+                    {materialResult ? (
+                      <div className="text-xs text-purple-700 space-y-1">
+                        <p>Tensile Strength: {materialResult.selectedMaterial.mechanical.tensileStrength} MPa</p>
+                        <p>Density: {materialResult.selectedMaterial.physical.density} kg/m³</p>
+                        <p>Recyclable: {materialResult.selectedMaterial.environmental.recyclable ? 'Yes' : 'No'}</p>
+                        <p>Cost: ${materialResult.selectedMaterial.cost.totalCostPerPart.toFixed(2)}/part</p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={runMaterialAnalysis}
+                        disabled={isRunningMaterialAnalysis}
+                        className="w-full bg-purple-500 text-white px-3 py-2 rounded text-xs font-medium hover:bg-purple-600 transition-colors disabled:opacity-50"
+                      >
+                        {isRunningMaterialAnalysis ? 'Analyzing...' : 'Run Material Analysis'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* CAD Export */}
+                  <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-gray-800 flex items-center">
+                        <FileText className="w-4 h-4 mr-2" />
+                        CAD Export
+                      </h4>
+                      {cadPackage && (
+                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Ready
+                        </div>
+                      )}
+                    </div>
+                    {cadPackage ? (
+                      <div className="text-xs text-gray-700 space-y-1">
+                        <p>Geometry Files: {Object.keys(cadPackage.geometryFiles).length}</p>
+                        <p>Documentation: {Object.keys(cadPackage.documentation).length} files</p>
+                        <p>Specifications: Complete</p>
+                        <button
+                          onClick={() => {
+                            // Download package (simplified)
+                            const blob = new Blob([JSON.stringify(cadPackage, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'manufacturing-package.json';
+                            link.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="w-full mt-2 bg-blue-500 text-white px-3 py-2 rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+                        >
+                          Download Package
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={exportCADPackage}
+                        disabled={isExportingCAD || !physicsResult || !validationResult || !materialResult}
+                        className="w-full bg-gray-500 text-white px-3 py-2 rounded text-xs font-medium hover:bg-gray-600 transition-colors disabled:opacity-50"
+                      >
+                        {isExportingCAD ? 'Generating...' : 'Generate CAD Package'}
+                      </button>
+                    )}
+                    {(!physicsResult || !validationResult || !materialResult) && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Complete all analyses first
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
       )}
     </div>
   );
