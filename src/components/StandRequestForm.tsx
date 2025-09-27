@@ -19,6 +19,7 @@ import LazyImageGeneration from './lazy/LazyImageGeneration';
 import LazyProjectManager from './lazy/LazyProjectManager';
 import { SavedProject } from '../services/projectService';
 import Scene3DConfigurator from './Scene3DConfigurator';
+import { useFormData } from '../contexts/FormDataContext';
 import { Visual3DPromptService, type Visual3DPromptResult } from '../services/visual3DPromptService';
 import type { CapturedViews } from '../hooks/useSceneCapture';
 import type { PlacementResult } from '../services/productPlacementService';
@@ -83,33 +84,140 @@ const MATERIALS: Material[] = [
   'Aluminum'
 ];
 
+// Form data persistence utilities
+const FORM_STORAGE_KEY = 'standDesigner_formData';
+const FORM_PRESETS_KEY = 'standDesigner_presets';
+
+const saveFormData = (data: FormData) => {
+  try {
+    // Create a serializable version (excluding File objects)
+    const serializableData = {
+      ...data,
+      brandLogo: data.brandLogo instanceof File ? null : data.brandLogo,
+      productImage: data.productImage instanceof File ? null : data.productImage,
+      keyVisual: data.keyVisual instanceof File ? null : data.keyVisual,
+      exampleStands: [] // Reset file arrays
+    };
+    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(serializableData));
+    console.log('💾 Form data saved to localStorage');
+  } catch (error) {
+    console.error('❌ Failed to save form data:', error);
+  }
+};
+
+const loadFormData = (): Partial<FormData> | null => {
+  try {
+    const saved = localStorage.getItem(FORM_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      console.log('📂 Form data loaded from localStorage');
+      return parsed;
+    }
+  } catch (error) {
+    console.error('❌ Failed to load form data:', error);
+  }
+  return null;
+};
+
+// Preset management utilities
+const savePreset = (name: string, data: FormData) => {
+  try {
+    const presets = getPresets();
+    const serializableData = {
+      ...data,
+      brandLogo: data.brandLogo instanceof File ? null : data.brandLogo,
+      productImage: data.productImage instanceof File ? null : data.productImage,
+      keyVisual: data.keyVisual instanceof File ? null : data.keyVisual,
+      exampleStands: [] // Reset file arrays
+    };
+    presets[name] = {
+      data: serializableData,
+      savedAt: new Date().toISOString(),
+      name
+    };
+    localStorage.setItem(FORM_PRESETS_KEY, JSON.stringify(presets));
+    console.log(`💾 Form preset "${name}" saved`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to save form preset:', error);
+    return false;
+  }
+};
+
+const getPresets = (): Record<string, {data: Partial<FormData>, savedAt: string, name: string}> => {
+  try {
+    const saved = localStorage.getItem(FORM_PRESETS_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    console.error('❌ Failed to load presets:', error);
+    return {};
+  }
+};
+
+const loadPreset = (name: string): Partial<FormData> | null => {
+  try {
+    const presets = getPresets();
+    if (presets[name]) {
+      console.log(`📂 Form preset "${name}" loaded`);
+      return presets[name].data;
+    }
+  } catch (error) {
+    console.error('❌ Failed to load form preset:', error);
+  }
+  return null;
+};
+
+const deletePreset = (name: string): boolean => {
+  try {
+    const presets = getPresets();
+    if (presets[name]) {
+      delete presets[name];
+      localStorage.setItem(FORM_PRESETS_KEY, JSON.stringify(presets));
+      console.log(`🗑️ Form preset "${name}" deleted`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('❌ Failed to delete form preset:', error);
+    return false;
+  }
+};
+
+const defaultFormData: FormData = {
+  submissionId: '',
+  respondentId: '',
+  submittedAt: '',
+  brand: 'Ülker',
+  brandLogo: null,
+  product: 'Çikolatalı Gofret',
+  productImage: null,
+  productWidth: 13,
+  productDepth: 2.5,
+  productHeight: 5,
+  frontFaceCount: 1,
+  backToBackCount: 12,
+  keyVisual: null,
+  exampleStands: [],
+  standType: 'Tabletop Stand',
+  materials: ['Plastic', 'Acrylic'],
+  standBaseColor: '#3a0448',
+  standWidth: 15,
+  standDepth: 30,
+  standHeight: 30,
+  shelfWidth: 15,
+  shelfDepth: 30,
+  shelfCount: 1,
+  description: 'We request an innovative tabletop stand design for our best-selling and beloved Ülker Chocolate Wafer product to make it stand out at points of sale.'
+};
+
 const StandRequestForm: React.FC = () => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState<FormData>({
-    submissionId: '',
-    respondentId: '',
-    submittedAt: '',
-    brand: 'Ülker',
-    brandLogo: null,
-    product: 'Çikolatalı Gofret',
-    productImage: null,
-    productWidth: 13,
-    productDepth: 2.5,
-    productHeight: 5,
-    frontFaceCount: 1,
-    backToBackCount: 12,
-    keyVisual: null,
-    exampleStands: [],
-    standType: 'Tabletop Stand',
-    materials: ['Plastic', 'Acrylic'],
-    standBaseColor: '#3a0448',
-    standWidth: 15,
-    standDepth: 30,
-    standHeight: 30,
-    shelfWidth: 15,
-    shelfDepth: 30,
-    shelfCount: 1,
-    description: 'We request an innovative tabletop stand design for our best-selling and beloved Ülker Chocolate Wafer product to make it stand out at points of sale.'
+  const { formData: contextFormData, updateFormData: updateContextFormData } = useFormData();
+
+  // Initialize form data with saved data or defaults
+  const [formData, setFormData] = useState<FormData>(() => {
+    const savedData = loadFormData();
+    return savedData ? { ...defaultFormData, ...savedData } : defaultFormData;
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -161,6 +269,12 @@ const StandRequestForm: React.FC = () => {
    }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [csrfToken, setCsrfToken] = useState<string>('');
+
+  // Preset management state
+  const [availablePresets, setAvailablePresets] = useState<Record<string, {data: Partial<FormData>, savedAt: string, name: string}>>({});
+  const [showPresetManager, setShowPresetManager] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
   
   // Performance optimization: debounce form validation
   const debouncedValidation = PerformanceUtils.debounce(() => {
@@ -199,6 +313,16 @@ const StandRequestForm: React.FC = () => {
       submittedAt: '2025-01-20T05:53',
       respondentId: 'PqM601'
     }));
+  }, []);
+
+  // Initialize context with form data on mount (only once)
+  useEffect(() => {
+    updateContextFormData(formData);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load available presets on component mount
+  useEffect(() => {
+    setAvailablePresets(getPresets());
   }, []);
 
   // Update prompts whenever form data changes using Dimensional Intelligence
@@ -436,11 +560,17 @@ const StandRequestForm: React.FC = () => {
   };
 
   const handleInputChange = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const newData = { [field]: value };
+    const updatedFormData = { ...formData, ...newData };
+    setFormData(updatedFormData);
+    // Update the shared context for dynamic geometry
+    updateContextFormData(newData);
     // Clear error for this field
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    // Auto-save form data to localStorage
+    saveFormData(updatedFormData);
   };
 
   const handleFileUpload = (field: keyof FormData, files: FileList | null) => {
@@ -513,12 +643,17 @@ const StandRequestForm: React.FC = () => {
   const uploadSingleFile = async (file: File, field: keyof FormData) => {
     try {
       const url = await ProjectService.uploadFile(file);
-      
-      setFormData(prev => ({
-        ...prev,
-        [field]: url // Store as URL string
-      }));
-      
+
+      setFormData(prev => {
+        const updatedData = {
+          ...prev,
+          [field]: url // Store as URL string
+        };
+        // Auto-save form data to localStorage
+        saveFormData(updatedData);
+        return updatedData;
+      });
+
     } catch (error) {
       console.error(`❌ Error uploading ${field}:`, error);
       let errorMessage = 'Unknown error';
@@ -544,12 +679,17 @@ const StandRequestForm: React.FC = () => {
   const uploadFiles = async (files: File[], field: keyof FormData) => {
     try {
       const urls = await ProjectService.uploadFiles(files);
-      
-      setFormData(prev => ({
-        ...prev,
-        [field]: urls // Store as URL strings
-      }));
-      
+
+      setFormData(prev => {
+        const updatedData = {
+          ...prev,
+          [field]: urls // Store as URL strings
+        };
+        // Auto-save form data to localStorage
+        saveFormData(updatedData);
+        return updatedData;
+      });
+
     } catch (error) {
       console.error(`❌ Error uploading ${field}:`, error);
       let errorMessage = 'Unknown error';
@@ -572,12 +712,17 @@ const StandRequestForm: React.FC = () => {
   };
 
   const handleMaterialToggle = (material: string) => {
-    setFormData(prev => ({
-      ...prev,
-      materials: prev.materials.includes(material)
+    setFormData(prev => {
+      const newMaterials = prev.materials.includes(material)
         ? prev.materials.filter(m => m !== material)
-        : [...prev.materials, material]
-    }));
+        : [...prev.materials, material];
+      const newData = { ...prev, materials: newMaterials };
+      // Update the shared context for dynamic geometry
+      updateContextFormData({ materials: newMaterials });
+      // Auto-save form data to localStorage
+      saveFormData(newData);
+      return newData;
+    });
   };
 
   const validateForm = (): boolean => {
@@ -780,6 +925,44 @@ const StandRequestForm: React.FC = () => {
     }
   }, [user?.id]);
 
+  // Preset management handlers
+  const handleSavePreset = () => {
+    if (!presetName.trim()) {
+      alert('Please enter a preset name');
+      return;
+    }
+    if (savePreset(presetName.trim(), formData)) {
+      setAvailablePresets(getPresets());
+      setPresetName('');
+      setShowSavePresetModal(false);
+      showToast.success(`Preset "${presetName.trim()}" saved successfully!`);
+    } else {
+      showToast.error('Failed to save preset');
+    }
+  };
+
+  const handleLoadPreset = (name: string) => {
+    const presetData = loadPreset(name);
+    if (presetData) {
+      setFormData(prev => ({ ...defaultFormData, ...presetData }));
+      updateContextFormData(presetData);
+      showToast.success(`Preset "${name}" loaded successfully!`);
+    } else {
+      showToast.error('Failed to load preset');
+    }
+  };
+
+  const handleDeletePreset = (name: string) => {
+    if (confirm(`Are you sure you want to delete the preset "${name}"?`)) {
+      if (deletePreset(name)) {
+        setAvailablePresets(getPresets());
+        showToast.success(`Preset "${name}" deleted successfully!`);
+      } else {
+        showToast.error('Failed to delete preset');
+      }
+    }
+  };
+
   const renderFilePreview = (file: File | string | null, alt: string) => {
     if (!file) return null;
     
@@ -886,6 +1069,158 @@ const StandRequestForm: React.FC = () => {
           </p>
         </motion.div>
       </Card>
+
+      {/* Preset Management Section */}
+      <Card className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Package className="w-5 h-5 mr-2 text-indigo-600" />
+                Form Presets
+                <span className="ml-2 px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded-full font-medium">
+                  Auto-Save
+                </span>
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Save and load common configurations. Form data is automatically saved as you type.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowPresetManager(!showPresetManager)}
+                variant="secondary"
+                size="sm"
+                icon={<FileText />}
+              >
+                {showPresetManager ? 'Hide' : 'Manage'} Presets
+              </Button>
+              <Button
+                onClick={() => setShowSavePresetModal(true)}
+                variant="primary"
+                size="sm"
+                icon={<Upload />}
+              >
+                Save Preset
+              </Button>
+            </div>
+          </div>
+
+          {/* Preset Manager */}
+          <AnimatePresence>
+            {showPresetManager && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <div className="border-t border-indigo-200 pt-4 mt-4">
+                  {Object.keys(availablePresets).length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {Object.values(availablePresets).map((preset) => (
+                        <div
+                          key={preset.name}
+                          className="bg-white rounded-lg p-3 border border-indigo-100 hover:border-indigo-300 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-gray-900 truncate">{preset.name}</h4>
+                            <Button
+                              onClick={() => handleDeletePreset(preset.name)}
+                              variant="danger"
+                              size="xs"
+                              className="opacity-70 hover:opacity-100"
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-3">
+                            Saved: {new Date(preset.savedAt).toLocaleDateString()}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleLoadPreset(preset.name)}
+                              variant="primary"
+                              size="xs"
+                              className="flex-1"
+                            >
+                              Load
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500 mb-2">No saved presets yet</p>
+                      <p className="text-sm text-gray-400">Save your first preset using the button above</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </Card>
+
+      {/* Save Preset Modal */}
+      <AnimatePresence>
+        {showSavePresetModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowSavePresetModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl p-6 max-w-md w-full"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Save Form Preset</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Preset Name
+                  </label>
+                  <Input
+                    type="text"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    placeholder="e.g., Ülker Standard Configuration"
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    onClick={() => setShowSavePresetModal(false)}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSavePreset}
+                    variant="primary"
+                    size="sm"
+                    disabled={!presetName.trim()}
+                  >
+                    Save Preset
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isUploading && (

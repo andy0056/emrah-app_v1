@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, LogOut, Sparkles, Zap, Wand2, Star, ArrowRight, BarChart3 } from 'lucide-react';
+import { User, LogOut, Sparkles, Zap, Wand2, Star, ArrowRight, BarChart3, Ruler } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import StandRequestForm from './components/StandRequestForm';
 import AuthModal from './components/AuthModal';
@@ -8,12 +8,14 @@ import AnalyticsOverview from './components/AnalyticsOverview';
 import { MonitoringService } from './utils/monitoring';
 import { PerformanceUtils } from './utils/performance';
 import AuthDebugPanel from './components/AuthDebugPanel';
+import StandDesignerDemo from './pages/StandDesignerDemo';
 import { ToastProvider, Button, Card, LoadingSpinner } from './components/ui';
+import { FormDataProvider } from './contexts/FormDataContext';
 
 function App() {
   const { user, loading, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentView, setCurrentView] = useState<'form' | 'analytics'>('form');
+  const [currentView, setCurrentView] = useState<'form' | 'analytics' | 'designer'>('form');
 
   useEffect(() => {
     // Initialize monitoring in production
@@ -60,8 +62,9 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-      <ToastProvider />
+    <FormDataProvider>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+        <ToastProvider />
       
       {/* World-class Navigation */}
       <motion.nav
@@ -109,6 +112,14 @@ function App() {
                     icon={<Wand2 />}
                   >
                     Creator
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentView('designer')}
+                    variant={currentView === 'designer' ? 'primary' : 'ghost'}
+                    size="sm"
+                    icon={<Ruler />}
+                  >
+                    Geometry
                   </Button>
                   <Button
                     onClick={() => setCurrentView('analytics')}
@@ -194,6 +205,8 @@ function App() {
             >
               {currentView === 'form' ? (
                 <StandRequestForm />
+              ) : currentView === 'designer' ? (
+                <StandDesignerDemo />
               ) : (
                 <AnalyticsOverview />
               )}
@@ -362,9 +375,10 @@ function App() {
         onClose={() => setShowAuthModal(false)}
       />
 
-      {/* Debug Panel (development only) */}
-      {process.env.NODE_ENV === 'development' && <AuthDebugPanel />}
-    </div>
+        {/* Debug Panel (development only) */}
+        {process.env.NODE_ENV === 'development' && <AuthDebugPanel />}
+      </div>
+    </FormDataProvider>
   );
 }
 
