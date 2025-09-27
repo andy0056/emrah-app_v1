@@ -16,6 +16,7 @@ import { StandardDimensions } from "../lib/dimensions";
 import { CONTRACT, generateContract } from "../lib/contract";
 import { generateSpecFromFormData, generateContractFromFormData, generateDynamicPrompt } from "../lib/dynamicSpec";
 import { useFormData } from "../contexts/FormDataContext";
+import { getApiBaseUrl } from "../utils/apiConfig";
 
 // Export utilities
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
@@ -233,7 +234,7 @@ export default function StandDesigner({
       setExportStatus("🤖 ChatGPT analyzing images and optimizing...");
 
       // Call optimization API
-      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/api/optimize-prompt`, {
         method: 'POST',
         body: optimizationFormData
@@ -456,7 +457,7 @@ export default function StandDesigner({
         });
       }
 
-      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const apiBaseUrl = getApiBaseUrl();
       const apiResponse = await fetch(`${apiBaseUrl}/api/nano-banana`, {
         method: 'POST',
         body: apiFormData

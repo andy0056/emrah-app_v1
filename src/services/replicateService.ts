@@ -3,6 +3,8 @@
  * Alternative to FAL.ai using Replicate's API
  */
 
+import { getApiBaseUrl } from '../utils/apiConfig';
+
 export interface ReplicateImageRequest {
   prompt: string;
   image_urls: string[];
@@ -29,7 +31,7 @@ export class ReplicateService {
       console.log('🔄 Replicate generation:', request.prompt.length, 'chars,', request.image_urls.length, 'assets');
 
       // Use backend proxy for secure API calls
-      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/api/proxy/replicate/generate`, {
         method: 'POST',
         headers: {
@@ -108,7 +110,7 @@ export class ReplicateService {
    */
   static async checkHealth(): Promise<boolean> {
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/api/proxy/replicate/health`);
       return response.ok;
     } catch {
