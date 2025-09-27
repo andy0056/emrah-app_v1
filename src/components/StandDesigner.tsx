@@ -233,7 +233,8 @@ export default function StandDesigner({
       setExportStatus("🤖 ChatGPT analyzing images and optimizing...");
 
       // Call optimization API
-      const response = await fetch('http://localhost:3001/api/optimize-prompt', {
+      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiBaseUrl}/api/optimize-prompt`, {
         method: 'POST',
         body: optimizationFormData
       });
@@ -455,7 +456,8 @@ export default function StandDesigner({
         });
       }
 
-      const apiResponse = await fetch('http://localhost:3001/api/nano-banana', {
+      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const apiResponse = await fetch(`${apiBaseUrl}/api/nano-banana`, {
         method: 'POST',
         body: apiFormData
       });

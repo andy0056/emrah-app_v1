@@ -298,7 +298,8 @@ export class FalBrandIntegrationService {
               const formData = new FormData();
               formData.append('file', file);
 
-              const uploadResponse = await fetch('http://localhost:3001/api/proxy/fal/storage/upload', {
+              const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+              const uploadResponse = await fetch(`${apiBaseUrl}/api/proxy/fal/storage/upload`, {
                 method: 'POST',
                 body: formData
               });
@@ -346,7 +347,8 @@ export class FalBrandIntegrationService {
           const formData = new FormData();
           formData.append('file', file);
 
-          const uploadResponse = await fetch('http://localhost:3001/api/proxy/fal/storage/upload', {
+          const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+          const uploadResponse = await fetch(`${apiBaseUrl}/api/proxy/fal/storage/upload`, {
             method: 'POST',
             body: formData
           });
@@ -399,7 +401,8 @@ export class FalBrandIntegrationService {
 
       // Use secure backend proxy for generation
       console.log('🔐 Using secure backend proxy for generation');
-      const proxyResponse = await fetch('http://localhost:3001/api/proxy/fal/generate', {
+      const apiBaseUrl = import.meta.env.VITE_API_PROXY_URL || 'http://localhost:3001';
+      const proxyResponse = await fetch(`${apiBaseUrl}/api/proxy/fal/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
