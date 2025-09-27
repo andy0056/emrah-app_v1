@@ -476,9 +476,16 @@ function buildWallMountStand(standSpec: StandSpec): THREE.Group {
     group.add(bracket);
   });
 
-  // Shelf system for wall mounts (cantilevered design)
+  // Shelf system for wall mounts (cantilevered design) with 2D Grid Layout
   const shelfSpacing = H / (shelfCount + 1);
-  const productsPerShelf = Math.ceil(standSpec.layout.depthCount / shelfCount);
+
+  // Calculate 2D grid layout - EACH SHELF gets the full grid
+  const frontFaceCount = standSpec.layout.columns; // Width (front-facing rows)
+  const backToBackCount = standSpec.layout.depthCount; // Depth (back-to-back columns)
+  const productsPerShelf = frontFaceCount * backToBackCount; // Each shelf gets full grid
+  const totalProducts = productsPerShelf * shelfCount; // Total across all shelves
+
+  console.log(`📐 Wall Mount Stand: ${frontFaceCount}×${backToBackCount} grid per shelf × ${shelfCount} shelves = ${totalProducts} total products`);
 
   const shelvesGroup = new THREE.Group();
   shelvesGroup.name = "WallShelves";
@@ -486,7 +493,7 @@ function buildWallMountStand(standSpec: StandSpec): THREE.Group {
   const productsGroup = new THREE.Group();
   productsGroup.name = "WallProducts";
 
-  let productIndex = 0;
+  let globalProductIndex = 0;
 
   for (let shelfIndex = 0; shelfIndex < shelfCount; shelfIndex++) {
     const shelfHeight = (shelfIndex + 1) * shelfSpacing;
@@ -516,30 +523,38 @@ function buildWallMountStand(standSpec: StandSpec): THREE.Group {
       shelvesGroup.add(arm);
     });
 
-    // Add products to this shelf
-    const productsOnThisShelf = Math.min(productsPerShelf, standSpec.layout.depthCount - productIndex);
+    // Each shelf gets the FULL 2D grid layout (6×5=30 products per shelf)
+    for (let row = 0; row < frontFaceCount; row++) {
+      for (let col = 0; col < backToBackCount; col++) {
+        const pack = new THREE.Mesh(
+          new RoundedBoxGeometry(product.W, product.H, product.D, 4, 0.1),
+          productMaterial
+        );
 
-    for (let i = 0; i < productsOnThisShelf; i++) {
-      const pack = new THREE.Mesh(
-        new RoundedBoxGeometry(product.W, product.H, product.D, 4, 0.1),
-        productMaterial
-      );
+        // Calculate 2D grid positions for wall mount
+        // X-axis: spread products across width (frontFaceCount)
+        const totalWidth = (frontFaceCount - 1) * product.W;
+        const xStart = -totalWidth / 2;
+        const xPosition = xStart + (row * product.W);
 
-      const frontEdge = D/2 - product.D/2;
-      const depthOffset = i * (product.D + standSpec.layout.gapsDepth);
+        // Z-axis: place products depth-wise (backToBackCount)
+        const frontEdge = D/2 - product.D/2;
+        const depthOffset = col * (product.D + standSpec.layout.gapsDepth);
+        const zPosition = frontEdge - depthOffset;
 
-      pack.position.set(
-        0,
-        shelfHeight + shelfThick/2 + product.H/2,
-        frontEdge - depthOffset
-      );
+        pack.position.set(
+          xPosition, // 2D grid X position
+          shelfHeight + shelfThick/2 + product.H/2, // On shelf surface
+          zPosition // 2D grid Z position (depth)
+        );
 
-      pack.name = `WallProduct_${productIndex + 1}_Shelf_${shelfIndex + 1}`;
-      pack.castShadow = true;
-      pack.receiveShadow = true;
-      productsGroup.add(pack);
+        pack.name = `WallProduct_R${row + 1}C${col + 1}_Shelf${shelfIndex + 1}`;
+        pack.castShadow = true;
+        pack.receiveShadow = true;
+        productsGroup.add(pack);
 
-      productIndex++;
+        globalProductIndex++;
+      }
     }
   }
 
@@ -552,7 +567,9 @@ function buildWallMountStand(standSpec: StandSpec): THREE.Group {
       standDimensions: { W, D, H },
       productDimensions: { W: product.W, H: product.H, D: product.D },
       layout: standSpec.layout,
-      totalProducts: standSpec.layout.depthCount,
+      totalProducts: totalProducts,
+      frontFaceCount: frontFaceCount,
+      backToBackCount: backToBackCount,
       shelfCount: shelfCount,
       standType: standSpec.standType,
       mountingPoints: bracketPositions.length
@@ -616,11 +633,16 @@ function buildMultiTierStand(standSpec: StandSpec): THREE.Group {
 
   const { standMaterial, shelfMaterial, productMaterial } = createStandMaterials();
 
-  // Create tiered structure - each tier slightly smaller than the last
+  // Create tiered structure with 2D Grid Layout - each tier slightly smaller than the last
   const tierHeight = H / shelfCount;
-  const productsPerTier = Math.ceil(standSpec.layout.depthCount / shelfCount);
 
-  let productIndex = 0;
+  // Calculate 2D grid layout - EACH TIER gets a scaled version of the full grid
+  const frontFaceCount = standSpec.layout.columns; // Width (front-facing rows)
+  const backToBackCount = standSpec.layout.depthCount; // Depth (back-to-back columns)
+  const baseProductsPerTier = frontFaceCount * backToBackCount; // Base products per tier
+  let totalProducts = 0;
+
+  let globalProductIndex = 0;
 
   for (let tierIndex = 0; tierIndex < shelfCount; tierIndex++) {
     // Calculate tier dimensions (shrinking towards top)
@@ -628,6 +650,14 @@ function buildMultiTierStand(standSpec: StandSpec): THREE.Group {
     const tierW = W * tierScale;
     const tierD = D * tierScale;
     const tierY = tierIndex * tierHeight;
+
+    // Scale the grid for this tier (smaller tiers get fewer products)
+    const tierFrontFaceCount = Math.max(1, Math.floor(frontFaceCount * tierScale));
+    const tierBackToBackCount = Math.max(1, Math.floor(backToBackCount * tierScale));
+    const productsOnThisTier = tierFrontFaceCount * tierBackToBackCount;
+    totalProducts += productsOnThisTier;
+
+    console.log(`🎪 Tier ${tierIndex + 1}: ${tierFrontFaceCount}×${tierBackToBackCount} grid = ${productsOnThisTier} products (scale: ${tierScale.toFixed(2)})`);
 
     // Create tier base
     const tierBase = new THREE.Mesh(
@@ -640,32 +670,42 @@ function buildMultiTierStand(standSpec: StandSpec): THREE.Group {
     tierBase.receiveShadow = true;
     group.add(tierBase);
 
-    // Add products to this tier
-    const productsOnThisTier = Math.min(productsPerTier, standSpec.layout.depthCount - productIndex);
+    // Each tier gets a scaled 2D grid layout
+    for (let row = 0; row < tierFrontFaceCount; row++) {
+      for (let col = 0; col < tierBackToBackCount; col++) {
+        const pack = new THREE.Mesh(
+          new RoundedBoxGeometry(product.W, product.H, product.D, 4, 0.1),
+          productMaterial
+        );
 
-    for (let i = 0; i < productsOnThisTier; i++) {
-      const pack = new THREE.Mesh(
-        new RoundedBoxGeometry(product.W, product.H, product.D, 4, 0.1),
-        productMaterial
-      );
+        // Calculate 2D grid positions for this tier
+        // X-axis: spread products across tier width
+        const totalWidth = (tierFrontFaceCount - 1) * product.W;
+        const xStart = -totalWidth / 2;
+        const xPosition = xStart + (row * product.W);
 
-      const frontEdge = tierD/2 - product.D/2;
-      const depthOffset = i * (product.D + standSpec.layout.gapsDepth);
+        // Z-axis: place products depth-wise within tier
+        const frontEdge = tierD/2 - product.D/2;
+        const depthOffset = col * (product.D + standSpec.layout.gapsDepth);
+        const zPosition = frontEdge - depthOffset;
 
-      pack.position.set(
-        0,
-        tierY + shelfThick + product.H/2,
-        frontEdge - depthOffset
-      );
+        pack.position.set(
+          xPosition, // 2D grid X position
+          tierY + shelfThick + product.H/2, // On tier surface
+          zPosition // 2D grid Z position (depth)
+        );
 
-      pack.name = `TierProduct_${productIndex + 1}_Tier_${tierIndex + 1}`;
-      pack.castShadow = true;
-      pack.receiveShadow = true;
-      group.add(pack);
+        pack.name = `TierProduct_R${row + 1}C${col + 1}_Tier${tierIndex + 1}`;
+        pack.castShadow = true;
+        pack.receiveShadow = true;
+        group.add(pack);
 
-      productIndex++;
+        globalProductIndex++;
+      }
     }
   }
+
+  console.log(`🎪 Multi-tier Stand Total: ${totalProducts} products across ${shelfCount} tiers`);
 
   group.userData = {
     spec: standSpec,
@@ -673,7 +713,9 @@ function buildMultiTierStand(standSpec: StandSpec): THREE.Group {
       standDimensions: { W, D, H },
       productDimensions: { W: product.W, H: product.H, D: product.D },
       layout: standSpec.layout,
-      totalProducts: standSpec.layout.depthCount,
+      totalProducts: totalProducts,
+      frontFaceCount: frontFaceCount,
+      backToBackCount: backToBackCount,
       shelfCount: shelfCount,
       standType: standSpec.standType,
       tierCount: shelfCount
